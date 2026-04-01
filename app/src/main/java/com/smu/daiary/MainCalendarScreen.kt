@@ -72,7 +72,10 @@ private object MainCalendarColors {
  * @param modifier [Scaffold] 안전 영역 등 바깥에서 넘기는 [Modifier].
  */
 @Composable
-fun MainCalendarScreen(modifier: Modifier = Modifier) {
+fun MainCalendarScreen(
+    modifier: Modifier = Modifier,
+    onLogout: () -> Unit = {}
+) {
     var visibleMonth by remember { mutableStateOf(YearMonth.from(LocalDate.now())) }
 
     Column(
@@ -96,7 +99,7 @@ fun MainCalendarScreen(modifier: Modifier = Modifier) {
                 StatusBarPill()
                 TopBarSection(
                     yearMonth = visibleMonth,
-                    onAvatarClick = { /* TODO: 프로필 */ }
+                    onAvatarClick = onLogout   // 아바타 클릭 → 로그아웃
                 )
                 Column(
                     modifier = Modifier

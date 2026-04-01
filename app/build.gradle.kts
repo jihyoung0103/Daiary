@@ -11,7 +11,6 @@ android {
             minorApiLevel = 1
         }
     }
-
     defaultConfig {
         applicationId = "com.smu.daiary"
         minSdk = 24
@@ -51,6 +50,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -59,13 +60,20 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-
-    // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.11.0"))
-
-    // TODO: Add the dependencies for Firebase products you want to use
-    // When using the BoM, don't specify versions in Firebase dependencies
-    implementation("com.google.firebase:firebase-analytics")
-
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+
+    // Coroutines + Firebase Task 지원
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
+
+    // Lifecycle (Compose용)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 }

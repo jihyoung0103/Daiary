@@ -15,4 +15,7 @@
     <string name="diary_sample_2_preview">회의가 연속으로 있어서 너무 지쳤다. 그래도...</string>
     <string name="diary_sample_3_title">친구들과 저녁 식사</string>
     <string name="diary_sample_3_preview">오랜 친구들과 이탈리안 레스토랑에서 만났다...</string>
+
+    <!-- TODO: Firebase Console에서 Google 로그인 활성화 후 google-services.json 재다운로드 시 자동 교체됨 -->
+    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
 </resources>
