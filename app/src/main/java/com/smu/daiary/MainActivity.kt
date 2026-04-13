@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,6 +24,11 @@ import com.smu.daiary.auth.AuthViewModel
 import com.smu.daiary.auth.LoginScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
 
+private sealed class AppScreen {
+    object Calendar : AppScreen()
+    object DiaryEdit : AppScreen()
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,6 +37,7 @@ class MainActivity : ComponentActivity() {
             DaiaryTheme {
                 val authViewModel: AuthViewModel = viewModel()
                 val authState by authViewModel.authState.collectAsStateWithLifecycle()
+                var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Calendar) }
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     when (authState) {
@@ -43,12 +52,20 @@ class MainActivity : ComponentActivity() {
                                 CircularProgressIndicator(color = Color(0xFF533AB7))
                             }
                         }
-                        // 로그인된 상태 → 캘린더 메인 화면
+                        // 로그인된 상태 → 앱 화면 라우팅
                         is AuthState.Authenticated -> {
-                            MainCalendarScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                onLogout = { authViewModel.logout() }
-                            )
+                            when (currentScreen) {
+                                AppScreen.Calendar -> MainCalendarScreen(
+                                    modifier = Modifier.padding(innerPadding),
+                                    onLogout = { authViewModel.logout() },
+                                    onNewDiary = { currentScreen = AppScreen.DiaryEdit }
+                                )
+                                AppScreen.DiaryEdit -> DiaryEditScreen(
+                                    onBack = { currentScreen = AppScreen.Calendar },
+                                    onSave = { _, _ -> currentScreen = AppScreen.Calendar },
+                                    onTempSave = { _, _ -> currentScreen = AppScreen.Calendar }
+                                )
+                            }
                         }
                         // 미로그인·에러·성공 피드백 중 → 로그인 화면 (피드백 오버레이는 LoginScreen 내부에서 표시)
                         is AuthState.Unauthenticated,

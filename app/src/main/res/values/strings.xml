@@ -18,4 +18,24 @@
 
     <!-- TODO: Firebase Console에서 Google 로그인 활성화 후 google-services.json 재다운로드 시 자동 교체됨 -->
     <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
+
+    <!-- 일기 편집 화면 -->
+    <string name="diary_edit_title">일기 편집</string>
+    <string name="diary_back">뒤로</string>
+    <string name="diary_save">저장</string>
+    <string name="diary_title_hint">제목을 입력하세요</string>
+    <string name="diary_content_hint">오늘 하루를 기록해보세요…</string>
+    <string name="diary_temp_save">임시저장</string>
+    <string name="diary_save_complete">저장 완료</string>
+    <string name="diary_char_count">%1$d자</string>
+    <string name="diary_add_tag">+ 태그 추가</string>
+    <string name="diary_tag_hint">태그명</string>
+    <string name="diary_mood_happy">행복</string>
+
+    <!-- AI 초안 카드 -->
+    <string name="diary_ai_draft_label">AI 초안</string>
+    <string name="diary_ai_draft_preview">오늘 강남역에서 꽤 긴 오후를 보냈다. 스타벅스에서 커피를…</string>
+    <string name="diary_ai_draft_full">오늘 강남역에서 꽤 긴 오후를 보냈다. 스타벅스에서 커피를 마시며 팀 미팅을 했고, 아메리카노를 홀짝이며 프로젝트 이야기를 나누는 시간이 생각보다 즐거웠다. 돌아오는 길에 Blinding Lights를 들으며 걸었는데, 음악이 오늘 하루의 여운을 더해줬다.</string>
+    <string name="diary_ai_expand">펼쳐서 참고하기 ↓</string>
+    <string name="diary_ai_collapse">접기 ↑</string>
 </resources>
