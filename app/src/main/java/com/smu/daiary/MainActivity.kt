@@ -16,9 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.smu.daiary.auth.AuthState
 import com.smu.daiary.auth.AuthViewModel
 import com.smu.daiary.auth.LoginScreen
+import com.smu.daiary.draft.BlockSelectionScreen
+import com.smu.daiary.draft.DiaryDraftViewModel
+import com.smu.daiary.draft.DiaryEditScreen
+import com.smu.daiary.draft.DraftPreviewScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
 
 class MainActivity : ComponentActivity() {
@@ -32,7 +39,6 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     when (authState) {
-                        // 앱 시작 직후 Firebase 로딩 중
                         is AuthState.Loading -> {
                             Box(
                                 modifier = Modifier
@@ -43,14 +49,57 @@ class MainActivity : ComponentActivity() {
                                 CircularProgressIndicator(color = Color(0xFF533AB7))
                             }
                         }
-                        // 로그인된 상태 → 캘린더 메인 화면
+
                         is AuthState.Authenticated -> {
-                            MainCalendarScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                onLogout = { authViewModel.logout() }
-                            )
+                            val userId = (authState as AuthState.Authenticated).user.uid
+                            val navController = rememberNavController()
+                            val diaryDraftViewModel: DiaryDraftViewModel = viewModel()
+
+                            NavHost(
+                                navController = navController,
+                                startDestination = "main"
+                            ) {
+                                composable("main") {
+                                    MainCalendarScreen(
+                                        modifier = Modifier.padding(innerPadding),
+                                        onLogout = { authViewModel.logout() },
+                                        onStartDiary = {
+                                            navController.navigate("block_selection")
+                                        }
+                                    )
+                                }
+                                composable("block_selection") {
+                                    BlockSelectionScreen(
+                                        viewModel = diaryDraftViewModel,
+                                        onNext = { navController.navigate("draft_preview") },
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                }
+                                composable("draft_preview") {
+                                    DraftPreviewScreen(
+                                        viewModel = diaryDraftViewModel,
+                                        userId = userId,
+                                        onEdit = { navController.navigate("diary_edit") },
+                                        onSaved = {
+                                            diaryDraftViewModel.resetDraft()
+                                            navController.popBackStack(
+                                                route = "main",
+                                                inclusive = false
+                                            )
+                                        },
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                }
+                                composable("diary_edit") {
+                                    DiaryEditScreen(
+                                        viewModel = diaryDraftViewModel,
+                                        onDone = { navController.popBackStack() },
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                }
+                            }
                         }
-                        // 미로그인·에러·성공 피드백 중 → 로그인 화면 (피드백 오버레이는 LoginScreen 내부에서 표시)
+
                         is AuthState.Unauthenticated,
                         is AuthState.Error,
                         is AuthState.LoginSuccess,

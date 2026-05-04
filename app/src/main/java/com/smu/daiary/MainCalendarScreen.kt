@@ -74,7 +74,8 @@ private object MainCalendarColors {
 @Composable
 fun MainCalendarScreen(
     modifier: Modifier = Modifier,
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    onStartDiary: () -> Unit = {}
 ) {
     var visibleMonth by remember { mutableStateOf(YearMonth.from(LocalDate.now())) }
 
@@ -99,7 +100,7 @@ fun MainCalendarScreen(
                 StatusBarPill()
                 TopBarSection(
                     yearMonth = visibleMonth,
-                    onAvatarClick = onLogout   // 아바타 클릭 → 로그아웃
+                    onAvatarClick = onLogout
                 )
                 Column(
                     modifier = Modifier
@@ -120,7 +121,7 @@ fun MainCalendarScreen(
                 }
                 BottomNavBar(
                     onCalendarClick = { /* 현재 탭 */ },
-                    onFabClick = { /* TODO: 일기 작성 */ },
+                    onFabClick = onStartDiary,
                     onProfileClick = { /* TODO: 프로필 */ }
                 )
             }
