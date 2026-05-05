@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Capstone Login</string>
+    <string name="hint_email">이메일</string>
+    <string name="hint_password">비밀번호</string>
+    <string name="button_login">로그인</string>
+    <string name="button_register">회원가입</string>
+    <string name="calendar_placeholder">캘린더 화면 (준비 중)</string>
+    <!-- Phase 2 error messages — mapped from FirebaseAuthException error codes -->
+    <string name="error_invalid_email">이메일 형식이 올바르지 않습니다.</string>
+    <string name="error_wrong_password">비밀번호가 틀렸습니다.</string>
+    <string name="error_user_not_found">등록되지 않은 이메일입니다.</string>
+    <string name="error_email_already_in_use">이미 사용 중인 이메일입니다.</string>
+    <string name="error_weak_password">비밀번호는 6자 이상이어야 합니다.</string>
+    <string name="error_network">네트워크 오류가 발생했습니다. 연결을 확인하세요.</string>
+    <string name="error_too_many_requests">요청이 너무 많습니다. 잠시 후 다시 시도하세요.</string>
+    <string name="error_unknown">로그인에 실패했습니다. 다시 시도하세요.</string>
+</resources>
