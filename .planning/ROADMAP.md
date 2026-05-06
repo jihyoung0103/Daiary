@@ -41,12 +41,12 @@ Plans:
   4. 잘못된 이메일/비밀번호 입력 시 한국어 에러 메시지가 표시된다
   5. 이메일 형식 오류나 6자 미만 비밀번호는 Firebase 호출 전 클라이언트에서 차단된다
   6. 로그아웃이 가능하다
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: FirebaseAuthDataSource + FirestoreUserDataSource (suspend 함수, .await() 방식)
-- [ ] 02-02: AuthRepository + AuthViewModel (StateFlow<AuthUiState>)
-- [ ] 02-03: LoginFragment UI (폼, 검증, 로딩, 에러 메시지)
+- [ ] 02-01-PLAN.md — FirebaseAuthDataSource + FirestoreUserDataSource (signIn/signUp .await(), upsertUser SetOptions.merge())
+- [ ] 02-02-PLAN.md — AuthViewModel mapAuthError() — Firebase 에러 코드 → 한국어 메시지 매핑
+- [ ] 02-03-PLAN.md — LoginFragment UI 완성 (입력검증, ProgressBar, 에러, navigate) + CalendarFragment 로그아웃
 
 ### Phase 3: Navigation + Auto-Login
 **Goal**: 완전한 내비게이션 흐름. 로그인 화면 back stack 제거, 앱 재시작 시 자동 로그인 라우팅, 로그아웃 후 복귀.
@@ -82,6 +82,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Project Foundation + Firebase Setup | 0/3 | Planned | - |
-| 2. Auth Core | 0/3 | Not started | - |
+| 2. Auth Core | 0/3 | Planned | - |
 | 3. Navigation + Auto-Login | 0/2 | Not started | - |
 | 4. Polish + Release Validation | 0/2 | Not started | - |
