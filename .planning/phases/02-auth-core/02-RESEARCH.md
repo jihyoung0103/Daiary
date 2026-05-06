@@ -514,22 +514,25 @@ is AuthUiState.Success -> {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **이메일 열거 보호 활성화 여부 확인 필요**
    - What we know: 2023년 9월 이후 신규 프로젝트 기본 활성화
    - What's unclear: 현재 프로젝트가 이 시기 이전/이후 생성인지, Firebase Console에서 변경했는지
    - Recommendation: 플랜에서 에러 매핑을 `FirebaseAuthInvalidCredentialsException` 타입 체크 우선으로 구현하여 양쪽 모두 대응
+   - **RESOLVED (02-02-PLAN.md):** `mapAuthError()`를 `FirebaseAuthInvalidCredentialsException` 타입 체크 우선으로 구현하고 `else` 절에 "이메일 또는 비밀번호가 올바르지 않습니다." 처리를 포함 → 보호 활성화 여부 무관하게 대응
 
 2. **회원가입 버튼 UI 배치 방식**
    - What we know: `fragment_login.xml`에 현재 `loginButton`만 있음
    - What's unclear: 로그인/회원가입을 같은 화면에서 할지, 탭 또는 별도 버튼으로 전환할지
    - Recommendation: 단순성을 위해 `loginButton` 아래에 `registerButton` 추가 — 같은 이메일/비밀번호 입력 필드 공유
+   - **RESOLVED (02-03-PLAN.md Task 1):** `loginButton` 아래에 `registerButton` (MaterialButton) 추가, 같은 emailEditText/passwordEditText 공유
 
 3. **CalendarFragment 로그아웃 후 navigate 대상**
    - What we know: `nav_graph.xml`에 `loginFragment` (startDestination)과 `calendarFragment`가 정의됨
    - What's unclear: 로그아웃 후 `R.id.loginFragment`로 직접 navigate할 수 있는지, 또는 back stack pop이 필요한지
    - Recommendation: Phase 2에서는 `findNavController().navigate(R.id.loginFragment)` 사용; 전체 back stack 정리는 Phase 3 담당
+   - **RESOLVED (02-03-PLAN.md Task 3):** `action_calendarFragment_to_loginFragment` 액션을 nav_graph.xml에 추가하고 `findNavController().navigate(R.id.action_calendarFragment_to_loginFragment)` 사용; back stack 정리(popUpTo inclusive)는 Phase 3 담당
 
 ---
 
