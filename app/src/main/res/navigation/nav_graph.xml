@@ -24,6 +24,14 @@
         android:id="@+id/calendarFragment"
         android:name="com.example.capstone_login.ui.calendar.CalendarFragment"
         android:label="캘린더"
-        tools:layout="@layout/fragment_calendar" />
+        tools:layout="@layout/fragment_calendar">
+
+        <!-- Navigate back to LoginFragment on logout.
+             Phase 3: add popUpTo to clear back stack. -->
+        <action
+            android:id="@+id/action_calendarFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+
+    </fragment>
 
 </navigation>
