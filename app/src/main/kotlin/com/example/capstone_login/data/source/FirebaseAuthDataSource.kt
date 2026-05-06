@@ -8,33 +8,30 @@ import kotlinx.coroutines.tasks.await
 /**
  * Data source wrapping Firebase Authentication SDK.
  * ONLY this class imports com.google.firebase.auth.*.
- * Uses lazy initialization to avoid FirebaseApp pre-initialization crash (Pitfall 2).
+ * Uses lazy initialization to avoid FirebaseApp pre-initialization crash.
  */
 class FirebaseAuthDataSource {
 
     private val auth by lazy { FirebaseAuth.getInstance() }
 
     /**
-     * Stub: sign in with email and password.
-     * Phase 2 implements the actual Firebase call.
-     * @throws FirebaseAuthException on auth failure
+     * Sign in with email and password.
+     * @throws FirebaseAuthException on auth failure (wrong password, user not found, etc.)
+     * @throws IllegalStateException if Firebase returns a null user after success
      */
     suspend fun signIn(email: String, password: String): FirebaseUser {
-        // TODO Phase 2: implement
-        // return auth.signInWithEmailAndPassword(email, password).await().user
-        //     ?: throw IllegalStateException("Auth succeeded but user is null")
-        throw NotImplementedError("Phase 2: implement signIn")
+        return auth.signInWithEmailAndPassword(email, password).await().user
+            ?: throw IllegalStateException("Auth succeeded but user is null")
     }
 
     /**
-     * Stub: create account with email and password.
-     * Phase 2 implements the actual Firebase call.
+     * Create account with email and password.
+     * @throws FirebaseAuthException on auth failure (email in use, weak password, etc.)
+     * @throws IllegalStateException if Firebase returns a null user after success
      */
     suspend fun signUp(email: String, password: String): FirebaseUser {
-        // TODO Phase 2: implement
-        // return auth.createUserWithEmailAndPassword(email, password).await().user
-        //     ?: throw IllegalStateException("Auth succeeded but user is null")
-        throw NotImplementedError("Phase 2: implement signUp")
+        return auth.createUserWithEmailAndPassword(email, password).await().user
+            ?: throw IllegalStateException("Auth succeeded but user is null")
     }
 
     fun signOut() {
