@@ -11,6 +11,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.capstone_login.R
 import com.example.capstone_login.databinding.FragmentLoginBinding
@@ -90,7 +91,11 @@ class LoginFragment : Fragment() {
                             // when repeatOnLifecycle restarts (e.g., screen rotation).
                             viewModel.resetState()
                             findNavController().navigate(
-                                R.id.action_loginFragment_to_calendarFragment
+                                R.id.action_loginFragment_to_calendarFragment,
+                                null,
+                                NavOptions.Builder()
+                                    .setPopUpTo(R.id.loginFragment, true)
+                                    .build()
                             )
                         }
                         is AuthUiState.Error -> {

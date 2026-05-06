@@ -2,18 +2,12 @@ package com.example.capstone_login.ui
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.navigation.NavOptions
+import androidx.navigation.fragment.NavHostFragment
 import com.example.capstone_login.R
 import com.example.capstone_login.databinding.ActivityMainBinding
+import com.google.firebase.auth.FirebaseAuth
 
-/**
- * Single Activity — contains the NavHostFragment defined in activity_main.xml.
- * Navigation graph (nav_graph.xml) manages all Fragment transitions.
- *
- * Phase 3 adds: auto-login routing via FirebaseAuth.authStateChanges() Flow
- * before the nav graph's default start destination (loginFragment) is shown.
- *
- * ViewBinding used for type-safe layout access.
- */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -23,14 +17,18 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Phase 3: check auth state and route accordingly
-        // val navController = findNavController(R.id.nav_host_fragment)
-        // if (FirebaseAuth.getInstance().currentUser != null) {
-        //     navController.navigate(
-        //         R.id.calendarFragment,
-        //         null,
-        //         NavOptions.Builder().setPopUpTo(R.id.loginFragment, true).build()
-        //     )
-        // }
+        // Auto-login: skip LoginFragment if user is already authenticated.
+        // savedInstanceState != null means Activity is being recreated (rotation) — skip to avoid duplicate navigate.
+        if (savedInstanceState == null && FirebaseAuth.getInstance().currentUser != null) {
+            val navHostFragment = supportFragmentManager
+                .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
+            navHostFragment.navController.navigate(
+                R.id.calendarFragment,
+                null,
+                NavOptions.Builder()
+                    .setPopUpTo(R.id.loginFragment, true)
+                    .build()
+            )
+        }
     }
 }

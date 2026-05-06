@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.example.capstone_login.R
 import com.example.capstone_login.databinding.FragmentCalendarBinding
@@ -32,8 +33,13 @@ class CalendarFragment : Fragment() {
 
         binding.logoutButton.setOnClickListener {
             viewModel.signOut()
-            // Phase 3: add popUpTo(loginFragment, inclusive=true) NavOptions to clear back stack
-            findNavController().navigate(R.id.action_calendarFragment_to_loginFragment)
+            findNavController().navigate(
+                R.id.action_calendarFragment_to_loginFragment,
+                null,
+                NavOptions.Builder()
+                    .setPopUpTo(R.id.calendarFragment, true)
+                    .build()
+            )
         }
     }
 
