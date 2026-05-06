@@ -21,12 +21,13 @@ class FirestoreUserDataSource {
      * Non-fatal: exceptions are caught and logged; callers receive success even if Firestore write fails.
      * This ensures auth success is not blocked by Firestore offline/permission errors.
      */
-    suspend fun upsertUser(uid: String, email: String) {
+    suspend fun upsertUser(uid: String, email: String, displayName: String = "") {
         try {
-            val data = mapOf(
-                "email" to email,
-                "lastLoginAt" to FieldValue.serverTimestamp()
-            )
+            val data = buildMap<String, Any> {
+                put("email", email)
+                put("lastLoginAt", FieldValue.serverTimestamp())
+                if (displayName.isNotBlank()) put("displayName", displayName)
+            }
             db.collection("users").document(uid).set(data, SetOptions.merge()).await()
         } catch (e: Exception) {
             Log.w("FirestoreUserDataSource", "upsertUser failed (non-fatal): ${e.message}")

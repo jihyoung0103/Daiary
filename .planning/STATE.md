@@ -5,30 +5,31 @@
 See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** 로그인 성공 후 사용자 정보가 Firestore에 기록되고 캘린더 화면으로 전환되는 전체 흐름이 끊김 없이 동작
-**Current focus:** Phase 2 — Auth Core (complete, pending human verify)
+**Current focus:** Phase 4 — Polish + Release Validation (complete, pending human verify)
 
 ## Current Position
 
-Phase: 2 of 4 (Auth Core)
-Plan: 3 of 3 in current phase
-Status: Human verification checkpoint — run app in Android Studio
-Last activity: 2026-05-06 — Phase 2 Plan 03 complete (LoginFragment, CalendarFragment, nav logout action)
+Phase: 4 of 4 (Polish + Release Validation)
+Plan: 2 of 2 in current phase
+Status: Human verification checkpoint — assembleRelease 빌드 + 앱 동작 확인
+Last activity: 2026-05-06 — Phase 4 complete (비밀번호 토글, IME 액션, displayName 저장, ProGuard, Firestore 보안 규칙)
 
-Progress: [████░░░░░░] 50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: ~7 min/plan
-- Total execution time: ~20 min
+- Total plans completed: 11
+- Total phases completed: 4/4
 
 **By Phase:**
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 1 | 3/3 | ~20 min | ~7 min |
-| 2 | 3/3 | ~30 min | ~10 min |
+| Phase | Plans | Status |
+|-------|-------|--------|
+| 1 | 3/3 | Complete |
+| 2 | 3/3 | Complete |
+| 3 | 2/2 | Complete |
+| 4 | 2/2 | Complete |
 
 ## Accumulated Context
 
@@ -54,5 +55,5 @@ None. (google-services.json 배치 완료, 빌드 성공 확인)
 ## Session Continuity
 
 Last session: 2026-05-06
-Stopped at: Phase 2 complete — all 3 plans executed, human-verify checkpoint pending
+Stopped at: Phase 4 complete — all 11 plans executed across 4 phases
 Resume file: None

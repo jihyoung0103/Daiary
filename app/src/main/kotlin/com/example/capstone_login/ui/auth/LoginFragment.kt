@@ -5,6 +5,7 @@ import android.util.Patterns
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -50,6 +51,13 @@ class LoginFragment : Fragment() {
                 return@setOnClickListener
             }
             viewModel.login(email, password)
+        }
+
+        binding.passwordEditText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                binding.loginButton.performClick()
+                true
+            } else false
         }
 
         binding.registerButton.setOnClickListener {

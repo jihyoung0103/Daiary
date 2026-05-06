@@ -42,7 +42,8 @@ class AuthRepository(
     suspend fun signUp(email: String, password: String): Result<FirebaseUser> {
         return try {
             val user = authSource.signUp(email, password)
-            runCatching { userSource.upsertUser(user.uid, user.email ?: "") }
+            val displayName = user.email?.substringBefore("@").orEmpty()
+            runCatching { userSource.upsertUser(user.uid, user.email ?: "", displayName) }
             Result.Success(user)
         } catch (e: FirebaseAuthException) {
             Result.Error(e)
