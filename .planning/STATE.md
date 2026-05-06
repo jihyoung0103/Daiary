@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-05-05)
 
 **Core value:** 로그인 성공 후 사용자 정보가 Firestore에 기록되고 캘린더 화면으로 전환되는 전체 흐름이 끊김 없이 동작
-**Current focus:** Phase 2 — Auth Core
+**Current focus:** Phase 2 — Auth Core (complete, pending human verify)
 
 ## Current Position
 
 Phase: 2 of 4 (Auth Core)
-Plan: 0 of ? in current phase
-Status: Ready to plan
-Last activity: 2026-05-06 — Phase 1 complete (3/3 plans done, build verified, google-services.json placed)
+Plan: 3 of 3 in current phase
+Status: Human verification checkpoint — run app in Android Studio
+Last activity: 2026-05-06 — Phase 2 Plan 03 complete (LoginFragment, CalendarFragment, nav logout action)
 
-Progress: [██░░░░░░░░] 25%
+Progress: [████░░░░░░] 50%
 
 ## Performance Metrics
 
@@ -28,7 +28,7 @@ Progress: [██░░░░░░░░] 25%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 3/3 | ~20 min | ~7 min |
-| 2 | 0/? | — | — |
+| 2 | 3/3 | ~30 min | ~10 min |
 
 ## Accumulated Context
 
@@ -54,5 +54,5 @@ None. (google-services.json 배치 완료, 빌드 성공 확인)
 ## Session Continuity
 
 Last session: 2026-05-06
-Stopped at: Phase 1 complete — all 3 plans executed, build verified
+Stopped at: Phase 2 complete — all 3 plans executed, human-verify checkpoint pending
 Resume file: None
