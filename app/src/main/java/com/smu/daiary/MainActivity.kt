@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,17 +29,28 @@ import com.smu.daiary.draft.DiaryEditScreen
 import com.smu.daiary.draft.DraftPreviewScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
 
-class MainActivity : ComponentActivity() {
+// 메인 함수 :ComponentActivity()는 ComponentActivity를 상속받는 의미
+// (:) 콜론 = extends 또는 implements로 치환가능
+class MainActivity : ComponentActivity() { // = class MainActivity extends ComponentActivity()
+
+    // 시작될 때 딱 한 번 실행되는 함수 onCreate
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge() // 화면 꽉 채우는 설정
+
+        // Compose UI
         setContent {
             DaiaryTheme {
-                val authViewModel: AuthViewModel = viewModel()
-                val authState by authViewModel.authState.collectAsStateWithLifecycle()
-
+                // val은 변경 불가 변수(final) / var는 변경 가능 변수
+                // 인증 상태 감지
+                val authViewModel: AuthViewModel = viewModel()                          // = final AuthViewModel authViewModel = viewModel() >> 그냥 생성자
+                val authState by authViewModel.authState.collectAsStateWithLifecycle()  // authState by A = authState라는 변수의 관리를 A에게 위임함
+                                                                                        // authViewModel.authState.collectAsStateWithLifecycle()에게 위임한다는뜻;
+                // Material3의 기본 레이아웃 틀.
+                // innerPadding이란 상단바/하단바 여백 자동 계산 설정
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    when (authState) {
+                    when (authState) { // authState, 즉 로그인 상태
+                        // 로딩 중일 때.
                         is AuthState.Loading -> {
                             Box(
                                 modifier = Modifier
@@ -50,24 +62,38 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        // 로그인 된 상태일 때.
                         is AuthState.Authenticated -> {
-                            val userId = (authState as AuthState.Authenticated).user.uid
-                            val navController = rememberNavController()
-                            val diaryDraftViewModel: DiaryDraftViewModel = viewModel()
+                            val userId = (authState as AuthState.Authenticated).user.uid // 유저 id
+                            val navController = rememberNavController()                  // 화면 이동 객체
+                            val diaryDraftViewModel: DiaryDraftViewModel = viewModel()   //
 
+                            // 네비게이션 구조
                             NavHost(
                                 navController = navController,
-                                startDestination = "main"
+                                startDestination = "main" // 시작 화면은 "main"
                             ) {
+                                // "main": 메인 캘린더 화면
+                                // navController.navigate("main")가 실행되면 이 화면으로 이동함
                                 composable("main") {
+                                    val mainViewModel: MainViewModel = viewModel()
+                                    val diaries by mainViewModel.diaries.collectAsStateWithLifecycle()
+                                    // userId가 설정될 때, 딱 한 번 실행하는 기능
+                                    LaunchedEffect(userId) {
+                                        mainViewModel.loadDiaries(userId) // userId에 해당하는 일기들 로드함
+                                    }
+                                    // UI
                                     MainCalendarScreen(
-                                        modifier = Modifier.padding(innerPadding),
-                                        onLogout = { authViewModel.logout() },
+                                        modifier = Modifier.padding(innerPadding), // 화면 여백 설정
+                                        diaries = diaries, // 일기 목록 diaries
+                                        onLogout = { authViewModel.logout() }, // 로그아웃
+                                        // (+) 버튼을 누르면 실행되는 동작
                                         onStartDiary = {
-                                            navController.navigate("block_selection")
+                                            navController.navigate("block_selection") // 블록 선택 화면으로 이동.
                                         }
                                     )
                                 }
+                                // "block_selection": 블록 선택 화면
                                 composable("block_selection") {
                                     BlockSelectionScreen(
                                         viewModel = diaryDraftViewModel,
@@ -75,6 +101,7 @@ class MainActivity : ComponentActivity() {
                                         onBack = { navController.popBackStack() }
                                     )
                                 }
+                                // "draft_preview": 초안 미리보기 화면
                                 composable("draft_preview") {
                                     DraftPreviewScreen(
                                         viewModel = diaryDraftViewModel,
@@ -90,6 +117,7 @@ class MainActivity : ComponentActivity() {
                                         onBack = { navController.popBackStack() }
                                     )
                                 }
+                                // "diary_edit": 일기 편집 화면
                                 composable("diary_edit") {
                                     DiaryEditScreen(
                                         viewModel = diaryDraftViewModel,
@@ -100,10 +128,11 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        is AuthState.Unauthenticated,
-                        is AuthState.Error,
-                        is AuthState.LoginSuccess,
-                        is AuthState.SignUpSuccess -> {
+                        // 미인증된 상태
+                        is AuthState.Unauthenticated,   // 인증되지 않은 상태, 즉 로그인 안한 상태
+                        is AuthState.Error,             // 로그인 실패
+                        is AuthState.LoginSuccess,      // 로그인, 회원가입 성공
+                        is AuthState.SignUpSuccess -> { // 성공했는데 로그인 화면으로 보내는 이유는, Firebase 인증까지 소요되는 시간이 있기 때문. 인증 후 자동적으로 authenticated 분기로 넘어감
                             LoginScreen(
                                 authViewModel = authViewModel,
                                 modifier = Modifier.padding(innerPadding)
