@@ -79,4 +79,7 @@ dependencies {
 
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.8.7")
+
+    // EXIF (사진 메타데이터 추출용)
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
