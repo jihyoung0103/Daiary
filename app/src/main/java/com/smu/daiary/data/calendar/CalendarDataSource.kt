@@ -143,7 +143,9 @@ class CalendarDataSource(private val context: Context) {
 
             while (it.moveToNext()) {
                 val startTime = it.getLong(startIdx)
-                val date = LocalDate.ofEpochDay(startTime / 86400000).toString()
+                val date = java.time.Instant.ofEpochMilli(startTime)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate().toString()
                 events.add(
                     CalendarEvent(
                         title = it.getString(titleIdx) ?: "",
