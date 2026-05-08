@@ -18,10 +18,15 @@ data class DailyData(
 
 /** 날씨 정보 (OpenWeatherMap API) */
 data class WeatherData(
-    val description: String = "",   // 예: "맑음", "흐림"
-    val temperature: Double = 0.0,  // 섭씨
-    val humidity: Int = 0,          // %
-    val city: String = ""
+    // 오늘
+    val description: String = "",       // 예: "맑음", "흐림"
+    val temperature: Double = 0.0,      // 섭씨
+    val humidity: Int = 0,              // %
+    val city: String = "",
+    // 내일
+    val tomorrowDescription: String = "",
+    val tomorrowTemperature: Double = 0.0,
+    val tomorrowHumidity: Int = 0
 )
 
 /** 캘린더 일정 (CalendarContract) */
