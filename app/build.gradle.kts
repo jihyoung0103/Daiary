@@ -77,6 +77,9 @@ dependencies {
     // Google Sign-In
     implementation("com.google.android.gms:play-services-auth:21.2.0")
 
+    // Location (날씨 수집용 GPS)
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+
     // Navigation Compose
     implementation("androidx.navigation:navigation-compose:2.8.7")
 
