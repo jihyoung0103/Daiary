@@ -1,37 +1,177 @@
 package com.smu.daiary.draft
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.util.Log
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.smu.daiary.data.calendar.CalendarDataSource
+import com.smu.daiary.data.photo.PhotoDataSource
+import com.smu.daiary.data.weather.WeatherDataSource
+import com.smu.daiary.diary.DailyDataRepository
 import com.smu.daiary.diary.DiaryEntry
 import com.smu.daiary.diary.DiaryRepository
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
-private fun mockBlocks(): List<ContentBlock> = listOf(
-    ContentBlock("1", BlockType.PAYMENT, "스타벅스 아메리카노 4,500원"),
-    ContentBlock("2", BlockType.PAYMENT, "점심 김치찌개 9,000원"),
-    ContentBlock("3", BlockType.PHOTO, "갤러리 사진 3장 (오전 10:23)"),
-    ContentBlock("4", BlockType.CALENDAR, "팀 미팅 오후 2시–3시"),
-    ContentBlock("5", BlockType.HEALTH, "걸음 수 8,432보 · 칼로리 340kcal"),
-    ContentBlock("6", BlockType.WEATHER, "맑음 22°C · 습도 45%"),
-)
+private const val TAG = "DiaryDraftVM"
 
-class DiaryDraftViewModel : ViewModel() {
+class DiaryDraftViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = DiaryRepository()
+    private val context = application.applicationContext
 
-    private val _blocks = MutableStateFlow(mockBlocks())
+    // Repositories & DataSources
+    private val diaryRepository = DiaryRepository()
+    private val dailyDataRepository = DailyDataRepository()
+    private val weatherDataSource = WeatherDataSource(context)
+    private val photoDataSource = PhotoDataSource(context)
+    private val calendarDataSource = CalendarDataSource(context)
+
+    // 블록 목록 (실제 수집 데이터로 채워짐)
+    private val _blocks = MutableStateFlow<List<ContentBlock>>(emptyList())
     val blocks: StateFlow<List<ContentBlock>> = _blocks.asStateFlow()
 
+    // 데이터 로딩 상태
+    private val _isLoadingBlocks = MutableStateFlow(false)
+    val isLoadingBlocks: StateFlow<Boolean> = _isLoadingBlocks.asStateFlow()
+
+    // 초안 상태
     private val _draft = MutableStateFlow<DiaryDraft?>(null)
     val draft: StateFlow<DiaryDraft?> = _draft.asStateFlow()
 
+    // 저장 중 상태
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
+
+    /**
+     * 실제 DataSource로부터 오늘 데이터를 수집하고
+     * DailyDataRepository에 저장한 뒤 블록 목록을 구성합니다.
+     * 각 항목은 병렬로 수집되어 실패해도 다른 항목에 영향을 주지 않습니다.
+     */
+    fun loadBlocks(userId: String) {
+        viewModelScope.launch {
+            _isLoadingBlocks.value = true
+            _blocks.value = emptyList()
+
+            val date = LocalDate.now().toString()
+            val blocks = mutableListOf<ContentBlock>()
+
+            Log.d(TAG, "📡 데이터 수집 시작 | userId=$userId, date=$date")
+
+            // --- 날씨, 캘린더, 사진 병렬 수집 ---
+            val weatherDeferred = async {
+                runCatching { weatherDataSource.fetchWeather() }
+            }
+            val calendarDeferred = async {
+                runCatching { calendarDataSource.fetchTodayEvents() }
+            }
+            val photoDeferred = async {
+                runCatching { photoDataSource.fetchTodayPhotos() }
+            }
+
+            // 날씨
+            weatherDeferred.await()
+                .onSuccess { weather ->
+                    Log.d(TAG, "🌤️ 날씨 수집 완료: ${weather.description} ${weather.temperature}°C")
+                    dailyDataRepository.updateWeather(userId, date, weather)
+                    blocks.add(
+                        ContentBlock(
+                            id = "weather",
+                            type = BlockType.WEATHER,
+                            content = "${weather.description} ${weather.temperature.toInt()}°C · 습도 ${weather.humidity}%"
+                        )
+                    )
+                }
+                .onFailure {
+                    Log.w(TAG, "⚠️ 날씨 수집 실패 (권한 또는 네트워크 문제)", it)
+                    blocks.add(
+                        ContentBlock(id = "weather", type = BlockType.WEATHER, content = "날씨 정보를 가져올 수 없습니다")
+                    )
+                }
+
+            // 캘린더
+            calendarDeferred.await()
+                .onSuccess { events ->
+                    Log.d(TAG, "📅 캘린더 수집 완료: ${events.size}개")
+                    dailyDataRepository.updateCalendar(userId, date, events)
+                    if (events.isEmpty()) {
+                        blocks.add(
+                            ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = "오늘 등록된 일정이 없습니다")
+                        )
+                    } else {
+                        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+                        events.forEachIndexed { i, event ->
+                            val startStr = Instant.ofEpochMilli(event.startTime)
+                                .atZone(ZoneId.systemDefault())
+                                .format(timeFormatter)
+                            val locationPart = if (event.location.isNotBlank()) " · ${event.location}" else ""
+                            blocks.add(
+                                ContentBlock(
+                                    id = "calendar_$i",
+                                    type = BlockType.CALENDAR,
+                                    content = "${event.title} $startStr$locationPart"
+                                )
+                            )
+                        }
+                    }
+                }
+                .onFailure {
+                    Log.w(TAG, "⚠️ 캘린더 수집 실패 (권한 문제)", it)
+                    blocks.add(
+                        ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = "캘린더 정보를 가져올 수 없습니다")
+                    )
+                }
+
+            // 사진
+            photoDeferred.await()
+                .onSuccess { photos ->
+                    Log.d(TAG, "🖼️ 사진 수집 완료: ${photos.size}장")
+                    dailyDataRepository.updatePhotos(userId, date, photos)
+                    if (photos.isNotEmpty()) {
+                        blocks.add(
+                            ContentBlock(
+                                id = "photo",
+                                type = BlockType.PHOTO,
+                                content = "오늘 찍은 사진 ${photos.size}장"
+                            )
+                        )
+                    }
+                }
+                .onFailure {
+                    Log.w(TAG, "⚠️ 사진 수집 실패 (권한 문제)", it)
+                }
+
+            // 결제 내역 (NotificationListenerService가 Firestore에 저장해둔 데이터를 읽어옴)
+            dailyDataRepository.getDailyData(userId, date)
+                .onSuccess { dailyData ->
+                    val payments = dailyData?.payments ?: emptyList()
+                    Log.d(TAG, "💳 결제 내역 로드 완료: ${payments.size}건")
+                    payments.forEachIndexed { i, payment ->
+                        blocks.add(
+                            ContentBlock(
+                                id = "payment_$i",
+                                type = BlockType.PAYMENT,
+                                content = "${payment.merchant} ${String.format("%,d", payment.amount)}원"
+                            )
+                        )
+                    }
+                }
+                .onFailure {
+                    Log.w(TAG, "⚠️ 결제 내역 로드 실패", it)
+                }
+
+            Log.d(TAG, "✅ 전체 수집 완료 | 블록 수=${blocks.size}")
+            _blocks.value = blocks
+            _isLoadingBlocks.value = false
+        }
+    }
 
     fun toggleBlock(id: String) {
         _blocks.update { list ->
@@ -82,7 +222,7 @@ class DiaryDraftViewModel : ViewModel() {
                 content = d.editedContent ?: d.aiContent,
                 date = d.date
             )
-            val result = repository.addDiary(userId, entry)
+            val result = diaryRepository.addDiary(userId, entry)
             _isSaving.value = false
             _draft.update { it?.copy(status = if (result.isSuccess) DraftStatus.SAVED else DraftStatus.IDLE) }
             onComplete(result.isSuccess)
@@ -91,6 +231,6 @@ class DiaryDraftViewModel : ViewModel() {
 
     fun resetDraft() {
         _draft.value = null
-        _blocks.update { list -> list.map { it.copy(isSelected = false) } }
+        _blocks.value = emptyList()
     }
 }

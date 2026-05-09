@@ -1,9 +1,13 @@
 package com.smu.daiary
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,6 +72,26 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                             val navController = rememberNavController()                  // 화면 이동 객체
                             val diaryDraftViewModel: DiaryDraftViewModel = viewModel()   //
 
+                            // 데이터 수집에 필요한 권한 목록
+                            val requiredPermissions = buildList {
+                                add(Manifest.permission.READ_CALENDAR)
+                                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    add(Manifest.permission.READ_MEDIA_IMAGES)
+                                } else {
+                                    add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                                }
+                            }.toTypedArray()
+
+                            // 권한 요청 런처 (허용/거부 결과와 무관하게 loadBlocks 실행)
+                            val permissionLauncher = rememberLauncherForActivityResult(
+                                contract = ActivityResultContracts.RequestMultiplePermissions()
+                            ) { _ ->
+                                // 개별 권한이 거부되어도 수집 가능한 데이터만 부분 수집
+                                diaryDraftViewModel.loadBlocks(userId)
+                                navController.navigate("block_selection")
+                            }
+
                             // 네비게이션 구조
                             NavHost(
                                 navController = navController,
@@ -89,7 +113,8 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                         onLogout = { authViewModel.logout() }, // 로그아웃
                                         // (+) 버튼을 누르면 실행되는 동작
                                         onStartDiary = {
-                                            navController.navigate("block_selection") // 블록 선택 화면으로 이동.
+                                            // 권한 요청 → 결과 콜백에서 loadBlocks + navigate 실행
+                                            permissionLauncher.launch(requiredPermissions)
                                         }
                                     )
                                 }

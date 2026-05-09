@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +29,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,6 +58,7 @@ fun BlockSelectionScreen(
     onBack: () -> Unit
 ) {
     val blocks by viewModel.blocks.collectAsStateWithLifecycle()
+    val isLoading by viewModel.isLoadingBlocks.collectAsStateWithLifecycle()
     val selectedCount = blocks.count { it.isSelected }
 
     Scaffold(
@@ -71,7 +74,7 @@ fun BlockSelectionScreen(
                             color = DraftColors.TextPrimary
                         )
                         Text(
-                            text = "오늘 하루의 데이터를 선택해주세요",
+                            text = if (isLoading) "오늘 데이터를 수집하는 중..." else "오늘 하루의 데이터를 선택해주세요",
                             fontSize = 12.sp,
                             color = DraftColors.TextMuted
                         )
@@ -96,7 +99,7 @@ fun BlockSelectionScreen(
                         viewModel.generateDraft()
                         onNext()
                     },
-                    enabled = selectedCount > 0,
+                    enabled = selectedCount > 0 && !isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
@@ -117,21 +120,42 @@ fun BlockSelectionScreen(
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                start = 24.dp,
-                end = 24.dp,
-                top = padding.calculateTopPadding() + 16.dp,
-                bottom = padding.calculateBottomPadding() + 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            items(blocks) { block ->
-                BlockItem(
-                    block = block,
-                    onClick = { viewModel.toggleBlock(block.id) }
-                )
+        if (isLoading) {
+            // 수집 중 로딩 화면
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = DraftColors.Purple)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "날씨, 캘린더, 사진 데이터를\n불러오는 중입니다...",
+                        fontSize = 14.sp,
+                        color = DraftColors.TextMuted,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = padding.calculateTopPadding() + 16.dp,
+                    bottom = padding.calculateBottomPadding() + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(blocks) { block ->
+                    BlockItem(
+                        block = block,
+                        onClick = { viewModel.toggleBlock(block.id) }
+                    )
+                }
             }
         }
     }
