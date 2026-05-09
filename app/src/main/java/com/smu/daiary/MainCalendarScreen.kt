@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -44,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.diary.DiaryEntry
 import com.smu.daiary.ui.theme.DaiaryTheme
 import java.time.LocalDate
 import java.time.YearMonth
@@ -74,7 +76,9 @@ private object MainCalendarColors {
 @Composable
 fun MainCalendarScreen(
     modifier: Modifier = Modifier,
-    onLogout: () -> Unit = {}
+    diaries: List<DiaryEntry> = emptyList(),
+    onLogout: () -> Unit = {},
+    onStartDiary: () -> Unit = {}
 ) {
     var visibleMonth by remember { mutableStateOf(YearMonth.from(LocalDate.now())) }
 
@@ -88,7 +92,7 @@ fun MainCalendarScreen(
                 .fillMaxSize()
                 .weight(1f),
             color = MainCalendarColors.SurfacePhone,
-            shape = RoundedCornerShape(32.dp),
+            shape = RectangleShape,
             shadowElevation = 0.dp
         ) {
             Column(
@@ -99,7 +103,7 @@ fun MainCalendarScreen(
                 StatusBarPill()
                 TopBarSection(
                     yearMonth = visibleMonth,
-                    onAvatarClick = onLogout   // 아바타 클릭 → 로그아웃
+                    onAvatarClick = onLogout
                 )
                 Column(
                     modifier = Modifier
@@ -108,6 +112,7 @@ fun MainCalendarScreen(
                 ) {
                     CalendarCard(
                         yearMonth = visibleMonth,
+                        diaries = diaries,
                         onPrevMonth = {
                             visibleMonth = visibleMonth.minusMonths(1)
                         },
@@ -115,12 +120,12 @@ fun MainCalendarScreen(
                             visibleMonth = visibleMonth.plusMonths(1)
                         }
                     )
-                    RecentDiaryList()
+                    RecentDiaryList(diaries = diaries)
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 BottomNavBar(
                     onCalendarClick = { /* 현재 탭 */ },
-                    onFabClick = { /* TODO: 일기 작성 */ },
+                    onFabClick = onStartDiary,
                     onProfileClick = { /* TODO: 프로필 */ }
                 )
             }
@@ -199,6 +204,7 @@ private fun TopBarSection(
 @Composable
 private fun CalendarCard(
     yearMonth: YearMonth,
+    diaries: List<DiaryEntry>,
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit
 ) {
@@ -207,13 +213,12 @@ private fun CalendarCard(
     val first = yearMonth.atDay(1)
     /** 일요일=0 … 토요일=6. ISO 요일(월=1…일=7)을 일요일 시작 열에 맞춤. */
     val leadingEmpty = first.dayOfWeek.value % 7
-    val hasDiaryDays = remember(yearMonth) {
-        // 목업: 월이 2025-03일 때만 일기 있는 날 고정
-        if (yearMonth.year == 2025 && yearMonth.monthValue == 3) {
-            setOf(5, 7, 10, 14, 17, 19)
-        } else {
-            emptySet()
-        }
+    val hasDiaryDays = remember(yearMonth, diaries) {
+        val prefix = "${yearMonth.year}-${yearMonth.monthValue.toString().padStart(2, '0')}"
+        diaries
+            .filter { it.date.startsWith(prefix) }
+            .mapNotNull { it.date.substringAfterLast("-").toIntOrNull() }
+            .toSet()
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
@@ -373,27 +378,26 @@ data class DiaryListItemUi(
 )
 
 @Composable
-private fun RecentDiaryList() {
-    val samples = listOf(
-        DiaryListItemUi(
-            19, "수",
-            stringResource(R.string.diary_sample_1_title),
-            stringResource(R.string.diary_sample_1_preview),
-            MainCalendarColors.MoodMint
-        ),
-        DiaryListItemUi(
-            17, "월",
-            stringResource(R.string.diary_sample_2_title),
-            stringResource(R.string.diary_sample_2_preview),
-            MainCalendarColors.MoodYellow
-        ),
-        DiaryListItemUi(
-            14, "금",
-            stringResource(R.string.diary_sample_3_title),
-            stringResource(R.string.diary_sample_3_preview),
-            MainCalendarColors.MoodMint
-        )
-    )
+private fun RecentDiaryList(diaries: List<DiaryEntry>) {
+    val items = remember(diaries) {
+        val weekLabels = listOf("월", "화", "수", "목", "금", "토", "일")
+        diaries.take(5).mapNotNull { entry ->
+            runCatching {
+                val localDate = LocalDate.parse(entry.date)
+                DiaryListItemUi(
+                    day = localDate.dayOfMonth,
+                    weekdayLabel = weekLabels[localDate.dayOfWeek.value - 1],
+                    title = entry.title,
+                    preview = entry.content.replace("\n", " "),
+                    moodColor = when (entry.mood) {
+                        "happy" -> MainCalendarColors.MoodMint
+                        "sad" -> Color(0xFF94B8FF)
+                        else -> MainCalendarColors.MoodYellow
+                    }
+                )
+            }.getOrNull()
+        }
+    }
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Text(
             text = stringResource(R.string.recent_diaries),
@@ -403,9 +407,18 @@ private fun RecentDiaryList() {
             letterSpacing = 0.05.sp,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            samples.forEach { item ->
-                DiaryRow(item = item, onClick = { /* TODO */ })
+        if (items.isEmpty()) {
+            Text(
+                text = "아직 작성된 일기가 없어요",
+                fontSize = 14.sp,
+                color = MainCalendarColors.TextMuted,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items.forEach { item ->
+                    DiaryRow(item = item, onClick = { /* TODO */ })
+                }
             }
         }
     }
