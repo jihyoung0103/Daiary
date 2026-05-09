@@ -67,11 +67,11 @@ import com.smu.daiary.R
 import kotlinx.coroutines.delay
 
 private object LoginColors {
-    val Background   = Color(0xFFF1EFE8)
+    val Background   = Color(0xFFFFFDF9)
     val Surface      = Color(0xFFFAFAF8)
-    val TextPrimary  = Color(0xFF2C2C2A)
+    val TextPrimary  = Color(0xFF1D1D1F)
     val TextMuted    = Color(0xFF888780)
-    val AccentPurple = Color(0xFF533AB7)
+    val AccentPurple = Color(0xFF2E4739)
     val Border       = Color(0xFFD3D1C7)
     val ErrorRed     = Color(0xFFD32F2F)
     val SuccessGreen = Color(0xFF2E7D32)
@@ -155,7 +155,7 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 28.dp),
             shape = RoundedCornerShape(24.dp),
-            color = LoginColors.Surface,
+            color = LoginColors.Background,
             shadowElevation = 2.dp
         ) {
             Column(
@@ -165,7 +165,7 @@ fun LoginScreen(
                 // 앱 타이틀
                 Text(
                     text       = "Daiary",
-                    fontSize   = 28.sp,
+                    fontSize   = 32.sp,
                     fontWeight = FontWeight.Bold,
                     color      = LoginColors.AccentPurple
                 )

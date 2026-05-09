@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -45,27 +44,26 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.smu.daiary.diary.DiaryEntry
 import com.smu.daiary.ui.theme.DaiaryTheme
 import java.time.LocalDate
 import java.time.YearMonth
 
 /** HTML 목업과 동일한 메인 캘린더·일기 목록 화면 색상. */
 private object MainCalendarColors {
-    val BackgroundOuter = Color(0xFFF1EFE8)
-    val SurfacePhone = Color(0xFFFAFAF8)
+    val BackgroundOuter = Color(0xFFFFFDF9)
+    val SurfacePhone = Color(0xFFE8F5E9)
     val TextPrimary = Color(0xFF2C2C2A)
     val TextMuted = Color(0xFF888780)
-    val CalCard = Color(0xFFEEEDFE)
-    val CalHeader = Color(0xFF3C3489)
-    val AccentPurple = Color(0xFF533AB7)
-    val DayNames = Color(0xFF7F77DD)
+    val CalCard = Color(0xFFE8F5E9)
+    val CalHeader = Color(0xFF2C2C2A)
+    val AccentPurple = Color(0xFF2E4739)
+    val DayNames = Color(0xFF2C2C2A)
     val Border = Color(0xFFD3D1C7)
     val NavInactive = Color(0xFFB4B2A9)
     val DotDiary = Color(0xFF9FE1CB)
     val MoodMint = Color(0xFF9FE1CB)
     val MoodYellow = Color(0xFFFAC775)
-    val AvatarBg = Color(0xFFEEEDFE)
+    val AvatarBg = Color(0xFFE8F5E9)
 }
 
 /**
@@ -76,9 +74,7 @@ private object MainCalendarColors {
 @Composable
 fun MainCalendarScreen(
     modifier: Modifier = Modifier,
-    diaries: List<DiaryEntry> = emptyList(),
-    onLogout: () -> Unit = {},
-    onStartDiary: () -> Unit = {}
+    onLogout: () -> Unit = {}
 ) {
     var visibleMonth by remember { mutableStateOf(YearMonth.from(LocalDate.now())) }
 
@@ -91,8 +87,8 @@ fun MainCalendarScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f),
-            color = MainCalendarColors.SurfacePhone,
-            shape = RectangleShape,
+            color = MainCalendarColors.BackgroundOuter,
+            shape = RoundedCornerShape(32.dp),
             shadowElevation = 0.dp
         ) {
             Column(
@@ -103,7 +99,7 @@ fun MainCalendarScreen(
                 StatusBarPill()
                 TopBarSection(
                     yearMonth = visibleMonth,
-                    onAvatarClick = onLogout
+                    onAvatarClick = onLogout   // 아바타 클릭 → 로그아웃
                 )
                 Column(
                     modifier = Modifier
@@ -112,7 +108,6 @@ fun MainCalendarScreen(
                 ) {
                     CalendarCard(
                         yearMonth = visibleMonth,
-                        diaries = diaries,
                         onPrevMonth = {
                             visibleMonth = visibleMonth.minusMonths(1)
                         },
@@ -120,12 +115,12 @@ fun MainCalendarScreen(
                             visibleMonth = visibleMonth.plusMonths(1)
                         }
                     )
-                    RecentDiaryList(diaries = diaries)
+                    RecentDiaryList()
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 BottomNavBar(
                     onCalendarClick = { /* 현재 탭 */ },
-                    onFabClick = onStartDiary,
+                    onFabClick = { /* TODO: 일기 작성 */ },
                     onProfileClick = { /* TODO: 프로필 */ }
                 )
             }
@@ -178,7 +173,7 @@ private fun TopBarSection(
             )
             Text(
                 text = stringResource(R.string.today_record_title),
-                fontSize = 22.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Medium,
                 color = MainCalendarColors.TextPrimary
             )
@@ -204,7 +199,6 @@ private fun TopBarSection(
 @Composable
 private fun CalendarCard(
     yearMonth: YearMonth,
-    diaries: List<DiaryEntry>,
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit
 ) {
@@ -213,12 +207,13 @@ private fun CalendarCard(
     val first = yearMonth.atDay(1)
     /** 일요일=0 … 토요일=6. ISO 요일(월=1…일=7)을 일요일 시작 열에 맞춤. */
     val leadingEmpty = first.dayOfWeek.value % 7
-    val hasDiaryDays = remember(yearMonth, diaries) {
-        val prefix = "${yearMonth.year}-${yearMonth.monthValue.toString().padStart(2, '0')}"
-        diaries
-            .filter { it.date.startsWith(prefix) }
-            .mapNotNull { it.date.substringAfterLast("-").toIntOrNull() }
-            .toSet()
+    val hasDiaryDays = remember(yearMonth) {
+        // 목업: 월이 2025-03일 때만 일기 있는 날 고정
+        if (yearMonth.year == 2025 && yearMonth.monthValue == 3) {
+            setOf(5, 7, 10, 14, 17, 19)
+        } else {
+            emptySet()
+        }
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
@@ -273,7 +268,7 @@ private fun CalendarCard(
                     weekDays.forEach { d ->
                         Text(
                             text = d,
-                            fontSize = 10.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = MainCalendarColors.DayNames,
                             textAlign = TextAlign.Center,
@@ -378,26 +373,27 @@ data class DiaryListItemUi(
 )
 
 @Composable
-private fun RecentDiaryList(diaries: List<DiaryEntry>) {
-    val items = remember(diaries) {
-        val weekLabels = listOf("월", "화", "수", "목", "금", "토", "일")
-        diaries.take(5).mapNotNull { entry ->
-            runCatching {
-                val localDate = LocalDate.parse(entry.date)
-                DiaryListItemUi(
-                    day = localDate.dayOfMonth,
-                    weekdayLabel = weekLabels[localDate.dayOfWeek.value - 1],
-                    title = entry.title,
-                    preview = entry.content.replace("\n", " "),
-                    moodColor = when (entry.mood) {
-                        "happy" -> MainCalendarColors.MoodMint
-                        "sad" -> Color(0xFF94B8FF)
-                        else -> MainCalendarColors.MoodYellow
-                    }
-                )
-            }.getOrNull()
-        }
-    }
+private fun RecentDiaryList() {
+    val samples = listOf(
+        DiaryListItemUi(
+            19, "수",
+            stringResource(R.string.diary_sample_1_title),
+            stringResource(R.string.diary_sample_1_preview),
+            MainCalendarColors.MoodMint
+        ),
+        DiaryListItemUi(
+            17, "월",
+            stringResource(R.string.diary_sample_2_title),
+            stringResource(R.string.diary_sample_2_preview),
+            MainCalendarColors.MoodYellow
+        ),
+        DiaryListItemUi(
+            14, "금",
+            stringResource(R.string.diary_sample_3_title),
+            stringResource(R.string.diary_sample_3_preview),
+            MainCalendarColors.MoodMint
+        )
+    )
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Text(
             text = stringResource(R.string.recent_diaries),
@@ -407,18 +403,9 @@ private fun RecentDiaryList(diaries: List<DiaryEntry>) {
             letterSpacing = 0.05.sp,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        if (items.isEmpty()) {
-            Text(
-                text = "아직 작성된 일기가 없어요",
-                fontSize = 14.sp,
-                color = MainCalendarColors.TextMuted,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items.forEach { item ->
-                    DiaryRow(item = item, onClick = { /* TODO */ })
-                }
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            samples.forEach { item ->
+                DiaryRow(item = item, onClick = { /* TODO */ })
             }
         }
     }

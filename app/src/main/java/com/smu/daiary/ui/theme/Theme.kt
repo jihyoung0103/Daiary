@@ -20,8 +20,8 @@ private val DarkColorScheme = darkColorScheme(
 
 /** 라이트 모드용 Material 3 색 구성표. */
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
+    primary = MainGreen,
+    secondary = MainBeige,
     tertiary = Pink40
 
     /* Other default colors to override
@@ -46,7 +46,7 @@ private val LightColorScheme = lightColorScheme(
 fun DaiaryTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
