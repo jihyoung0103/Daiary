@@ -24,13 +24,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.smu.daiary.auth.AuthState
-import com.smu.daiary.auth.AuthViewModel
-import com.smu.daiary.auth.LoginScreen
-import com.smu.daiary.draft.BlockSelectionScreen
-import com.smu.daiary.draft.DiaryDraftViewModel
-import com.smu.daiary.draft.DiaryEditScreen
-import com.smu.daiary.draft.DraftPreviewScreen
+import com.smu.daiary.feature.auth.AuthState
+import com.smu.daiary.feature.auth.AuthViewModel
+import com.smu.daiary.feature.auth.LoginScreen
+import com.smu.daiary.feature.home.HomeScreen
+import com.smu.daiary.feature.home.HomeViewModel
+import com.smu.daiary.feature.write.BlockSelectionScreen
+import com.smu.daiary.feature.write.DiaryEditScreen
+import com.smu.daiary.feature.write.DraftPreviewScreen
+import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.ui.theme.DaiaryTheme
 
 // 메인 함수 :ComponentActivity()는 ComponentActivity를 상속받는 의미
@@ -47,9 +49,9 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
             DaiaryTheme {
                 // val은 변경 불가 변수(final) / var는 변경 가능 변수
                 // 인증 상태 감지
-                val authViewModel: AuthViewModel = viewModel()                          // = final AuthViewModel authViewModel = viewModel() >> 그냥 생성자
-                val authState by authViewModel.authState.collectAsStateWithLifecycle()  // authState by A = authState라는 변수의 관리를 A에게 위임함
-                                                                                        // authViewModel.authState.collectAsStateWithLifecycle()에게 위임한다는뜻;
+                val authViewModel: AuthViewModel = viewModel()
+                val authState by authViewModel.authState.collectAsStateWithLifecycle()
+
                 // Material3의 기본 레이아웃 틀.
                 // innerPadding이란 상단바/하단바 여백 자동 계산 설정
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
@@ -70,7 +72,7 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                         is AuthState.Authenticated -> {
                             val userId = (authState as AuthState.Authenticated).user.uid // 유저 id
                             val navController = rememberNavController()                  // 화면 이동 객체
-                            val diaryDraftViewModel: DiaryDraftViewModel = viewModel()   //
+                            val writeViewModel: WriteViewModel = viewModel()
 
                             // 데이터 수집에 필요한 권한 목록
                             val requiredPermissions = buildList {
@@ -88,7 +90,7 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                 contract = ActivityResultContracts.RequestMultiplePermissions()
                             ) { _ ->
                                 // 개별 권한이 거부되어도 수집 가능한 데이터만 부분 수집
-                                diaryDraftViewModel.loadBlocks(userId)
+                                writeViewModel.loadBlocks(userId)
                                 navController.navigate("block_selection")
                             }
 
@@ -98,20 +100,18 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                 startDestination = "main" // 시작 화면은 "main"
                             ) {
                                 // "main": 메인 캘린더 화면
-                                // navController.navigate("main")가 실행되면 이 화면으로 이동함
                                 composable("main") {
-                                    val mainViewModel: MainViewModel = viewModel()
-                                    val diaries by mainViewModel.diaries.collectAsStateWithLifecycle()
+                                    val homeViewModel: HomeViewModel = viewModel()
+                                    val diaries by homeViewModel.diaries.collectAsStateWithLifecycle()
                                     // userId가 설정될 때, 딱 한 번 실행하는 기능
                                     LaunchedEffect(userId) {
-                                        mainViewModel.loadDiaries(userId) // userId에 해당하는 일기들 로드함
+                                        homeViewModel.loadDiaries(userId) // userId에 해당하는 일기들 로드함
                                     }
                                     // UI
-                                    MainCalendarScreen(
-                                        modifier = Modifier.padding(innerPadding), // 화면 여백 설정
-                                        diaries = diaries, // 일기 목록 diaries
-                                        onLogout = { authViewModel.logout() }, // 로그아웃
-                                        // (+) 버튼을 누르면 실행되는 동작
+                                    HomeScreen(
+                                        modifier = Modifier.padding(innerPadding),
+                                        diaries = diaries,
+                                        onLogout = { authViewModel.logout() },
                                         onStartDiary = {
                                             // 권한 요청 → 결과 콜백에서 loadBlocks + navigate 실행
                                             permissionLauncher.launch(requiredPermissions)
@@ -121,7 +121,7 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                 // "block_selection": 블록 선택 화면
                                 composable("block_selection") {
                                     BlockSelectionScreen(
-                                        viewModel = diaryDraftViewModel,
+                                        viewModel = writeViewModel,
                                         onNext = { navController.navigate("draft_preview") },
                                         onBack = { navController.popBackStack() }
                                     )
@@ -129,15 +129,12 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                 // "draft_preview": 초안 미리보기 화면
                                 composable("draft_preview") {
                                     DraftPreviewScreen(
-                                        viewModel = diaryDraftViewModel,
+                                        viewModel = writeViewModel,
                                         userId = userId,
                                         onEdit = { navController.navigate("diary_edit") },
                                         onSaved = {
-                                            diaryDraftViewModel.resetDraft()
-                                            navController.popBackStack(
-                                                route = "main",
-                                                inclusive = false
-                                            )
+                                            writeViewModel.resetDraft()
+                                            navController.popBackStack(route = "main", inclusive = false)
                                         },
                                         onBack = { navController.popBackStack() }
                                     )
@@ -145,7 +142,7 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                 // "diary_edit": 일기 편집 화면
                                 composable("diary_edit") {
                                     DiaryEditScreen(
-                                        viewModel = diaryDraftViewModel,
+                                        viewModel = writeViewModel,
                                         onDone = { navController.popBackStack() },
                                         onBack = { navController.popBackStack() }
                                     )
