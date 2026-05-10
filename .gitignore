@@ -49,3 +49,10 @@ app/google-services.json
 
 # Kotlin
 *.class
+
+# Claude Code / GSD planning — local tooling only
+.claude/
+.planning/
+
+# Stray IntelliJ project stub
+src/
