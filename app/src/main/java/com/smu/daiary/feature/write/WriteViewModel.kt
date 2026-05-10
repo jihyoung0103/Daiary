@@ -50,6 +50,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _isSaving = MutableStateFlow(false)
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
+    // 날씨·감정 선택
+    private val _selectedWeather = MutableStateFlow<String?>(null)
+    val selectedWeather: StateFlow<String?> = _selectedWeather.asStateFlow()
+
+    private val _selectedEmotion = MutableStateFlow<String?>(null)
+    val selectedEmotion: StateFlow<String?> = _selectedEmotion.asStateFlow()
+
     /**
      * 실제 DataSource로부터 오늘 데이터를 수집하고
      * DailyDataRepository에 저장한 뒤 블록 목록을 구성합니다.
@@ -197,8 +204,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateWeatherSelection(weather: String?) { _selectedWeather.value = weather }
+    fun updateEmotionSelection(emotion: String?) { _selectedEmotion.value = emotion }
+
     fun resetDraft() {
         _draft.value = null
         _blocks.value = emptyList()
+        _selectedWeather.value = null
+        _selectedEmotion.value = null
     }
 }

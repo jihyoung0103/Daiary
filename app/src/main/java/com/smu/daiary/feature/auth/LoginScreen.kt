@@ -67,12 +67,13 @@ import com.smu.daiary.R
 import kotlinx.coroutines.delay
 
 private object LoginColors {
-    val Background   = Color(0xFFF1EFE8)
-    val Surface      = Color(0xFFFAFAF8)
-    val TextPrimary  = Color(0xFF2C2C2A)
-    val TextMuted    = Color(0xFF888780)
-    val AccentPurple = Color(0xFF533AB7)
-    val Border       = Color(0xFFD3D1C7)
+    val Background   = Color(0xFFFFFFFF)
+    val Surface      = Color(0xFFFFFFFF)
+    val InputBg      = Color(0xFFF7F7F7)
+    val TextPrimary  = Color(0xFF1C1C1E) // Ink
+    val TextMuted    = Color(0xFF6C6C70) // Stone
+    val AccentPurple = Color(0xFF3D7A5C) // SageForest
+    val Border       = Color(0xFFE5E5EA)
     val ErrorRed     = Color(0xFFD32F2F)
     val SuccessGreen = Color(0xFF2E7D32)
     val Overlay      = Color(0x99000000)
@@ -156,6 +157,7 @@ fun LoginScreen(
                 .padding(horizontal = 28.dp),
             shape = RoundedCornerShape(24.dp),
             color = LoginColors.Surface,
+            border = BorderStroke(1.5.dp, LoginColors.AccentPurple),
             shadowElevation = 2.dp
         ) {
             Column(
@@ -164,16 +166,12 @@ fun LoginScreen(
             ) {
                 // 앱 타이틀
                 Text(
-                    text       = "Daiary",
+                    text       = "D.log",
                     fontSize   = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color      = LoginColors.AccentPurple
-                )
-                Text(
-                    text     = "나만의 일기장",
-                    fontSize = 13.sp,
-                    color    = LoginColors.TextMuted,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
+                    fontWeight = FontWeight.ExtraBold,
+                    color      = LoginColors.AccentPurple,
+                    textAlign  = TextAlign.Center,
+                    modifier   = Modifier.padding(bottom = 24.dp)
                 )
 
                 // ── 탭 ──────────────────────────────────────────────────────────
@@ -217,9 +215,11 @@ fun LoginScreen(
                     modifier        = Modifier.fillMaxWidth(),
                     shape           = RoundedCornerShape(12.dp),
                     colors          = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LoginColors.AccentPurple,
-                        focusedLabelColor  = LoginColors.AccentPurple,
-                        cursorColor        = LoginColors.AccentPurple
+                        focusedBorderColor      = LoginColors.AccentPurple,
+                        focusedLabelColor       = LoginColors.AccentPurple,
+                        cursorColor             = LoginColors.AccentPurple,
+                        focusedContainerColor   = LoginColors.InputBg,
+                        unfocusedContainerColor = LoginColors.InputBg
                     )
                 )
 
@@ -236,9 +236,11 @@ fun LoginScreen(
                     modifier             = Modifier.fillMaxWidth(),
                     shape                = RoundedCornerShape(12.dp),
                     colors               = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = LoginColors.AccentPurple,
-                        focusedLabelColor  = LoginColors.AccentPurple,
-                        cursorColor        = LoginColors.AccentPurple
+                        focusedBorderColor      = LoginColors.AccentPurple,
+                        focusedLabelColor       = LoginColors.AccentPurple,
+                        cursorColor             = LoginColors.AccentPurple,
+                        focusedContainerColor   = LoginColors.InputBg,
+                        unfocusedContainerColor = LoginColors.InputBg
                     )
                 )
 

@@ -61,10 +61,10 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color(0xFFF1EFE8)),
+                                    .background(Color(0xFFFDFAF5)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = Color(0xFF533AB7))
+                                CircularProgressIndicator(color = Color(0xFF3D7A5C))
                             }
                         }
 

@@ -53,20 +53,20 @@ import java.time.YearMonth
 
 /** HTML 목업과 동일한 메인 캘린더·일기 목록 화면 색상. */
 private object MainCalendarColors {
-    val BackgroundOuter = Color(0xFFF1EFE8)
-    val SurfacePhone = Color(0xFFFAFAF8)
-    val TextPrimary = Color(0xFF2C2C2A)
-    val TextMuted = Color(0xFF888780)
-    val CalCard = Color(0xFFEEEDFE)
-    val CalHeader = Color(0xFF3C3489)
-    val AccentPurple = Color(0xFF533AB7)
-    val DayNames = Color(0xFF7F77DD)
-    val Border = Color(0xFFD3D1C7)
-    val NavInactive = Color(0xFFB4B2A9)
-    val DotDiary = Color(0xFF9FE1CB)
-    val MoodMint = Color(0xFF9FE1CB)
-    val MoodYellow = Color(0xFFFAC775)
-    val AvatarBg = Color(0xFFEEEDFE)
+    val BackgroundOuter = Color(0xFFFFFFFF)
+    val SurfacePhone = Color(0xFFFAFAFA)
+    val TextPrimary = Color(0xFF1C1C1E)
+    val TextMuted = Color(0xFF6C6C70)
+    val CalCard = Color(0xFFEAF2EC)
+    val CalHeader = Color(0xFF3D7A5C)
+    val AccentPurple = Color(0xFF3D7A5C)
+    val DayNames = Color(0xFF6C6C70)
+    val Border = Color(0xFFE5E0D8)
+    val NavInactive = Color(0xFFAEAEB2)
+    val DotDiary = Color(0xFF3D7A5C)
+    val MoodMint = Color(0xFF5A9478)
+    val MoodYellow = Color(0xFFEAF2EC)
+    val AvatarBg = Color(0xFFEAF2EC)
 }
 
 /**
@@ -168,17 +168,13 @@ private fun TopBarSection(
     ) {
         Column {
             Text(
-                text = stringResource(
-                    R.string.month_year_label,
-                    yearMonth.year,
-                    yearMonth.monthValue
-                ),
+                text = "${yearMonth.year}년",
                 fontSize = 12.sp,
                 color = MainCalendarColors.TextMuted,
                 modifier = Modifier.padding(bottom = 2.dp)
             )
             Text(
-                text = stringResource(R.string.today_record_title),
+                text = "${yearMonth.monthValue}월의 기록",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Medium,
                 color = MainCalendarColors.TextPrimary
@@ -401,7 +397,7 @@ private fun RecentDiaryList(diaries: List<DiaryEntry>) {
     }
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Text(
-            text = stringResource(R.string.recent_diaries),
+            text = "최근 기록",
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MainCalendarColors.TextMuted,

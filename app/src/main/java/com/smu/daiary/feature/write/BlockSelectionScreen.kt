@@ -48,7 +48,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smu.daiary.ui.theme.DaiaryTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,19 +70,12 @@ fun BlockSelectionScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "블록 선택",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = WriteColors.TextPrimary
-                        )
-                        Text(
-                            text = if (isLoading) "오늘 데이터를 수집하는 중..." else "오늘 하루의 데이터를 선택해주세요",
-                            fontSize = 12.sp,
-                            color = WriteColors.TextMuted
-                        )
-                    }
+                    Text(
+                        text = "정보 선택",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = WriteColors.TextPrimary
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -114,7 +109,7 @@ fun BlockSelectionScreen(
                     )
                 ) {
                     Text(
-                        text = if (selectedCount > 0) "초안 생성 (${selectedCount}개 선택됨)" else "초안 생성",
+                        text = "선택 완료",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -226,4 +221,79 @@ private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
     BlockType.CALENDAR -> Icons.Outlined.CalendarMonth
     BlockType.HEALTH   -> Icons.Outlined.FitnessCenter
     BlockType.WEATHER  -> Icons.Outlined.WbSunny
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BlockSelectionScreenPreview() {
+    val sampleBlocks = listOf(
+        ContentBlock("1", BlockType.WEATHER,  "맑음, 23°C", isSelected = true),
+        ContentBlock("2", BlockType.CALENDAR, "오후 3시 팀 미팅", isSelected = false),
+        ContentBlock("3", BlockType.PAYMENT,  "스타벅스 4,500원", isSelected = true),
+        ContentBlock("4", BlockType.HEALTH,   "걸음 수: 8,342보", isSelected = false),
+        ContentBlock("5", BlockType.PHOTO,    "사진 3장", isSelected = false),
+    )
+    DaiaryTheme {
+        Scaffold(
+            containerColor = WriteColors.Bg,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(
+                            text = "정보 선택",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = WriteColors.TextPrimary
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {}) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "뒤로",
+                                tint = WriteColors.TextPrimary
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = WriteColors.SurfaceBg)
+                )
+            },
+            bottomBar = {
+                Surface(color = WriteColors.SurfaceBg, shadowElevation = 8.dp) {
+                    Button(
+                        onClick = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp)
+                            .padding(bottom = 8.dp)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = WriteColors.Purple)
+                    ) {
+                        Text(
+                            text = "선택 완료",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = padding.calculateTopPadding() + 16.dp,
+                    bottom = padding.calculateBottomPadding() + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(sampleBlocks) { block ->
+                    BlockItem(block = block, onClick = {})
+                }
+            }
+        }
+    }
 }
