@@ -1,17 +1,20 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.google.services)
+    alias(libs.plugins.kotlin.compose)
+    id("com.google.gms.google-services")
 }
 
 android {
     namespace = "com.smu.daiary"
-    compileSdk = 34
-
+    compileSdk {
+        version = release(36) {
+            minorApiLevel = 1
+        }
+    }
     defaultConfig {
         applicationId = "com.smu.daiary"
-        minSdk = 26
-        targetSdk = 34
+        minSdk = 24
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -20,51 +23,66 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
     }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_20
-        targetCompatibility = JavaVersion.VERSION_20
+        isCoreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
-
-    kotlin {
-        jvmToolchain(20)
-    }
-
     buildFeatures {
-        viewBinding = true
+        compose = true
     }
 }
 
 dependencies {
-    // AndroidX Core & UI (버전 고정)
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.11.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.activity:activity-ktx:1.8.0")
-    implementation("androidx.fragment:fragment-ktx:1.6.2")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation(libs.androidx.compose.runtime)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // Lifecycle + ViewModel (버전 낮춤)
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.3")
 
-    // Navigation Component (에러의 주범, 2.7.5로 낮춤)
-    implementation("androidx.navigation:navigation-fragment-ktx:2.7.5")
-    implementation("androidx.navigation:navigation-ui-ktx:2.7.5")
-
-    // Firebase (기존 BoM 방식 유지하되 개별 라이브러리 추가)
-    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
 
-    // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+    // Coroutines + Firebase Task 지원
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
+
+    // Lifecycle (Compose용)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
+
+    // Location (날씨 수집용 GPS)
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    // Navigation Compose
+    implementation("androidx.navigation:navigation-compose:2.8.7")
+
+    // EXIF (사진 메타데이터 추출용)
+    implementation("androidx.exifinterface:exifinterface:1.3.7")
 }
