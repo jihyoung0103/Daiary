@@ -55,7 +55,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun DiaryEditScreen(
     viewModel: WriteViewModel,
     onDone: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     var text by remember(draft?.date) {
@@ -69,6 +70,7 @@ fun DiaryEditScreen(
     }
 
     Scaffold(
+        modifier = modifier,
         containerColor = WriteColors.Bg,
         topBar = {
             TopAppBar(

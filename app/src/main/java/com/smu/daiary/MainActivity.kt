@@ -123,7 +123,8 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                     BlockSelectionScreen(
                                         viewModel = writeViewModel,
                                         onNext = { navController.navigate("draft_preview") },
-                                        onBack = { navController.popBackStack() }
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
                                     )
                                 }
                                 // "draft_preview": 초안 미리보기 화면
@@ -136,7 +137,8 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                             writeViewModel.resetDraft()
                                             navController.popBackStack(route = "main", inclusive = false)
                                         },
-                                        onBack = { navController.popBackStack() }
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
                                     )
                                 }
                                 // "diary_edit": 일기 편집 화면
@@ -144,7 +146,8 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                     DiaryEditScreen(
                                         viewModel = writeViewModel,
                                         onDone = { navController.popBackStack() },
-                                        onBack = { navController.popBackStack() }
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
                                     )
                                 }
                             }

@@ -46,13 +46,15 @@ fun DraftPreviewScreen(
     userId: String,
     onEdit: () -> Unit,
     onSaved: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
 
     Scaffold(
+        modifier = modifier,
         containerColor = WriteColors.Bg,
         topBar = {
             TopAppBar(

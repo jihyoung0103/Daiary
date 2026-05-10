@@ -55,13 +55,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun BlockSelectionScreen(
     viewModel: WriteViewModel,
     onNext: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val blocks by viewModel.blocks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoadingBlocks.collectAsStateWithLifecycle()
     val selectedCount = blocks.count { it.isSelected }
 
     Scaffold(
+        modifier = modifier,
         containerColor = WriteColors.Bg,
         topBar = {
             TopAppBar(
