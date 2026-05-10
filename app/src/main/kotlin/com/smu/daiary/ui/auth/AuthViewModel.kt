@@ -1,9 +1,9 @@
-package com.example.capstone_login.ui.auth
+﻿package com.smu.daiary.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.capstone_login.data.repository.AuthRepository
-import com.example.capstone_login.util.Result
+import com.smu.daiary.data.repository.AuthRepository
+import com.smu.daiary.util.Result
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException

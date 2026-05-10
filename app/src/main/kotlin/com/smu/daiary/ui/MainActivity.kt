@@ -1,11 +1,11 @@
-package com.example.capstone_login.ui
+﻿package com.smu.daiary.ui
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
-import com.example.capstone_login.R
-import com.example.capstone_login.databinding.ActivityMainBinding
+import com.smu.daiary.R
+import com.smu.daiary.databinding.ActivityMainBinding
 import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : AppCompatActivity() {

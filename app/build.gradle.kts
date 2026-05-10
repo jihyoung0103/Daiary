@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.capstone_login"
+    namespace = "com.smu.daiary"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.example.capstone_login"
+        applicationId = "com.smu.daiary"
         minSdk = 26
         targetSdk = 34
         versionCode = 1

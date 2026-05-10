@@ -1,9 +1,9 @@
-package com.example.capstone_login.data.repository
+﻿package com.smu.daiary.data.repository
 
-import com.example.capstone_login.data.source.FirebaseAuthDataSource
-import com.example.capstone_login.data.source.FirestoreUserDataSource
-import com.example.capstone_login.model.User
-import com.example.capstone_login.util.Result
+import com.smu.daiary.data.source.FirebaseAuthDataSource
+import com.smu.daiary.data.source.FirestoreUserDataSource
+import com.smu.daiary.model.User
+import com.smu.daiary.util.Result
 import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseUser
 

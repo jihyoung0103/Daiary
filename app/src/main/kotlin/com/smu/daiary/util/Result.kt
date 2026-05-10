@@ -1,4 +1,4 @@
-package com.example.capstone_login.util
+﻿package com.smu.daiary.util
 
 /**
  * Generic result wrapper for repository operations.

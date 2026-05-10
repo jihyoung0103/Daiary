@@ -1,4 +1,4 @@
-package com.example.capstone_login.ui.calendar
+﻿package com.smu.daiary.ui.calendar
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,9 +8,9 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
-import com.example.capstone_login.R
-import com.example.capstone_login.databinding.FragmentCalendarBinding
-import com.example.capstone_login.ui.auth.AuthViewModel
+import com.smu.daiary.R
+import com.smu.daiary.databinding.FragmentCalendarBinding
+import com.smu.daiary.ui.auth.AuthViewModel
 
 class CalendarFragment : Fragment() {
 

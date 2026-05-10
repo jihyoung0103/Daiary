@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/loginFragment"
-        android:name="com.example.capstone_login.ui.auth.LoginFragment"
+        android:name="com.smu.daiary.ui.auth.LoginFragment"
         android:label="로그인"
         tools:layout="@layout/fragment_login">
 
@@ -22,7 +22,7 @@
 
     <fragment
         android:id="@+id/calendarFragment"
-        android:name="com.example.capstone_login.ui.calendar.CalendarFragment"
+        android:name="com.smu.daiary.ui.calendar.CalendarFragment"
         android:label="캘린더"
         tools:layout="@layout/fragment_calendar">
 

@@ -1,4 +1,4 @@
-package com.example.capstone_login.model
+﻿package com.smu.daiary.model
 
 /**
  * Domain model representing an authenticated user.

@@ -1,4 +1,4 @@
-package com.example.capstone_login.ui.auth
+﻿package com.smu.daiary.ui.auth
 
 import android.os.Bundle
 import android.util.Patterns
@@ -14,8 +14,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
-import com.example.capstone_login.R
-import com.example.capstone_login.databinding.FragmentLoginBinding
+import com.smu.daiary.R
+import com.smu.daiary.databinding.FragmentLoginBinding
 import kotlinx.coroutines.launch
 
 class LoginFragment : Fragment() {

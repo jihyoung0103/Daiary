@@ -1,4 +1,4 @@
-package com.example.capstone_login.ui.auth
+﻿package com.smu.daiary.ui.auth
 
 import com.google.firebase.auth.FirebaseUser
 

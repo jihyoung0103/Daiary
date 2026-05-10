@@ -1,4 +1,4 @@
-package com.example.capstone_login.data.source
+﻿package com.smu.daiary.data.source
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
