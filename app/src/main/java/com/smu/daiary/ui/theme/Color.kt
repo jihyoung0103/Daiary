@@ -24,6 +24,9 @@ val BorderDark = Color(0xFF2C3530)
 val TextPrimaryDark = Color(0xFFF0F0F0)
 val TextSecondaryDark = Color(0xFFA0A0A0)
 
+// Mood
+val MoodSad = Color(0xFF94B8FF)
+
 // Base
 val White = Color(0xFFFFFFFF)
 val Black = Color(0xFF000000)

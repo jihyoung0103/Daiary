@@ -195,7 +195,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val entry = DiaryEntry(
                 title = "${d.date} 일기",
                 content = d.editedContent ?: d.aiContent,
-                date = d.date
+                date = d.date,
+                emotion = _selectedEmotion.value ?: "",
+                weather = _selectedWeather.value ?: "",
+                photos = d.photos
             )
             val result = diaryRepository.addDiary(userId, entry)
             _isSaving.value = false

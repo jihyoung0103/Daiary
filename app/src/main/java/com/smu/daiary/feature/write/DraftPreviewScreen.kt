@@ -174,7 +174,7 @@ fun DraftPreviewScreen(
                     text = formatDate(it.date),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF3D7A5C)
+                    color = WriteColors.Purple
                 )
             }
 
@@ -334,7 +334,7 @@ private fun DraftPreviewScreenPreview() {
                     text = formatDate(sampleDraft.date),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF3D7A5C)
+                    color = WriteColors.Purple
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

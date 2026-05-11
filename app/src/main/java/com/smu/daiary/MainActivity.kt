@@ -16,6 +16,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,13 +30,16 @@ import androidx.navigation.compose.rememberNavController
 import com.smu.daiary.feature.auth.AuthState
 import com.smu.daiary.feature.auth.AuthViewModel
 import com.smu.daiary.feature.auth.LoginScreen
+import com.smu.daiary.feature.auth.ProfileScreen
 import com.smu.daiary.feature.home.HomeScreen
 import com.smu.daiary.feature.home.HomeViewModel
 import com.smu.daiary.feature.write.BlockSelectionScreen
 import com.smu.daiary.feature.write.DiaryEditScreen
 import com.smu.daiary.feature.write.DraftPreviewScreen
+import com.smu.daiary.feature.write.DiaryDetailScreen
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.data.model.DiaryEntry
 
 // 메인 함수 :ComponentActivity()는 ComponentActivity를 상속받는 의미
 // (:) 콜론 = extends 또는 implements로 치환가능
@@ -73,6 +79,7 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                             val userId = (authState as AuthState.Authenticated).user.uid // 유저 id
                             val navController = rememberNavController()                  // 화면 이동 객체
                             val writeViewModel: WriteViewModel = viewModel()
+                            var selectedDiary by remember { mutableStateOf<DiaryEntry?>(null) }
 
                             // 데이터 수집에 필요한 권한 목록
                             val requiredPermissions = buildList {
@@ -115,6 +122,11 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                         onStartDiary = {
                                             // 권한 요청 → 결과 콜백에서 loadBlocks + navigate 실행
                                             permissionLauncher.launch(requiredPermissions)
+                                        },
+                                        onProfileClick = { navController.navigate("profile") },
+                                        onDiaryClick = { entry ->
+                                            selectedDiary = entry
+                                            navController.navigate("diary_detail")
                                         }
                                     )
                                 }
@@ -149,6 +161,25 @@ class MainActivity : ComponentActivity() { // = class MainActivity extends Compo
                                         onBack = { navController.popBackStack() },
                                         modifier = Modifier.padding(innerPadding)
                                     )
+                                }
+                                // "profile": 프로필 화면
+                                composable("profile") {
+                                    ProfileScreen(
+                                        authViewModel = authViewModel,
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "diary_detail": 일기 상세 화면
+                                composable("diary_detail") {
+                                    selectedDiary?.let { entry ->
+                                        DiaryDetailScreen(
+                                            entry = entry,
+                                            onEdit = { navController.popBackStack() },
+                                            onBack = { navController.popBackStack() },
+                                            modifier = Modifier.padding(innerPadding)
+                                        )
+                                    }
                                 }
                             }
                         }

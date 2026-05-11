@@ -31,7 +31,7 @@ import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
@@ -72,8 +72,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.ui.theme.DaiaryTheme
 import java.time.LocalDate
 
-private val Accent = Color(0xFF3D7A5C)
-private val AccentLight = Color(0xFFEAF2EC)
+private val Accent = WriteColors.Purple
+private val AccentLight = WriteColors.PurpleLight
 
 private data class Weather(val label: String, val icon: ImageVector)
 private data class Emotion(val label: String, val icon: ImageVector)
@@ -91,7 +91,7 @@ private val emotionList = listOf(
     Emotion("슬픔", Icons.Outlined.SentimentDissatisfied),
     Emotion("평온", Icons.Outlined.SentimentNeutral),
     Emotion("화남", Icons.Outlined.SentimentVeryDissatisfied),
-    Emotion("설렘", Icons.Outlined.Favorite)
+    Emotion("설렘", Icons.Outlined.FavoriteBorder)
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -222,14 +222,14 @@ fun DiaryEditScreen(
                             text = "${today.year}년 ${today.monthValue}월 ${today.dayOfMonth}일",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Color(0xFF3D7A5C)
+                            color = Accent
                         )
                         if (selectedWeather != null) {
-                            Text(text = "·", fontSize = 13.sp, color = Color(0xFF3D7A5C))
+                            Text(text = "·", fontSize = 13.sp, color = Accent)
                             Text(
                                 text = selectedWeather!!,
                                 fontSize = 13.sp,
-                                color = Color(0xFF3D7A5C)
+                                color = Accent
                             )
                         }
                     }
@@ -271,6 +271,7 @@ fun DiaryEditScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(92.dp)
                     .background(AccentLight)
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
@@ -316,24 +317,28 @@ fun DiaryEditScreen(
                         }
                     }
                 } else {
-                    Column(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.PhotoCamera,
-                            contentDescription = null,
-                            tint = Accent.copy(alpha = 0.5f),
-                            modifier = Modifier.size(32.dp)
-                        )
-                        Text(
-                            text = "사진을 추가하면 여기에 표시됩니다",
-                            fontSize = 12.sp,
-                            color = WriteColors.TextMuted
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PhotoCamera,
+                                contentDescription = null,
+                                tint = Accent.copy(alpha = 0.5f),
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Text(
+                                text = "사진을 추가하면 여기에 표시됩니다",
+                                fontSize = 12.sp,
+                                color = WriteColors.TextMuted
+                            )
+                        }
                     }
                 }
             }
@@ -494,10 +499,10 @@ private fun DiaryEditScreenPreview() {
                                 text = "2026년 5월 11일",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = Color(0xFF3D7A5C)
+                                color = Accent
                             )
-                            Text(text = "·", fontSize = 13.sp, color = Color(0xFF3D7A5C))
-                            Text(text = "맑음", fontSize = 13.sp, color = Color(0xFF3D7A5C))
+                            Text(text = "·", fontSize = 13.sp, color = Accent)
+                            Text(text = "맑음", fontSize = 13.sp, color = Accent)
                         }
                         Text(
                             text = sampleText,
@@ -549,17 +554,22 @@ private fun DiaryEditScreenPreview() {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(92.dp)
                         .background(AccentLight)
                         .padding(horizontal = 24.dp, vertical = 12.dp)
                 ) {
                     Text("사진", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = WriteColors.TextPrimary)
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    Box(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Outlined.PhotoCamera, contentDescription = null, tint = Accent.copy(alpha = 0.5f), modifier = Modifier.size(32.dp))
-                        Text("사진을 추가하면 여기에 표시됩니다", fontSize = 12.sp, color = WriteColors.TextMuted)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Outlined.PhotoCamera, contentDescription = null, tint = Accent.copy(alpha = 0.5f), modifier = Modifier.size(32.dp))
+                            Text("사진을 추가하면 여기에 표시됩니다", fontSize = 12.sp, color = WriteColors.TextMuted)
+                        }
                     }
                 }
             }

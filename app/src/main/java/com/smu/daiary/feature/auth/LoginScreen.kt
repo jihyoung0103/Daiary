@@ -51,6 +51,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.Stone
+import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.White
+import com.smu.daiary.ui.theme.Ivory
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -64,19 +71,21 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.smu.daiary.R
+import androidx.compose.ui.tooling.preview.Preview
+import com.smu.daiary.ui.theme.DaiaryTheme
 import kotlinx.coroutines.delay
 
 private object LoginColors {
-    val Background   = Color(0xFFFFFFFF)
-    val Surface      = Color(0xFFFFFFFF)
-    val InputBg      = Color(0xFFF7F7F7)
-    val TextPrimary  = Color(0xFF1C1C1E) // Ink
-    val TextMuted    = Color(0xFF6C6C70) // Stone
-    val AccentPurple = Color(0xFF3D7A5C) // SageForest
-    val Border       = Color(0xFFE5E5EA)
+    val Background   = Ivory
+    val Surface      = White
+    val InputBg      = Dew
+    val TextPrimary  = Ink
+    val TextMuted    = Stone
+    val AccentPurple = SageForest
+    val Border       = Linen
     val ErrorRed     = Color(0xFFD32F2F)
     val SuccessGreen = Color(0xFF2E7D32)
-    val Overlay      = Color(0x99000000)
+    val Overlay      = Color.Black.copy(alpha = 0.6f)
 }
 
 /**
@@ -355,18 +364,218 @@ fun LoginScreen(
                             modifier           = Modifier.size(56.dp)
                         )
                         Text(
-                            text       = if (authState is AuthState.SignUpSuccess) "회원가입 성공!" else "로그인 성공!",
+                            text       = if (authState is AuthState.SignUpSuccess) "회원가입 성공" else "로그인 성공",
                             fontSize   = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color      = LoginColors.TextPrimary
                         )
-                        Text(
-                            text      = if (authState is AuthState.SignUpSuccess) "환영합니다 🎉\n잠시 후 이동합니다." else "잠시 후 이동합니다.",
-                            fontSize  = 13.sp,
-                            color     = LoginColors.TextMuted,
-                            textAlign = TextAlign.Center
-                        )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+@Composable
+private fun LoginScreenPreview() {
+    DaiaryTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LoginColors.Background),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = LoginColors.Surface,
+                border = BorderStroke(1.5.dp, LoginColors.AccentPurple),
+                shadowElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "D.log",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = LoginColors.AccentPurple,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                    TabRow(
+                        selectedTabIndex = 0,
+                        containerColor = Color.Transparent,
+                        contentColor = LoginColors.AccentPurple,
+                        indicator = { tabPositions ->
+                            TabRowDefaults.SecondaryIndicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[0]),
+                                color = LoginColors.AccentPurple
+                            )
+                        },
+                        divider = {}
+                    ) {
+                        listOf("로그인", "회원가입").forEachIndexed { index, title ->
+                            Tab(
+                                selected = index == 0,
+                                onClick = {},
+                                text = {
+                                    Text(
+                                        text = title,
+                                        fontSize = 14.sp,
+                                        fontWeight = if (index == 0) FontWeight.Medium else FontWeight.Normal,
+                                        color = if (index == 0) LoginColors.AccentPurple else LoginColors.TextMuted
+                                    )
+                                }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    OutlinedTextField(
+                        value = "",
+                        onValueChange = {},
+                        label = { Text("이메일") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = LoginColors.AccentPurple,
+                            focusedLabelColor = LoginColors.AccentPurple,
+                            cursorColor = LoginColors.AccentPurple,
+                            focusedContainerColor = LoginColors.InputBg,
+                            unfocusedContainerColor = LoginColors.InputBg
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = "",
+                        onValueChange = {},
+                        label = { Text("비밀번호") },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = LoginColors.AccentPurple,
+                            focusedLabelColor = LoginColors.AccentPurple,
+                            cursorColor = LoginColors.AccentPurple,
+                            focusedContainerColor = LoginColors.InputBg,
+                            unfocusedContainerColor = LoginColors.InputBg
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = {},
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LoginColors.AccentPurple)
+                    ) {
+                        Text("로그인", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = LoginColors.Border)
+                        Text("  또는  ", fontSize = 12.sp, color = LoginColors.TextMuted)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = LoginColors.Border)
+                    }
+                    OutlinedButton(
+                        onClick = {},
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, LoginColors.Border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = LoginColors.TextPrimary)
+                    ) {
+                        Box(
+                            modifier = Modifier.size(20.dp).clip(CircleShape).background(Color(0xFF4285F4)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("G", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Google로 계속하기", fontSize = 15.sp, color = LoginColors.TextPrimary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+@Composable
+private fun SignUpSuccessOverlayPreview() {
+    DaiaryTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LoginColors.Overlay),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = LoginColors.Surface,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 48.dp, vertical = 36.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = LoginColors.SuccessGreen,
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Text(
+                        text = "회원가입 성공",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LoginColors.TextPrimary
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+@Composable
+private fun LoginSuccessOverlayPreview() {
+    DaiaryTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(LoginColors.Overlay),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = LoginColors.Surface,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 48.dp, vertical = 36.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CheckCircle,
+                        contentDescription = null,
+                        tint = LoginColors.SuccessGreen,
+                        modifier = Modifier.size(56.dp)
+                    )
+                    Text(
+                        text = "로그인 성공",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = LoginColors.TextPrimary
+                    )
                 }
             }
         }

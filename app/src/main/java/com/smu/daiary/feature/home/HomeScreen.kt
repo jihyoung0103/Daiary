@@ -48,25 +48,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.MoodSad
+import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.Fern
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Ivory
+import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.Silver
+import com.smu.daiary.ui.theme.Stone
+import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 import java.time.YearMonth
 
-/** HTML 목업과 동일한 메인 캘린더·일기 목록 화면 색상. */
 private object MainCalendarColors {
-    val BackgroundOuter = Color(0xFFFFFFFF)
-    val SurfacePhone = Color(0xFFFAFAFA)
-    val TextPrimary = Color(0xFF1C1C1E)
-    val TextMuted = Color(0xFF6C6C70)
-    val CalCard = Color(0xFFEAF2EC)
-    val CalHeader = Color(0xFF3D7A5C)
-    val AccentPurple = Color(0xFF3D7A5C)
-    val DayNames = Color(0xFF6C6C70)
-    val Border = Color(0xFFE5E0D8)
-    val NavInactive = Color(0xFFAEAEB2)
-    val DotDiary = Color(0xFF3D7A5C)
-    val MoodMint = Color(0xFF5A9478)
-    val MoodYellow = Color(0xFFEAF2EC)
-    val AvatarBg = Color(0xFFEAF2EC)
+    val BackgroundOuter = White
+    val SurfacePhone    = Ivory
+    val TextPrimary     = Ink
+    val TextMuted       = Stone
+    val CalCard         = Dew
+    val CalHeader       = SageForest
+    val AccentPurple    = SageForest
+    val DayNames        = Stone
+    val Border          = Linen
+    val NavInactive     = Silver
+    val DotDiary        = SageForest
+    val MoodMint        = Fern
+    val MoodYellow      = Dew
 }
 
 /**
@@ -79,9 +87,12 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     diaries: List<DiaryEntry> = emptyList(),
     onLogout: () -> Unit = {},
-    onStartDiary: () -> Unit = {}
+    onStartDiary: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onDiaryClick: (DiaryEntry) -> Unit = {}
 ) {
     var visibleMonth by remember { mutableStateOf(YearMonth.from(LocalDate.now())) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
     Column(
         modifier = modifier
@@ -102,10 +113,7 @@ fun HomeScreen(
                     .padding(horizontal = 0.dp)
             ) {
                 StatusBarPill()
-                TopBarSection(
-                    yearMonth = visibleMonth,
-                    onAvatarClick = onLogout
-                )
+                TopBarSection(yearMonth = visibleMonth)
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -114,20 +122,26 @@ fun HomeScreen(
                     CalendarCard(
                         yearMonth = visibleMonth,
                         diaries = diaries,
+                        selectedDate = selectedDate,
+                        onDateSelect = { date ->
+                            selectedDate = if (selectedDate == date) null else date
+                        },
                         onPrevMonth = {
                             visibleMonth = visibleMonth.minusMonths(1)
+                            selectedDate = null
                         },
                         onNextMonth = {
                             visibleMonth = visibleMonth.plusMonths(1)
+                            selectedDate = null
                         }
                     )
-                    RecentDiaryList(diaries = diaries)
+                    RecentDiaryList(diaries = diaries, selectedDate = selectedDate, onDiaryClick = onDiaryClick)
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 BottomNavBar(
                     onCalendarClick = { /* 현재 탭 */ },
                     onFabClick = onStartDiary,
-                    onProfileClick = { /* TODO: 프로필 */ }
+                    onProfileClick = onProfileClick
                 )
             }
         }
@@ -154,47 +168,25 @@ private fun StatusBarPill() {
 }
 
 @Composable
-private fun TopBarSection(
-    yearMonth: YearMonth,
-    onAvatarClick: () -> Unit
-) {
-    Row(
+private fun TopBarSection(yearMonth: YearMonth) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 0.dp)
-            .padding(top = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp)
     ) {
-        Column {
-            Text(
-                text = "${yearMonth.year}년",
-                fontSize = 12.sp,
-                color = MainCalendarColors.TextMuted,
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
-            Text(
-                text = "${yearMonth.monthValue}월의 기록",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-                color = MainCalendarColors.TextPrimary
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(MainCalendarColors.AvatarBg)
-                .clickable(onClick = onAvatarClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Person,
-                contentDescription = stringResource(R.string.nav_profile),
-                tint = MainCalendarColors.AccentPurple,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        Text(
+            text = "${yearMonth.year}년",
+            fontSize = 12.sp,
+            color = MainCalendarColors.TextMuted,
+            modifier = Modifier.padding(bottom = 2.dp)
+        )
+        Text(
+            text = "${yearMonth.monthValue}월의 기록",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Medium,
+            color = MainCalendarColors.TextPrimary
+        )
     }
 }
 
@@ -202,6 +194,8 @@ private fun TopBarSection(
 private fun CalendarCard(
     yearMonth: YearMonth,
     diaries: List<DiaryEntry>,
+    selectedDate: LocalDate?,
+    onDateSelect: (LocalDate) -> Unit,
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit
 ) {
@@ -296,8 +290,14 @@ private fun CalendarCard(
                                     yearMonth.year == today.year &&
                                     yearMonth.monthValue == today.monthValue &&
                                     day == today.dayOfMonth,
+                                isSelected = day != null &&
+                                    selectedDate?.year == yearMonth.year &&
+                                    selectedDate?.monthValue == yearMonth.monthValue &&
+                                    selectedDate?.dayOfMonth == day,
                                 hasDiary = day != null && day in hasDiaryDays,
-                                onClick = { /* TODO: 날짜 선택 */ }
+                                onClick = {
+                                    if (day != null) onDateSelect(yearMonth.atDay(day))
+                                }
                             )
                         }
                     }
@@ -324,6 +324,7 @@ private fun CalendarDayCell(
     day: Int?,
     modifier: Modifier = Modifier,
     isToday: Boolean,
+    isSelected: Boolean,
     hasDiary: Boolean,
     onClick: () -> Unit
 ) {
@@ -333,7 +334,11 @@ private fun CalendarDayCell(
             .height(40.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (isToday) MainCalendarColors.AccentPurple else Color.Transparent
+                when {
+                    isToday    -> MainCalendarColors.AccentPurple
+                    isSelected -> MainCalendarColors.CalCard
+                    else       -> Color.Transparent
+                }
             )
             .clickable(enabled = day != null, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -347,8 +352,12 @@ private fun CalendarDayCell(
                 text = day.toString(),
                 fontSize = 12.sp,
                 lineHeight = 12.sp,
-                fontWeight = if (isToday) FontWeight.Medium else FontWeight.Normal,
-                color = if (isToday) MainCalendarColors.CalCard else MainCalendarColors.TextPrimary
+                fontWeight = if (isToday || isSelected) FontWeight.Medium else FontWeight.Normal,
+                color = when {
+                    isToday    -> MainCalendarColors.CalCard
+                    isSelected -> MainCalendarColors.AccentPurple
+                    else       -> MainCalendarColors.TextPrimary
+                }
             )
             if (hasDiary) {
                 Spacer(modifier = Modifier.height(2.dp))
@@ -371,14 +380,24 @@ data class DiaryListItemUi(
     val weekdayLabel: String,
     val title: String,
     val preview: String,
-    val moodColor: Color
+    val moodColor: Color,
+    val entry: DiaryEntry
 )
 
 @Composable
-private fun RecentDiaryList(diaries: List<DiaryEntry>) {
-    val items = remember(diaries) {
+private fun RecentDiaryList(
+    diaries: List<DiaryEntry>,
+    selectedDate: LocalDate? = null,
+    onDiaryClick: (DiaryEntry) -> Unit = {}
+) {
+    val items = remember(diaries, selectedDate) {
+        val source = if (selectedDate != null) {
+            diaries.filter { it.date == selectedDate.toString() }
+        } else {
+            diaries.take(5)
+        }
         val weekLabels = listOf("월", "화", "수", "목", "금", "토", "일")
-        diaries.take(5).mapNotNull { entry ->
+        source.mapNotNull { entry ->
             runCatching {
                 val localDate = LocalDate.parse(entry.date)
                 DiaryListItemUi(
@@ -388,16 +407,20 @@ private fun RecentDiaryList(diaries: List<DiaryEntry>) {
                     preview = entry.content.replace("\n", " "),
                     moodColor = when (entry.mood) {
                         "happy" -> MainCalendarColors.MoodMint
-                        "sad" -> Color(0xFF94B8FF)
+                        "sad" -> MoodSad
                         else -> MainCalendarColors.MoodYellow
-                    }
+                    },
+                    entry = entry
                 )
             }.getOrNull()
         }
     }
+    val sectionTitle = if (selectedDate != null)
+        "${selectedDate.monthValue}월 ${selectedDate.dayOfMonth}일 기록"
+    else "최근 기록"
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Text(
-            text = "최근 기록",
+            text = sectionTitle,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = MainCalendarColors.TextMuted,
@@ -406,7 +429,7 @@ private fun RecentDiaryList(diaries: List<DiaryEntry>) {
         )
         if (items.isEmpty()) {
             Text(
-                text = "아직 작성된 일기가 없어요",
+                text = if (selectedDate != null) "이 날의 일기가 없어요" else "아직 작성된 일기가 없어요",
                 fontSize = 14.sp,
                 color = MainCalendarColors.TextMuted,
                 modifier = Modifier.padding(vertical = 8.dp)
@@ -414,7 +437,7 @@ private fun RecentDiaryList(diaries: List<DiaryEntry>) {
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items.forEach { item ->
-                    DiaryRow(item = item, onClick = { /* TODO */ })
+                    DiaryRow(item = item, onClick = { onDiaryClick(item.entry) })
                 }
             }
         }

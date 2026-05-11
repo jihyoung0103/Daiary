@@ -86,4 +86,7 @@ dependencies {
 
     // EXIF (사진 메타데이터 추출용)
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // Coil (이미지 로딩)
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }
