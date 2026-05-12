@@ -1,7 +1,7 @@
 package com.smu.daiary.feature.auth
 
-import android.app.Activity
 import android.content.Context
+import androidx.activity.compose.LocalActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -71,7 +71,6 @@ import com.smu.daiary.scheduleNotification
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
-import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
@@ -103,13 +102,13 @@ fun ProfileScreen(
     onBack: () -> Unit,
     isDarkMode: Boolean,
     onDarkModeChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
     onPrivacyPolicy: () -> Unit = {},
     onTermsOfService: () -> Unit = {},
     onEditProfile: () -> Unit = {},
-    modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     val bg = if (isDark) BackgroundDark else ProfileColors.Bg
     val cardBg = if (isDark) SurfaceDark else ProfileColors.CardBg
     val textPrimary = if (isDark) TextPrimaryDark else ProfileColors.TextPrimary
@@ -480,17 +479,15 @@ fun ProfileScreen(
                         }
                         TextButton(
                             onClick = {
-                                val h = hourText.toIntOrNull()?.coerceIn(0, 23) ?: notificationHour
-                                val m = minuteText.toIntOrNull()?.coerceIn(0, 59) ?: notificationMinute
-                                notificationHour = h
-                                notificationMinute = m
+                                notificationHour = hourText.toIntOrNull()?.coerceIn(0, 23) ?: notificationHour
+                                notificationMinute = minuteText.toIntOrNull()?.coerceIn(0, 59) ?: notificationMinute
                                 prefs.edit()
-                                    .putInt("notification_hour", h)
-                                    .putInt("notification_minute", m)
+                                    .putInt("notification_hour", notificationHour)
+                                    .putInt("notification_minute", notificationMinute)
                                     .apply()
                                 // 알림이 켜져 있으면 변경된 시각으로 재예약
                                 if (notificationEnabled) {
-                                    scheduleNotification(context, h, m)
+                                    scheduleNotification(context, notificationHour, notificationMinute)
                                 }
                                 showTimePickerDialog = false
                             }
