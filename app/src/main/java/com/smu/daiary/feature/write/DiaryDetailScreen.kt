@@ -40,16 +40,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
+import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.LocalDarkTheme
 import java.time.LocalDate
 
 private val weatherIcons: Map<String, ImageVector> = mapOf(
@@ -68,10 +70,14 @@ private val emotionIcons: Map<String, ImageVector> = mapOf(
     "설렘" to Icons.Outlined.FavoriteBorder
 )
 
-private fun formatDate(raw: String): String = runCatching {
-    val d = LocalDate.parse(raw)
-    "${d.year}년 ${d.monthValue}월 ${d.dayOfMonth}일"
-}.getOrDefault(raw)
+@Composable
+private fun formatDate(raw: String): String {
+    val template = stringResource(R.string.date_format_full)
+    return runCatching {
+        val d = LocalDate.parse(raw)
+        String.format(template, d.year, d.monthValue, d.dayOfMonth)
+    }.getOrDefault(raw)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,39 +87,42 @@ fun DiaryDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
     Scaffold(
         modifier = modifier,
-        containerColor = WriteColors.Bg,
+        containerColor = wc.Bg,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "일기",
+                        text = stringResource(R.string.screen_diary),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
-                        color = WriteColors.TextPrimary
+                        color = wc.TextPrimary
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
-                            tint = WriteColors.TextPrimary
+                            contentDescription = stringResource(R.string.back),
+                            tint = wc.TextPrimary
                         )
                     }
                 },
                 actions = {
                     TextButton(onClick = onEdit) {
                         Text(
-                            text = "편집",
-                            color = WriteColors.Purple,
+                            text = stringResource(R.string.btn_edit_diary),
+                            color = wc.Purple,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = WriteColors.SurfaceBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
             )
         }
     ) { padding ->
@@ -125,30 +134,27 @@ fun DiaryDetailScreen(
                 .padding(horizontal = 24.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 날짜
             Text(
                 text = formatDate(entry.date),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = WriteColors.Purple
+                color = wc.Purple
             )
 
-            // 날씨 + 감정
             if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = entry.weather) }
-                    emotionIcons[entry.emotion]?.let { DetailMetaChip(icon = it, label = entry.emotion) }
+                    weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = localizedWeatherLabel(entry.weather)) }
+                    emotionIcons[entry.emotion]?.let { DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion)) }
                 }
             }
 
-            // 본문 카드
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = Color.White,
-                border = BorderStroke(0.5.dp, WriteColors.Border)
+                color = wc.SurfaceBg,
+                border = BorderStroke(0.5.dp, wc.Border)
             ) {
                 Text(
                     text = entry.content,
@@ -157,17 +163,16 @@ fun DiaryDetailScreen(
                         .padding(20.dp),
                     fontSize = 15.sp,
                     lineHeight = 24.sp,
-                    color = WriteColors.TextPrimary
+                    color = wc.TextPrimary
                 )
             }
 
-            // 첨부 사진
             if (entry.photos.isNotEmpty()) {
                 Text(
-                    text = "첨부 사진",
+                    text = stringResource(R.string.attached_photos),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = WriteColors.TextMuted
+                    color = wc.TextMuted
                 )
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -178,7 +183,7 @@ fun DiaryDetailScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(WriteColors.PurpleLight)
+                                .background(wc.PurpleLight)
                         ) {
                             AsyncImage(
                                 model = uri,
@@ -196,6 +201,8 @@ fun DiaryDetailScreen(
 
 @Composable
 private fun DetailMetaChip(icon: ImageVector, label: String) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -203,13 +210,13 @@ private fun DetailMetaChip(icon: ImageVector, label: String) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = WriteColors.Purple,
+            tint = wc.Purple,
             modifier = Modifier.size(16.dp)
         )
         Text(
             text = label,
             fontSize = 13.sp,
-            color = WriteColors.TextMuted
+            color = wc.TextMuted
         )
     }
 }

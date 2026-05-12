@@ -32,7 +32,6 @@ import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
@@ -68,12 +67,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.LocalDarkTheme
 import java.time.LocalDate
-
-private val Accent = WriteColors.Purple
-private val AccentLight = WriteColors.PurpleLight
 
 private data class Weather(val label: String, val icon: ImageVector)
 private data class Emotion(val label: String, val icon: ImageVector)
@@ -94,6 +93,26 @@ private val emotionList = listOf(
     Emotion("설렘", Icons.Outlined.FavoriteBorder)
 )
 
+@Composable
+internal fun localizedWeatherLabel(key: String) = when (key) {
+    "맑음" -> stringResource(R.string.weather_sunny)
+    "흐림" -> stringResource(R.string.weather_cloudy)
+    "비"   -> stringResource(R.string.weather_rain)
+    "눈"   -> stringResource(R.string.weather_snow)
+    "바람" -> stringResource(R.string.weather_wind)
+    else  -> key
+}
+
+@Composable
+internal fun localizedEmotionLabel(key: String) = when (key) {
+    "기쁨" -> stringResource(R.string.emotion_joy)
+    "슬픔" -> stringResource(R.string.emotion_sad)
+    "평온" -> stringResource(R.string.emotion_calm)
+    "화남" -> stringResource(R.string.emotion_angry)
+    "설렘" -> stringResource(R.string.emotion_excited)
+    else  -> key
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryEditScreen(
@@ -102,12 +121,16 @@ fun DiaryEditScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+    val accent = wc.Purple
+    val accentLight = wc.PurpleLight
+
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     var text by remember(draft?.date) {
         mutableStateOf(draft?.editedContent ?: draft?.aiContent ?: "")
     }
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
-    val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
 
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 5)
@@ -117,23 +140,23 @@ fun DiaryEditScreen(
 
     Scaffold(
         modifier = modifier,
-        containerColor = WriteColors.Bg,
+        containerColor = wc.Bg,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "일기 편집",
+                        text = stringResource(R.string.screen_diary_edit),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
-                        color = WriteColors.TextPrimary
+                        color = wc.TextPrimary
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
-                            tint = WriteColors.TextPrimary
+                            contentDescription = stringResource(R.string.back),
+                            tint = wc.TextPrimary
                         )
                     }
                 },
@@ -144,16 +167,16 @@ fun DiaryEditScreen(
                             onDone()
                         },
                         shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                        colors = ButtonDefaults.buttonColors(containerColor = accent),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                         modifier = Modifier
                             .padding(end = 12.dp)
                             .height(36.dp)
                     ) {
-                        Text("완료", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(stringResource(R.string.btn_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = WriteColors.SurfaceBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
             )
         }
     ) { padding ->
@@ -162,8 +185,7 @@ fun DiaryEditScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            // ── 날씨 선택 ────────────────────────────────────────────────────
-            ChipSection(label = "날씨") {
+            ChipSection(label = stringResource(R.string.label_weather)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -171,7 +193,7 @@ fun DiaryEditScreen(
                     weatherList.forEach { w ->
                         IconSelectChip(
                             icon = w.icon,
-                            label = w.label,
+                            label = localizedWeatherLabel(w.label),
                             selected = selectedWeather == w.label,
                             onClick = { viewModel.updateWeatherSelection(if (selectedWeather == w.label) null else w.label) }
                         )
@@ -179,8 +201,8 @@ fun DiaryEditScreen(
                 }
             }
 
-            // ── 감정 선택 ────────────────────────────────────────────────────
-            ChipSection(label = "감정") {
+            ChipSection(label = stringResource(R.string.label_emotion)) {
+                val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -188,7 +210,7 @@ fun DiaryEditScreen(
                     emotionList.forEach { e ->
                         IconSelectChip(
                             icon = e.icon,
-                            label = e.label,
+                            label = localizedEmotionLabel(e.label),
                             selected = selectedEmotion == e.label,
                             onClick = { viewModel.updateEmotionSelection(if (selectedEmotion == e.label) null else e.label) }
                         )
@@ -196,22 +218,20 @@ fun DiaryEditScreen(
                 }
             }
 
-            // ── 텍스트 편집 영역 ──────────────────────────────────────────────
             Surface(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 12.dp),
-                color = Color.White,
+                color = wc.SurfaceBg,
                 shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(0.5.dp, WriteColors.Border)
+                border = BorderStroke(0.5.dp, wc.Border)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
-                    // 날짜 + 날씨
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -219,26 +239,21 @@ fun DiaryEditScreen(
                     ) {
                         val today = LocalDate.now()
                         Text(
-                            text = "${today.year}년 ${today.monthValue}월 ${today.dayOfMonth}일",
+                            text = stringResource(R.string.date_format_full, today.year, today.monthValue, today.dayOfMonth),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Accent
+                            color = accent
                         )
                         if (selectedWeather != null) {
-                            Text(text = "·", fontSize = 13.sp, color = Accent)
-                            Text(
-                                text = selectedWeather!!,
-                                fontSize = 13.sp,
-                                color = Accent
-                            )
+                            Text(text = "·", fontSize = 13.sp, color = accent)
+                            Text(text = selectedWeather!!, fontSize = 13.sp, color = accent)
                         }
                     }
-                    // 텍스트 입력
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                         if (text.isEmpty()) {
                             Text(
-                                text = "일기를 작성해보세요...",
-                                color = WriteColors.TextMuted,
+                                text = stringResource(R.string.hint_write_diary),
+                                color = wc.TextMuted,
                                 fontSize = 15.sp,
                                 lineHeight = 24.sp
                             )
@@ -250,94 +265,80 @@ fun DiaryEditScreen(
                             textStyle = TextStyle(
                                 fontSize = 15.sp,
                                 lineHeight = 24.sp,
-                                color = WriteColors.TextPrimary
+                                color = wc.TextPrimary
                             )
                         )
                     }
-                    // 글자 수 카운터
                     Text(
-                        text = "${text.length}자",
+                        text = stringResource(R.string.char_count, text.length),
                         fontSize = 11.sp,
-                        color = WriteColors.TextMuted,
+                        color = wc.TextMuted,
                         textAlign = TextAlign.End,
                         modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                     )
                 }
             }
 
-            HorizontalDivider(color = WriteColors.Border, thickness = 0.5.dp)
+            HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
 
-            // ── 사진 섹션 ────────────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(92.dp)
-                    .background(AccentLight)
+                    .background(accentLight)
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "사진",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = WriteColors.TextPrimary
-                    )
-                    TextButton(
-                        onClick = {
-                            photoPicker.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                            )
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.AddPhotoAlternate,
-                            contentDescription = "사진 추가",
-                            tint = Accent,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "추가", color = Accent, fontSize = 13.sp)
-                    }
-                }
-
                 val photos = draft?.photos.orEmpty()
-                if (photos.isNotEmpty()) {
+                if (photos.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        TextButton(
+                            onClick = {
+                                photoPicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AddPhotoAlternate,
+                                contentDescription = stringResource(R.string.add_photo_desc),
+                                tint = accent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
+                        }
+                    }
+                } else {
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 8.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         items(photos) { uri ->
                             PhotoChip(uri = uri, onRemove = { viewModel.removePhoto(uri) })
                         }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.PhotoCamera,
-                                contentDescription = null,
-                                tint = Accent.copy(alpha = 0.5f),
-                                modifier = Modifier.size(32.dp)
-                            )
-                            Text(
-                                text = "사진을 추가하면 여기에 표시됩니다",
-                                fontSize = 12.sp,
-                                color = WriteColors.TextMuted
-                            )
+                        item {
+                            TextButton(
+                                onClick = {
+                                    photoPicker.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AddPhotoAlternate,
+                                    contentDescription = stringResource(R.string.add_photo_desc),
+                                    tint = accent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
+                            }
                         }
                     }
                 }
@@ -348,12 +349,14 @@ fun DiaryEditScreen(
 
 @Composable
 private fun ChipSection(label: String, content: @Composable () -> Unit) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
     Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
             text = label,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
-            color = WriteColors.TextMuted,
+            color = wc.TextMuted,
             modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
         )
         content()
@@ -367,6 +370,10 @@ fun IconSelectChip(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+    val accent = wc.Purple
+    val accentLight = wc.PurpleLight
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -380,13 +387,13 @@ fun IconSelectChip(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(if (selected) Accent else AccentLight),
+                .background(if (selected) accent else accentLight),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (selected) Color.White else Accent,
+                tint = if (selected) Color.White else accent,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -394,19 +401,22 @@ fun IconSelectChip(
         Text(
             text = label,
             fontSize = 11.sp,
-            color = if (selected) Accent else Color.Gray,
+            color = if (selected) accent else wc.TextMuted,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
         )
     }
 }
 
-
 @Composable
 private fun PhotoChip(uri: String, onRemove: () -> Unit) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+    val accent = wc.Purple
+    val accentLight = wc.PurpleLight
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = AccentLight,
-        border = BorderStroke(0.5.dp, Accent.copy(alpha = 0.3f))
+        color = accentLight,
+        border = BorderStroke(0.5.dp, accent.copy(alpha = 0.3f))
     ) {
         Row(
             modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
@@ -416,26 +426,26 @@ private fun PhotoChip(uri: String, onRemove: () -> Unit) {
             Icon(
                 imageVector = Icons.Outlined.PhotoLibrary,
                 contentDescription = null,
-                tint = Accent,
+                tint = accent,
                 modifier = Modifier.size(14.dp)
             )
             Text(
                 text = uri.substringAfterLast("/").take(24),
                 fontSize = 12.sp,
-                color = Accent
+                color = accent
             )
             Box(
                 modifier = Modifier
                     .size(18.dp)
                     .clip(CircleShape)
-                    .background(Accent.copy(alpha = 0.12f)),
+                    .background(accent.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 IconButton(onClick = onRemove, modifier = Modifier.size(18.dp)) {
                     Icon(
                         imageVector = Icons.Outlined.Close,
-                        contentDescription = "삭제",
-                        tint = Accent,
+                        contentDescription = stringResource(R.string.delete_photo_desc),
+                        tint = accent,
                         modifier = Modifier.size(10.dp)
                     )
                 }
@@ -452,30 +462,33 @@ private fun DiaryEditScreenPreview() {
     var selectedWeather by remember { mutableStateOf<String?>("맑음") }
     var selectedEmotion by remember { mutableStateOf<String?>("기쁨") }
     DaiaryTheme {
+        val isDark = LocalDarkTheme.current
+        val wc = if (isDark) WriteColorsDark else WriteColors
+        val accent = wc.Purple
         Scaffold(
-            containerColor = WriteColors.Bg,
+            containerColor = wc.Bg,
             topBar = {
                 TopAppBar(
                     title = {
-                        Text("일기 편집", fontSize = 18.sp, fontWeight = FontWeight.Medium, color = WriteColors.TextPrimary)
+                        Text(stringResource(R.string.screen_diary_edit), fontSize = 18.sp, fontWeight = FontWeight.Medium, color = wc.TextPrimary)
                     },
                     navigationIcon = {
                         IconButton(onClick = {}) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, tint = WriteColors.TextPrimary)
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, tint = wc.TextPrimary)
                         }
                     },
                     actions = {
                         Button(
                             onClick = {},
                             shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Accent),
+                            colors = ButtonDefaults.buttonColors(containerColor = accent),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                             modifier = Modifier.padding(end = 12.dp).height(36.dp)
                         ) {
-                            Text("완료", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(stringResource(R.string.btn_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = WriteColors.SurfaceBg)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
                 )
             }
         ) { padding ->
@@ -485,9 +498,9 @@ private fun DiaryEditScreenPreview() {
                         .weight(1f)
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp),
-                    color = Color.White,
+                    color = wc.SurfaceBg,
                     shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(0.5.dp, WriteColors.Border)
+                    border = BorderStroke(0.5.dp, wc.Border)
                 ) {
                     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
                         Row(
@@ -495,80 +508,61 @@ private fun DiaryEditScreenPreview() {
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(bottom = 12.dp)
                         ) {
-                            Text(
-                                text = "2026년 5월 11일",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Accent
-                            )
-                            Text(text = "·", fontSize = 13.sp, color = Accent)
-                            Text(text = "맑음", fontSize = 13.sp, color = Accent)
+                            Text("2026년 5월 11일", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = accent)
+                            Text(text = "·", fontSize = 13.sp, color = accent)
+                            Text(text = "맑음", fontSize = 13.sp, color = accent)
                         }
                         Text(
                             text = sampleText,
                             fontSize = 15.sp,
                             lineHeight = 24.sp,
-                            color = WriteColors.TextPrimary,
+                            color = wc.TextPrimary,
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = "${sampleText.length}자",
+                            text = stringResource(R.string.char_count, sampleText.length),
                             fontSize = 11.sp,
-                            color = WriteColors.TextMuted,
+                            color = wc.TextMuted,
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                         )
                     }
                 }
-                ChipSection(label = "날씨") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
+                ChipSection(label = stringResource(R.string.label_weather)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         weatherList.forEach { w ->
                             IconSelectChip(
-                                icon = w.icon,
-                                label = w.label,
+                                icon = w.icon, label = w.label,
                                 selected = selectedWeather == w.label,
                                 onClick = { selectedWeather = if (selectedWeather == w.label) null else w.label }
                             )
                         }
                     }
                 }
-                ChipSection(label = "감정") {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
+                ChipSection(label = stringResource(R.string.label_emotion)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         emotionList.forEach { e ->
                             IconSelectChip(
-                                icon = e.icon,
-                                label = e.label,
+                                icon = e.icon, label = e.label,
                                 selected = selectedEmotion == e.label,
                                 onClick = { selectedEmotion = if (selectedEmotion == e.label) null else e.label }
                             )
                         }
                     }
                 }
-                HorizontalDivider(color = WriteColors.Border, thickness = 0.5.dp)
+                HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(92.dp)
-                        .background(AccentLight)
+                        .background(wc.PurpleLight)
                         .padding(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    Text("사진", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = WriteColors.TextPrimary)
-                    Box(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Icon(Icons.Outlined.PhotoCamera, contentDescription = null, tint = Accent.copy(alpha = 0.5f), modifier = Modifier.size(32.dp))
-                            Text("사진을 추가하면 여기에 표시됩니다", fontSize = 12.sp, color = WriteColors.TextMuted)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        TextButton(onClick = {}) {
+                            Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = stringResource(R.string.add_photo_desc), tint = accent, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
                         }
                     }
                 }

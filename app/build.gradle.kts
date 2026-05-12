@@ -67,6 +67,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     // Coroutines + Firebase Task 지원
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
@@ -89,4 +90,7 @@ dependencies {
 
     // Coil (이미지 로딩)
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // AppCompat (다크모드 AppCompatDelegate, 언어 전환 setApplicationLocales)
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

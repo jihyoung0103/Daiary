@@ -41,14 +41,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.LocalDarkTheme
 import java.time.LocalDate
 
 private val weatherIconMap: Map<String, ImageVector> = mapOf(
@@ -67,10 +69,12 @@ private val emotionIconMap: Map<String, ImageVector> = mapOf(
     "설렘" to Icons.Outlined.Favorite
 )
 
+@Composable
 private fun formatDate(raw: String): String {
+    val template = stringResource(R.string.date_format_full)
     return runCatching {
         val d = LocalDate.parse(raw)
-        "${d.year}년 ${d.monthValue}월 ${d.dayOfMonth}일"
+        String.format(template, d.year, d.monthValue, d.dayOfMonth)
     }.getOrDefault(raw)
 }
 
@@ -84,6 +88,9 @@ fun DraftPreviewScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
@@ -92,23 +99,23 @@ fun DraftPreviewScreen(
 
     Scaffold(
         modifier = modifier,
-        containerColor = WriteColors.Bg,
+        containerColor = wc.Bg,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "미리보기",
+                        text = stringResource(R.string.screen_preview),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
-                        color = WriteColors.TextPrimary
+                        color = wc.TextPrimary
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
-                            tint = WriteColors.TextPrimary
+                            contentDescription = stringResource(R.string.back),
+                            tint = wc.TextPrimary
                         )
                     }
                 },
@@ -118,7 +125,7 @@ fun DraftPreviewScreen(
                             modifier = Modifier
                                 .size(20.dp)
                                 .padding(end = 16.dp),
-                            color = WriteColors.Purple,
+                            color = wc.Purple,
                             strokeWidth = 2.dp
                         )
                     } else {
@@ -130,19 +137,19 @@ fun DraftPreviewScreen(
                             }
                         ) {
                             Text(
-                                text = "저장",
-                                color = WriteColors.Purple,
+                                text = stringResource(R.string.btn_save),
+                                color = wc.Purple,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = WriteColors.SurfaceBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
             )
         },
         bottomBar = {
-            Surface(color = WriteColors.SurfaceBg, shadowElevation = 8.dp) {
+            Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                 Button(
                     onClick = onEdit,
                     modifier = Modifier
@@ -151,9 +158,9 @@ fun DraftPreviewScreen(
                         .padding(bottom = 8.dp)
                         .height(52.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = WriteColors.Purple)
+                    colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                 ) {
-                    Text(text = "편집하기", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text(text = stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -166,40 +173,37 @@ fun DraftPreviewScreen(
                 .padding(horizontal = 24.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 날짜
             draft?.let {
                 Text(
                     text = formatDate(it.date),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = WriteColors.Purple
+                    color = wc.Purple
                 )
             }
 
-            // 날씨 + 감정
             if (selectedWeather != null || selectedEmotion != null) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    selectedWeather?.let { label ->
-                        weatherIconMap[label]?.let { icon ->
-                            MetaChip(icon = icon, label = label)
+                    selectedWeather?.let { key ->
+                        weatherIconMap[key]?.let { icon ->
+                            MetaChip(icon = icon, label = localizedWeatherLabel(key))
                         }
                     }
-                    selectedEmotion?.let { label ->
-                        emotionIconMap[label]?.let { icon ->
-                            MetaChip(icon = icon, label = label)
+                    selectedEmotion?.let { key ->
+                        emotionIconMap[key]?.let { icon ->
+                            MetaChip(icon = icon, label = localizedEmotionLabel(key))
                         }
                     }
                 }
             }
 
-            // 본문 카드
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = Color.White,
-                border = BorderStroke(0.5.dp, WriteColors.Border)
+                color = wc.SurfaceBg,
+                border = BorderStroke(0.5.dp, wc.Border)
             ) {
                 Text(
                     text = displayText,
@@ -208,24 +212,23 @@ fun DraftPreviewScreen(
                         .padding(20.dp),
                     fontSize = 15.sp,
                     lineHeight = 24.sp,
-                    color = WriteColors.TextPrimary
+                    color = wc.TextPrimary
                 )
             }
 
-            // 첨부 사진 목록
             val photos = draft?.photos.orEmpty()
             if (photos.isNotEmpty()) {
                 Text(
-                    text = "첨부 사진",
+                    text = stringResource(R.string.attached_photos),
                     fontSize = 12.sp,
-                    color = WriteColors.TextMuted,
+                    color = wc.TextMuted,
                     fontWeight = FontWeight.Medium
                 )
                 photos.forEach { uri ->
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = WriteColors.PurpleLight,
-                        border = BorderStroke(0.5.dp, WriteColors.Purple.copy(alpha = 0.3f))
+                        color = wc.PurpleLight,
+                        border = BorderStroke(0.5.dp, wc.Purple.copy(alpha = 0.3f))
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -235,13 +238,13 @@ fun DraftPreviewScreen(
                             Icon(
                                 imageVector = Icons.Outlined.PhotoLibrary,
                                 contentDescription = null,
-                                tint = WriteColors.Purple,
+                                tint = wc.Purple,
                                 modifier = Modifier.size(14.dp)
                             )
                             Text(
                                 text = uri.substringAfterLast("/").take(40),
                                 fontSize = 12.sp,
-                                color = WriteColors.Purple
+                                color = wc.Purple
                             )
                         }
                     }
@@ -253,6 +256,8 @@ fun DraftPreviewScreen(
 
 @Composable
 private fun MetaChip(icon: ImageVector, label: String) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -260,13 +265,13 @@ private fun MetaChip(icon: ImageVector, label: String) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = WriteColors.Purple,
+            tint = wc.Purple,
             modifier = Modifier.size(16.dp)
         )
         Text(
             text = label,
             fontSize = 13.sp,
-            color = WriteColors.TextMuted
+            color = wc.TextMuted
         )
     }
 }
@@ -282,29 +287,28 @@ private fun DraftPreviewScreenPreview() {
         editedContent = null,
         photos = emptyList()
     )
+    val wc = WriteColors
     DaiaryTheme {
         Scaffold(
-            containerColor = WriteColors.Bg,
+            containerColor = wc.Bg,
             topBar = {
                 TopAppBar(
-                    title = {
-                        Text("미리보기", fontSize = 18.sp, fontWeight = FontWeight.Medium, color = WriteColors.TextPrimary)
-                    },
+                    title = { Text(stringResource(R.string.screen_preview), fontSize = 18.sp, fontWeight = FontWeight.Medium, color = wc.TextPrimary) },
                     navigationIcon = {
                         IconButton(onClick = {}) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, tint = WriteColors.TextPrimary)
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null, tint = wc.TextPrimary)
                         }
                     },
                     actions = {
                         TextButton(onClick = {}) {
-                            Text("저장", color = WriteColors.Purple, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(stringResource(R.string.btn_save), color = wc.Purple, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = WriteColors.SurfaceBg)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
                 )
             },
             bottomBar = {
-                Surface(color = WriteColors.SurfaceBg, shadowElevation = 8.dp) {
+                Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                     Button(
                         onClick = {},
                         modifier = Modifier
@@ -313,9 +317,9 @@ private fun DraftPreviewScreenPreview() {
                             .padding(bottom = 8.dp)
                             .height(52.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = WriteColors.Purple)
+                        colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                     ) {
-                        Text("편집하기", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                        Text(stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -328,12 +332,7 @@ private fun DraftPreviewScreenPreview() {
                     .padding(horizontal = 24.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    text = formatDate(sampleDraft.date),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = WriteColors.Purple
-                )
+                Text(text = formatDate(sampleDraft.date), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -343,15 +342,15 @@ private fun DraftPreviewScreenPreview() {
                 }
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = Color.White,
-                    border = BorderStroke(0.5.dp, WriteColors.Border)
+                    color = wc.SurfaceBg,
+                    border = BorderStroke(0.5.dp, wc.Border)
                 ) {
                     Text(
                         text = sampleDraft.aiContent,
                         modifier = Modifier.fillMaxWidth().padding(20.dp),
                         fontSize = 15.sp,
                         lineHeight = 24.sp,
-                        color = WriteColors.TextPrimary
+                        color = wc.TextPrimary
                     )
                 }
             }

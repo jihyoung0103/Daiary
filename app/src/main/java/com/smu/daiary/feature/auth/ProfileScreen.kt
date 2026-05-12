@@ -1,5 +1,9 @@
 package com.smu.daiary.feature.auth
 
+import android.app.Activity
+import android.content.Context
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,11 +20,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,11 +37,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,21 +48,41 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.os.LocaleListCompat
 import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
+import com.smu.daiary.R
+import com.smu.daiary.cancelNotification
+import com.smu.daiary.scheduleNotification
+import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.Stone
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.TextSecondaryDark
 import com.smu.daiary.ui.theme.White
 
 private object ProfileColors {
@@ -68,7 +92,7 @@ private object ProfileColors {
     val TextPrimary = Ink
     val TextMuted = Stone
     val Border = Linen
-    val AvatarBg = Dew
+    val AvatarBg = Ivory
     val Danger = Color(0xFFD32F2F)
 }
 
@@ -77,51 +101,76 @@ private object ProfileColors {
 fun ProfileScreen(
     authViewModel: AuthViewModel,
     onBack: () -> Unit,
+    isDarkMode: Boolean,
+    onDarkModeChange: (Boolean) -> Unit,
+    onPrivacyPolicy: () -> Unit = {},
+    onTermsOfService: () -> Unit = {},
+    onEditProfile: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
+    val isDark = LocalDarkTheme.current
+    val activity = LocalContext.current as? Activity
+    val bg = if (isDark) BackgroundDark else ProfileColors.Bg
+    val cardBg = if (isDark) SurfaceDark else ProfileColors.CardBg
+    val textPrimary = if (isDark) TextPrimaryDark else ProfileColors.TextPrimary
+    val textMuted = if (isDark) TextSecondaryDark else ProfileColors.TextMuted
+    val borderColor = if (isDark) BorderDark else ProfileColors.Border
+    val accentColor = if (isDark) SageForestDark else ProfileColors.Accent
+    val avatarBg = if (isDark) DewDark else ProfileColors.AvatarBg
 
-    var isDarkMode by remember { mutableStateOf(false) }
-    var language by remember { mutableStateOf("한국어") }
-    var notificationEnabled by remember { mutableStateOf(true) }
-    var notificationHour by remember { mutableStateOf(21) }
-    var notificationMinute by remember { mutableStateOf(0) }
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("daiary_settings", Context.MODE_PRIVATE) }
+
+    var language by remember { mutableStateOf(prefs.getString("language", "한국어") ?: "한국어") }
+    var notificationEnabled by remember { mutableStateOf(prefs.getBoolean("notification_enabled", true)) }
+    var notificationHour by remember { mutableStateOf(prefs.getInt("notification_hour", 21)) }
+    var notificationMinute by remember { mutableStateOf(prefs.getInt("notification_minute", 0)) }
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showTimePickerDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
+    var customPhotoUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentUser?.uid) {
+        val uid = currentUser?.uid ?: return@LaunchedEffect
+        val doc = FirebaseFirestore.getInstance()
+            .collection("users").document(uid)
+            .get().await()
+        customPhotoUrl = doc.getString("customPhotoUrl")
+    }
+
     Scaffold(
         modifier = modifier,
-        containerColor = ProfileColors.Bg,
+        containerColor = bg,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "프로필",
+                        text = stringResource(R.string.screen_profile),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
-                        color = ProfileColors.TextPrimary
+                        color = textPrimary
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
-                            tint = ProfileColors.TextPrimary
+                            contentDescription = stringResource(R.string.back),
+                            tint = textPrimary
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = ProfileColors.Bg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg)
             )
         }
     ) { padding ->
         Column(
             modifier = Modifier
-                .padding(padding)
                 .fillMaxWidth()
+                .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -139,80 +188,94 @@ fun ProfileScreen(
                         modifier = Modifier
                             .size(72.dp)
                             .clip(CircleShape)
-                            .background(ProfileColors.AvatarBg)
-                            .border(1.dp, ProfileColors.Border, CircleShape),
+                            .background(avatarBg)
+                            .border(1.dp, borderColor, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        val photoUrl = currentUser?.photoUrl
-                        if (photoUrl != null) {
+                        if (customPhotoUrl != null) {
                             AsyncImage(
-                                model = photoUrl,
-                                contentDescription = "프로필 사진",
+                                model = customPhotoUrl,
+                                contentDescription = stringResource(R.string.profile_photo_desc),
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(CircleShape)
                             )
                         } else {
-                            val initial = currentUser?.displayName?.firstOrNull()?.toString()
-                            if (initial != null) {
-                                Text(
-                                    text = initial,
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = ProfileColors.Accent
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Outlined.Person,
-                                    contentDescription = null,
-                                    tint = ProfileColors.Accent,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                            }
+                            Text(
+                                text = "D",
+                                fontSize = 40.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = accentColor
+                            )
                         }
                     }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = currentUser?.displayName ?: "사용자",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = ProfileColors.TextPrimary
-                        )
-                        Text(
-                            text = currentUser?.email ?: "",
-                            fontSize = 13.sp,
-                            color = ProfileColors.TextMuted
-                        )
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(
+                                text = currentUser?.displayName ?: stringResource(R.string.default_user),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textPrimary
+                            )
+                            Text(
+                                text = currentUser?.email ?: "",
+                                fontSize = 13.sp,
+                                color = textMuted
+                            )
+                        }
+                        TextButton(onClick = onEditProfile) {
+                            Text(
+                                text = stringResource(R.string.btn_profile_edit),
+                                color = accentColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
 
             // ── 앱 설정 섹션 ───────────────────────────────────────────────────
-            ProfileSectionLabel("앱 설정")
+            ProfileSectionLabel(stringResource(R.string.section_app_settings))
             ProfileCard {
                 Column {
                     SwitchRow(
-                        label = "다크 모드",
+                        label = stringResource(R.string.setting_dark_mode),
                         checked = isDarkMode,
-                        onCheckedChange = { isDarkMode = it }
+                        onCheckedChange = { enabled ->
+                            onDarkModeChange(enabled)
+                            activity?.recreate()
+                        }
                     )
                     ProfileDivider()
                     ArrowRow(
-                        label = "언어",
+                        label = stringResource(R.string.setting_language),
                         value = language,
                         onClick = { showLanguageDialog = true }
                     )
                     ProfileDivider()
                     SwitchRow(
-                        label = "일기 알림",
+                        label = stringResource(R.string.setting_diary_notification),
                         checked = notificationEnabled,
-                        onCheckedChange = { notificationEnabled = it }
+                        onCheckedChange = { enabled ->
+                            notificationEnabled = enabled
+                            prefs.edit().putBoolean("notification_enabled", enabled).apply()
+                            if (enabled) {
+                                scheduleNotification(context, notificationHour, notificationMinute)
+                            } else {
+                                cancelNotification(context)
+                            }
+                        }
                     )
                     if (notificationEnabled) {
                         ProfileDivider()
                         ArrowRow(
-                            label = "알림 시간",
+                            label = stringResource(R.string.setting_notification_time),
                             value = "%02d:%02d".format(notificationHour, notificationMinute),
                             onClick = { showTimePickerDialog = true }
                         )
@@ -221,25 +284,25 @@ fun ProfileScreen(
             }
 
             // ── 개인정보 섹션 ──────────────────────────────────────────────────
-            ProfileSectionLabel("개인정보")
+            ProfileSectionLabel(stringResource(R.string.section_privacy))
             ProfileCard {
                 Column {
-                    ArrowRow(label = "개인정보 처리방침", onClick = {})
+                    ArrowRow(label = stringResource(R.string.privacy_policy), onClick = onPrivacyPolicy)
                     ProfileDivider()
-                    ArrowRow(label = "서비스 이용약관", onClick = {})
+                    ArrowRow(label = stringResource(R.string.terms_of_service), onClick = onTermsOfService)
                     ProfileDivider()
-                    InfoRow(label = "앱 버전", value = "1.0")
+                    InfoRow(label = stringResource(R.string.app_version), value = "1.0")
                 }
             }
 
             // ── 계정 관리 섹션 ─────────────────────────────────────────────────
-            ProfileSectionLabel("계정 관리")
+            ProfileSectionLabel(stringResource(R.string.section_account))
             ProfileCard {
                 Column {
-                    SimpleRow(label = "로그아웃", onClick = { showLogoutDialog = true })
+                    SimpleRow(label = stringResource(R.string.logout), onClick = { showLogoutDialog = true })
                     ProfileDivider()
                     SimpleRow(
-                        label = "회원탈퇴",
+                        label = stringResource(R.string.delete_account),
                         labelColor = ProfileColors.Danger,
                         onClick = { showDeleteDialog = true }
                     )
@@ -254,20 +317,27 @@ fun ProfileScreen(
     if (showLanguageDialog) {
         AlertDialog(
             onDismissRequest = { showLanguageDialog = false },
-            title = { Text("언어 선택", color = ProfileColors.TextPrimary) },
+            title = { Text(stringResource(R.string.dialog_language_title), color = textPrimary) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     listOf("한국어", "English").forEach { lang ->
                         TextButton(
                             onClick = {
                                 language = lang
+                                prefs.edit().putString("language", lang).apply()
+                                AppCompatDelegate.setApplicationLocales(
+                                    if (lang == "English") LocaleListCompat.forLanguageTags("en")
+                                    else LocaleListCompat.forLanguageTags("ko")
+                                )
                                 showLanguageDialog = false
+                                // 언어 변경 즉시 적용을 위해 Activity 재시작
+                                activity?.recreate()
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = lang,
-                                color = if (lang == language) ProfileColors.Accent else ProfileColors.TextPrimary,
+                                color = if (lang == language) accentColor else textPrimary,
                                 fontWeight = if (lang == language) FontWeight.Bold else FontWeight.Normal
                             )
                         }
@@ -277,24 +347,26 @@ fun ProfileScreen(
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { showLanguageDialog = false }) {
-                    Text("취소", color = ProfileColors.TextMuted)
+                    Text(stringResource(R.string.cancel), color = textMuted)
                 }
             },
-            containerColor = ProfileColors.CardBg
+            containerColor = cardBg
         )
     }
 
     // ── 알림 시간 선택 다이얼로그 ──────────────────────────────────────────────
     if (showTimePickerDialog) {
-        val timePickerState = rememberTimePickerState(
-            initialHour = notificationHour,
-            initialMinute = notificationMinute,
-            is24Hour = true
-        )
+        var hourText by remember { mutableStateOf("%02d".format(notificationHour)) }
+        var minuteText by remember { mutableStateOf("%02d".format(notificationMinute)) }
+        var hourFocused by remember { mutableStateOf(false) }
+        var minuteFocused by remember { mutableStateOf(false) }
+        val cardSelected = Color(0xFF3D7A5C)
+        val cardUnselected = Color(0xFFC8E6C9)
+
         Dialog(onDismissRequest = { showTimePickerDialog = false }) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = ProfileColors.CardBg
+                color = cardBg
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -302,28 +374,128 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "알림 시간 설정",
+                        text = stringResource(R.string.dialog_notification_time_title),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
-                        color = ProfileColors.TextPrimary
+                        color = textPrimary
                     )
-                    TimeInput(state = timePickerState)
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // ── 시 카드 ──
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(96.dp, 72.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (hourFocused) cardSelected else cardUnselected),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BasicTextField(
+                                    value = hourText,
+                                    onValueChange = { v ->
+                                        hourText = v.filter { it.isDigit() }.take(2)
+                                    },
+                                    textStyle = TextStyle(
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (hourFocused) Color.White else Color(0xFF3D7A5C),
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp)
+                                        .onFocusChanged { hourFocused = it.isFocused }
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.hour_label),
+                                fontSize = 12.sp,
+                                color = textMuted
+                            )
+                        }
+
+                        // ── 구분자 ──
+                        Text(
+                            text = ":",
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Light,
+                            color = textPrimary,
+                            modifier = Modifier.padding(bottom = 20.dp)
+                        )
+
+                        // ── 분 카드 ──
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(96.dp, 72.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (minuteFocused) cardSelected else cardUnselected),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BasicTextField(
+                                    value = minuteText,
+                                    onValueChange = { v ->
+                                        minuteText = v.filter { it.isDigit() }.take(2)
+                                    },
+                                    textStyle = TextStyle(
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = if (minuteFocused) Color.White else Color(0xFF3D7A5C),
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 8.dp)
+                                        .onFocusChanged { minuteFocused = it.isFocused }
+                                )
+                            }
+                            Text(
+                                text = stringResource(R.string.minute_label),
+                                fontSize = 12.sp,
+                                color = textMuted
+                            )
+                        }
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = { showTimePickerDialog = false }) {
-                            Text("취소", color = ProfileColors.TextMuted)
+                            Text(stringResource(R.string.cancel), color = textMuted)
                         }
                         TextButton(
                             onClick = {
-                                notificationHour = timePickerState.hour
-                                notificationMinute = timePickerState.minute
+                                val h = hourText.toIntOrNull()?.coerceIn(0, 23) ?: notificationHour
+                                val m = minuteText.toIntOrNull()?.coerceIn(0, 59) ?: notificationMinute
+                                notificationHour = h
+                                notificationMinute = m
+                                prefs.edit()
+                                    .putInt("notification_hour", h)
+                                    .putInt("notification_minute", m)
+                                    .apply()
+                                // 알림이 켜져 있으면 변경된 시각으로 재예약
+                                if (notificationEnabled) {
+                                    scheduleNotification(context, h, m)
+                                }
                                 showTimePickerDialog = false
                             }
                         ) {
-                            Text("확인", color = ProfileColors.Accent)
+                            Text(stringResource(R.string.confirm), color = accentColor)
                         }
                     }
                 }
@@ -335,8 +507,8 @@ fun ProfileScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("로그아웃", color = ProfileColors.TextPrimary) },
-            text = { Text("정말 로그아웃 하시겠어요?", color = ProfileColors.TextMuted) },
+            title = { Text(stringResource(R.string.dialog_logout_title), color = textPrimary) },
+            text = { Text(stringResource(R.string.dialog_logout_message), color = textMuted) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -344,15 +516,15 @@ fun ProfileScreen(
                         authViewModel.logout()
                     }
                 ) {
-                    Text("로그아웃", color = ProfileColors.Accent, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.logout), color = accentColor, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("취소", color = ProfileColors.TextMuted)
+                    Text(stringResource(R.string.cancel), color = textMuted)
                 }
             },
-            containerColor = ProfileColors.CardBg
+            containerColor = cardBg
         )
     }
 
@@ -360,11 +532,11 @@ fun ProfileScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("회원탈퇴", color = ProfileColors.TextPrimary) },
+            title = { Text(stringResource(R.string.dialog_delete_title), color = textPrimary) },
             text = {
                 Text(
-                    "계정을 삭제하면 모든 데이터가 영구적으로 삭제됩니다. 정말 탈퇴하시겠어요?",
-                    color = ProfileColors.TextMuted
+                    stringResource(R.string.dialog_delete_message),
+                    color = textMuted
                 )
             },
             confirmButton = {
@@ -374,25 +546,26 @@ fun ProfileScreen(
                         authViewModel.deleteAccount()
                     }
                 ) {
-                    Text("탈퇴", color = ProfileColors.Danger, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.btn_delete_confirm), color = ProfileColors.Danger, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("취소", color = ProfileColors.TextMuted)
+                    Text(stringResource(R.string.cancel), color = textMuted)
                 }
             },
-            containerColor = ProfileColors.CardBg
+            containerColor = cardBg
         )
     }
 }
 
 @Composable
 private fun ProfileCard(content: @Composable () -> Unit) {
+    val isDark = LocalDarkTheme.current
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = ProfileColors.CardBg,
-        border = androidx.compose.foundation.BorderStroke(0.5.dp, ProfileColors.Border)
+        color = if (isDark) SurfaceDark else ProfileColors.CardBg,
+        border = BorderStroke(0.5.dp, if (isDark) BorderDark else ProfileColors.Border)
     ) {
         content()
     }
@@ -400,20 +573,22 @@ private fun ProfileCard(content: @Composable () -> Unit) {
 
 @Composable
 private fun ProfileSectionLabel(text: String) {
+    val isDark = LocalDarkTheme.current
     Text(
         text = text,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
-        color = ProfileColors.TextMuted,
+        color = if (isDark) TextSecondaryDark else ProfileColors.TextMuted,
         modifier = Modifier.padding(horizontal = 4.dp)
     )
 }
 
 @Composable
 private fun ProfileDivider() {
+    val isDark = LocalDarkTheme.current
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = 16.dp),
-        color = ProfileColors.Border,
+        color = if (isDark) BorderDark else ProfileColors.Border,
         thickness = 0.5.dp
     )
 }
@@ -424,6 +599,7 @@ private fun SwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val isDark = LocalDarkTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -434,16 +610,16 @@ private fun SwitchRow(
         Text(
             text = label,
             fontSize = 15.sp,
-            color = ProfileColors.TextPrimary
+            color = if (isDark) TextPrimaryDark else ProfileColors.TextPrimary
         )
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = White,
-                checkedTrackColor = ProfileColors.Accent,
+                checkedTrackColor = if (isDark) SageForestDark else ProfileColors.Accent,
                 uncheckedThumbColor = White,
-                uncheckedTrackColor = ProfileColors.Border
+                uncheckedTrackColor = if (isDark) BorderDark else ProfileColors.Border
             )
         )
     }
@@ -455,6 +631,7 @@ private fun ArrowRow(
     value: String? = null,
     onClick: () -> Unit
 ) {
+    val isDark = LocalDarkTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -466,7 +643,7 @@ private fun ArrowRow(
         Text(
             text = label,
             fontSize = 15.sp,
-            color = ProfileColors.TextPrimary
+            color = if (isDark) TextPrimaryDark else ProfileColors.TextPrimary
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -476,13 +653,13 @@ private fun ArrowRow(
                 Text(
                     text = value,
                     fontSize = 14.sp,
-                    color = ProfileColors.TextMuted
+                    color = if (isDark) TextSecondaryDark else ProfileColors.TextMuted
                 )
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = null,
-                tint = ProfileColors.TextMuted,
+                tint = if (isDark) TextSecondaryDark else ProfileColors.TextMuted,
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -492,9 +669,11 @@ private fun ArrowRow(
 @Composable
 private fun SimpleRow(
     label: String,
-    labelColor: Color = ProfileColors.TextPrimary,
+    labelColor: Color? = null,
     onClick: () -> Unit
 ) {
+    val isDark = LocalDarkTheme.current
+    val color = labelColor ?: if (isDark) TextPrimaryDark else ProfileColors.TextPrimary
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -505,13 +684,14 @@ private fun SimpleRow(
         Text(
             text = label,
             fontSize = 15.sp,
-            color = labelColor
+            color = color
         )
     }
 }
 
 @Composable
 private fun InfoRow(label: String, value: String) {
+    val isDark = LocalDarkTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -522,12 +702,12 @@ private fun InfoRow(label: String, value: String) {
         Text(
             text = label,
             fontSize = 15.sp,
-            color = ProfileColors.TextPrimary
+            color = if (isDark) TextPrimaryDark else ProfileColors.TextPrimary
         )
         Text(
             text = value,
             fontSize = 14.sp,
-            color = ProfileColors.TextMuted
+            color = if (isDark) TextSecondaryDark else ProfileColors.TextMuted
         )
     }
 }
@@ -574,36 +754,36 @@ private fun ProfileScreenPreview() {
                     }
                 }
 
-                ProfileSectionLabel("앱 설정")
+                ProfileSectionLabel(stringResource(R.string.section_app_settings))
                 ProfileCard {
                     Column {
-                        SwitchRow(label = "다크 모드", checked = false, onCheckedChange = {})
+                        SwitchRow(label = stringResource(R.string.setting_dark_mode), checked = false, onCheckedChange = {})
                         ProfileDivider()
-                        ArrowRow(label = "언어", value = "한국어", onClick = {})
+                        ArrowRow(label = stringResource(R.string.setting_language), value = "한국어", onClick = {})
                         ProfileDivider()
-                        SwitchRow(label = "일기 알림", checked = true, onCheckedChange = {})
+                        SwitchRow(label = stringResource(R.string.setting_diary_notification), checked = true, onCheckedChange = {})
                         ProfileDivider()
-                        ArrowRow(label = "알림 시간", value = "21:00", onClick = {})
+                        ArrowRow(label = stringResource(R.string.setting_notification_time), value = "21:00", onClick = {})
                     }
                 }
 
-                ProfileSectionLabel("개인정보")
+                ProfileSectionLabel(stringResource(R.string.section_privacy))
                 ProfileCard {
                     Column {
-                        ArrowRow(label = "개인정보 처리방침", onClick = {})
+                        ArrowRow(label = stringResource(R.string.privacy_policy), onClick = {})
                         ProfileDivider()
-                        ArrowRow(label = "서비스 이용약관", onClick = {})
+                        ArrowRow(label = stringResource(R.string.terms_of_service), onClick = {})
                         ProfileDivider()
-                        InfoRow(label = "앱 버전", value = "1.0")
+                        InfoRow(label = stringResource(R.string.app_version), value = "1.0")
                     }
                 }
 
-                ProfileSectionLabel("계정 관리")
+                ProfileSectionLabel(stringResource(R.string.section_account))
                 ProfileCard {
                     Column {
-                        SimpleRow(label = "로그아웃", onClick = {})
+                        SimpleRow(label = stringResource(R.string.logout), onClick = {})
                         ProfileDivider()
-                        SimpleRow(label = "회원탈퇴", labelColor = ProfileColors.Danger, onClick = {})
+                        SimpleRow(label = stringResource(R.string.delete_account), labelColor = ProfileColors.Danger, onClick = {})
                     }
                 }
             }

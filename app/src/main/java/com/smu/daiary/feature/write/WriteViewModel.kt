@@ -210,6 +210,17 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun updateWeatherSelection(weather: String?) { _selectedWeather.value = weather }
     fun updateEmotionSelection(emotion: String?) { _selectedEmotion.value = emotion }
 
+    fun loadExistingEntry(entry: DiaryEntry) {
+        _draft.value = DiaryDraft(
+            date = entry.date,
+            aiContent = entry.content,
+            editedContent = entry.content,
+            photos = entry.photos
+        )
+        _selectedWeather.value = entry.weather.ifEmpty { null }
+        _selectedEmotion.value = entry.emotion.ifEmpty { null }
+    }
+
     fun resetDraft() {
         _draft.value = null
         _blocks.value = emptyList()

@@ -51,14 +51,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import com.smu.daiary.ui.theme.Ink
-import com.smu.daiary.ui.theme.Linen
-import com.smu.daiary.ui.theme.SageForest
-import com.smu.daiary.ui.theme.Stone
-import com.smu.daiary.ui.theme.Dew
-import com.smu.daiary.ui.theme.White
-import com.smu.daiary.ui.theme.Ivory
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.DewDark
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Ivory
+import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.Stone
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.TextSecondaryDark
+import com.smu.daiary.ui.theme.White
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -75,18 +84,44 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.smu.daiary.ui.theme.DaiaryTheme
 import kotlinx.coroutines.delay
 
-private object LoginColors {
-    val Background   = Ivory
-    val Surface      = White
-    val InputBg      = Dew
-    val TextPrimary  = Ink
-    val TextMuted    = Stone
-    val AccentPurple = SageForest
-    val Border       = Linen
-    val ErrorRed     = Color(0xFFD32F2F)
-    val SuccessGreen = Color(0xFF2E7D32)
-    val Overlay      = Color.Black.copy(alpha = 0.6f)
-}
+private data class LoginColorScheme(
+    val Background: Color,
+    val Surface: Color,
+    val InputBg: Color,
+    val TextPrimary: Color,
+    val TextMuted: Color,
+    val AccentPurple: Color,
+    val Border: Color,
+    val ErrorRed: Color,
+    val SuccessGreen: Color,
+    val Overlay: Color
+)
+
+private val LoginColors = LoginColorScheme(
+    Background   = Ivory,
+    Surface      = White,
+    InputBg      = Dew,
+    TextPrimary  = Ink,
+    TextMuted    = Stone,
+    AccentPurple = SageForest,
+    Border       = Linen,
+    ErrorRed     = Color(0xFFD32F2F),
+    SuccessGreen = Color(0xFF2E7D32),
+    Overlay      = Color.Black.copy(alpha = 0.6f)
+)
+
+private val LoginColorsDark = LoginColorScheme(
+    Background   = BackgroundDark,
+    Surface      = SurfaceDark,
+    InputBg      = DewDark,
+    TextPrimary  = TextPrimaryDark,
+    TextMuted    = TextSecondaryDark,
+    AccentPurple = SageForestDark,
+    Border       = BorderDark,
+    ErrorRed     = Color(0xFFEF9A9A),
+    SuccessGreen = Color(0xFF81C784),
+    Overlay      = Color.Black.copy(alpha = 0.7f)
+)
 
 /**
  * 로그인 / 회원가입 화면.
@@ -99,6 +134,9 @@ fun LoginScreen(
     authViewModel: AuthViewModel,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val lc = if (isDark) LoginColorsDark else LoginColors
+
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
@@ -156,7 +194,7 @@ fun LoginScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(LoginColors.Background),
+            .background(lc.Background),
         contentAlignment = Alignment.Center
     ) {
         // ── 로그인·회원가입 카드 ───────────────────────────────────────────────
@@ -165,8 +203,8 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 28.dp),
             shape = RoundedCornerShape(24.dp),
-            color = LoginColors.Surface,
-            border = BorderStroke(1.5.dp, LoginColors.AccentPurple),
+            color = lc.Surface,
+            border = BorderStroke(1.5.dp, lc.AccentPurple),
             shadowElevation = 2.dp
         ) {
             Column(
@@ -178,7 +216,7 @@ fun LoginScreen(
                     text       = "D.log",
                     fontSize   = 28.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color      = LoginColors.AccentPurple,
+                    color      = lc.AccentPurple,
                     textAlign  = TextAlign.Center,
                     modifier   = Modifier.padding(bottom = 24.dp)
                 )
@@ -187,16 +225,16 @@ fun LoginScreen(
                 TabRow(
                     selectedTabIndex = selectedTab,
                     containerColor   = Color.Transparent,
-                    contentColor     = LoginColors.AccentPurple,
+                    contentColor     = lc.AccentPurple,
                     indicator        = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color    = LoginColors.AccentPurple
+                            color    = lc.AccentPurple
                         )
                     },
                     divider = {}
                 ) {
-                    listOf("로그인", "회원가입").forEachIndexed { index, title ->
+                    listOf(stringResource(R.string.tab_login), stringResource(R.string.tab_signup)).forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
                             onClick  = { selectedTab = index },
@@ -205,7 +243,7 @@ fun LoginScreen(
                                     text       = title,
                                     fontSize   = 14.sp,
                                     fontWeight = if (selectedTab == index) FontWeight.Medium else FontWeight.Normal,
-                                    color      = if (selectedTab == index) LoginColors.AccentPurple else LoginColors.TextMuted
+                                    color      = if (selectedTab == index) lc.AccentPurple else lc.TextMuted
                                 )
                             }
                         )
@@ -218,17 +256,17 @@ fun LoginScreen(
                 OutlinedTextField(
                     value           = email,
                     onValueChange   = { email = it },
-                    label           = { Text("이메일") },
+                    label           = { Text(stringResource(R.string.label_email)) },
                     singleLine      = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier        = Modifier.fillMaxWidth(),
                     shape           = RoundedCornerShape(12.dp),
                     colors          = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor      = LoginColors.AccentPurple,
-                        focusedLabelColor       = LoginColors.AccentPurple,
-                        cursorColor             = LoginColors.AccentPurple,
-                        focusedContainerColor   = LoginColors.InputBg,
-                        unfocusedContainerColor = LoginColors.InputBg
+                        focusedBorderColor      = lc.AccentPurple,
+                        focusedLabelColor       = lc.AccentPurple,
+                        cursorColor             = lc.AccentPurple,
+                        focusedContainerColor   = lc.InputBg,
+                        unfocusedContainerColor = lc.InputBg
                     )
                 )
 
@@ -238,18 +276,18 @@ fun LoginScreen(
                 OutlinedTextField(
                     value                = password,
                     onValueChange        = { password = it },
-                    label                = { Text("비밀번호") },
+                    label                = { Text(stringResource(R.string.label_password)) },
                     singleLine           = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions      = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier             = Modifier.fillMaxWidth(),
                     shape                = RoundedCornerShape(12.dp),
                     colors               = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor      = LoginColors.AccentPurple,
-                        focusedLabelColor       = LoginColors.AccentPurple,
-                        cursorColor             = LoginColors.AccentPurple,
-                        focusedContainerColor   = LoginColors.InputBg,
-                        unfocusedContainerColor = LoginColors.InputBg
+                        focusedBorderColor      = lc.AccentPurple,
+                        focusedLabelColor       = lc.AccentPurple,
+                        cursorColor             = lc.AccentPurple,
+                        focusedContainerColor   = lc.InputBg,
+                        unfocusedContainerColor = lc.InputBg
                     )
                 )
 
@@ -257,7 +295,7 @@ fun LoginScreen(
                 AnimatedVisibility(visible = authState is AuthState.Error) {
                     Text(
                         text     = (authState as? AuthState.Error)?.message ?: "",
-                        color    = LoginColors.ErrorRed,
+                        color    = lc.ErrorRed,
                         fontSize = 12.sp,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -277,7 +315,7 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape    = RoundedCornerShape(14.dp),
                     colors   = ButtonDefaults.buttonColors(
-                        containerColor = LoginColors.AccentPurple
+                        containerColor = lc.AccentPurple
                     )
                 ) {
                     if (authState is AuthState.Loading) {
@@ -290,11 +328,11 @@ fun LoginScreen(
                                 color       = Color.White,
                                 strokeWidth = 2.dp
                             )
-                            Text("처리 중...", color = Color.White, fontSize = 15.sp)
+                            Text(stringResource(R.string.loading_text), color = Color.White, fontSize = 15.sp)
                         }
                     } else {
                         Text(
-                            text       = if (selectedTab == 0) "로그인" else "회원가입",
+                            text       = if (selectedTab == 0) stringResource(R.string.tab_login) else stringResource(R.string.tab_signup),
                             fontSize   = 15.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -306,9 +344,9 @@ fun LoginScreen(
                     modifier          = Modifier.fillMaxWidth().padding(vertical = 20.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = LoginColors.Border)
-                    Text("  또는  ", fontSize = 12.sp, color = LoginColors.TextMuted)
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = LoginColors.Border)
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = lc.Border)
+                    Text(stringResource(R.string.or_divider), fontSize = 12.sp, color = lc.TextMuted)
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = lc.Border)
                 }
 
                 // ── Google 로그인 버튼 ─────────────────────────────────────────
@@ -317,9 +355,9 @@ fun LoginScreen(
                     enabled  = authState !is AuthState.Loading,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
                     shape    = RoundedCornerShape(14.dp),
-                    border   = BorderStroke(1.dp, LoginColors.Border),
+                    border   = BorderStroke(1.dp, lc.Border),
                     colors   = ButtonDefaults.outlinedButtonColors(
-                        contentColor = LoginColors.TextPrimary
+                        contentColor = lc.TextPrimary
                     )
                 ) {
                     Box(
@@ -329,7 +367,7 @@ fun LoginScreen(
                         Text("G", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("Google로 계속하기", fontSize = 15.sp, color = LoginColors.TextPrimary)
+                    Text(stringResource(R.string.google_signin), fontSize = 15.sp, color = lc.TextPrimary)
                 }
             }
         }
@@ -344,12 +382,12 @@ fun LoginScreen(
             modifier = Modifier.fillMaxSize().zIndex(10f)
         ) {
             Box(
-                modifier         = Modifier.fillMaxSize().background(LoginColors.Overlay),
+                modifier         = Modifier.fillMaxSize().background(lc.Overlay),
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
                     shape           = RoundedCornerShape(20.dp),
-                    color           = LoginColors.Surface,
+                    color           = lc.Surface,
                     shadowElevation = 8.dp
                 ) {
                     Column(
@@ -360,14 +398,14 @@ fun LoginScreen(
                         Icon(
                             imageVector        = Icons.Filled.CheckCircle,
                             contentDescription = null,
-                            tint               = LoginColors.SuccessGreen,
+                            tint               = lc.SuccessGreen,
                             modifier           = Modifier.size(56.dp)
                         )
                         Text(
-                            text       = if (authState is AuthState.SignUpSuccess) "회원가입 성공" else "로그인 성공",
+                            text       = if (authState is AuthState.SignUpSuccess) stringResource(R.string.signup_success) else stringResource(R.string.login_success),
                             fontSize   = 20.sp,
                             fontWeight = FontWeight.Bold,
-                            color      = LoginColors.TextPrimary
+                            color      = lc.TextPrimary
                         )
                     }
                 }
@@ -380,10 +418,11 @@ fun LoginScreen(
 @Composable
 private fun LoginScreenPreview() {
     DaiaryTheme {
+        val lc = LoginColors
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LoginColors.Background),
+                .background(lc.Background),
             contentAlignment = Alignment.Center
         ) {
             Surface(
@@ -391,8 +430,8 @@ private fun LoginScreenPreview() {
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp),
                 shape = RoundedCornerShape(24.dp),
-                color = LoginColors.Surface,
-                border = BorderStroke(1.5.dp, LoginColors.AccentPurple),
+                color = lc.Surface,
+                border = BorderStroke(1.5.dp, lc.AccentPurple),
                 shadowElevation = 2.dp
             ) {
                 Column(
@@ -403,18 +442,18 @@ private fun LoginScreenPreview() {
                         text = "D.log",
                         fontSize = 28.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = LoginColors.AccentPurple,
+                        color = lc.AccentPurple,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(bottom = 24.dp)
                     )
                     TabRow(
                         selectedTabIndex = 0,
                         containerColor = Color.Transparent,
-                        contentColor = LoginColors.AccentPurple,
+                        contentColor = lc.AccentPurple,
                         indicator = { tabPositions ->
                             TabRowDefaults.SecondaryIndicator(
                                 modifier = Modifier.tabIndicatorOffset(tabPositions[0]),
-                                color = LoginColors.AccentPurple
+                                color = lc.AccentPurple
                             )
                         },
                         divider = {}
@@ -428,7 +467,7 @@ private fun LoginScreenPreview() {
                                         text = title,
                                         fontSize = 14.sp,
                                         fontWeight = if (index == 0) FontWeight.Medium else FontWeight.Normal,
-                                        color = if (index == 0) LoginColors.AccentPurple else LoginColors.TextMuted
+                                        color = if (index == 0) lc.AccentPurple else lc.TextMuted
                                     )
                                 }
                             )
@@ -443,11 +482,11 @@ private fun LoginScreenPreview() {
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = LoginColors.AccentPurple,
-                            focusedLabelColor = LoginColors.AccentPurple,
-                            cursorColor = LoginColors.AccentPurple,
-                            focusedContainerColor = LoginColors.InputBg,
-                            unfocusedContainerColor = LoginColors.InputBg
+                            focusedBorderColor = lc.AccentPurple,
+                            focusedLabelColor = lc.AccentPurple,
+                            cursorColor = lc.AccentPurple,
+                            focusedContainerColor = lc.InputBg,
+                            unfocusedContainerColor = lc.InputBg
                         )
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -460,11 +499,11 @@ private fun LoginScreenPreview() {
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = LoginColors.AccentPurple,
-                            focusedLabelColor = LoginColors.AccentPurple,
-                            cursorColor = LoginColors.AccentPurple,
-                            focusedContainerColor = LoginColors.InputBg,
-                            unfocusedContainerColor = LoginColors.InputBg
+                            focusedBorderColor = lc.AccentPurple,
+                            focusedLabelColor = lc.AccentPurple,
+                            cursorColor = lc.AccentPurple,
+                            focusedContainerColor = lc.InputBg,
+                            unfocusedContainerColor = lc.InputBg
                         )
                     )
                     Spacer(modifier = Modifier.height(24.dp))
@@ -472,7 +511,7 @@ private fun LoginScreenPreview() {
                         onClick = {},
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LoginColors.AccentPurple)
+                        colors = ButtonDefaults.buttonColors(containerColor = lc.AccentPurple)
                     ) {
                         Text("로그인", fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }
@@ -480,16 +519,16 @@ private fun LoginScreenPreview() {
                         modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = LoginColors.Border)
-                        Text("  또는  ", fontSize = 12.sp, color = LoginColors.TextMuted)
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = LoginColors.Border)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = lc.Border)
+                        Text("  또는  ", fontSize = 12.sp, color = lc.TextMuted)
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = lc.Border)
                     }
                     OutlinedButton(
                         onClick = {},
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, LoginColors.Border),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = LoginColors.TextPrimary)
+                        border = BorderStroke(1.dp, lc.Border),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = lc.TextPrimary)
                     ) {
                         Box(
                             modifier = Modifier.size(20.dp).clip(CircleShape).background(Color(0xFF4285F4)),
@@ -498,7 +537,7 @@ private fun LoginScreenPreview() {
                             Text("G", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("Google로 계속하기", fontSize = 15.sp, color = LoginColors.TextPrimary)
+                        Text("Google로 계속하기", fontSize = 15.sp, color = lc.TextPrimary)
                     }
                 }
             }
@@ -510,15 +549,16 @@ private fun LoginScreenPreview() {
 @Composable
 private fun SignUpSuccessOverlayPreview() {
     DaiaryTheme {
+        val lc = LoginColors
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LoginColors.Overlay),
+                .background(lc.Overlay),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = LoginColors.Surface,
+                color = lc.Surface,
                 shadowElevation = 8.dp
             ) {
                 Column(
@@ -529,14 +569,14 @@ private fun SignUpSuccessOverlayPreview() {
                     Icon(
                         imageVector = Icons.Filled.CheckCircle,
                         contentDescription = null,
-                        tint = LoginColors.SuccessGreen,
+                        tint = lc.SuccessGreen,
                         modifier = Modifier.size(56.dp)
                     )
                     Text(
                         text = "회원가입 성공",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = LoginColors.TextPrimary
+                        color = lc.TextPrimary
                     )
                 }
             }
@@ -548,15 +588,16 @@ private fun SignUpSuccessOverlayPreview() {
 @Composable
 private fun LoginSuccessOverlayPreview() {
     DaiaryTheme {
+        val lc = LoginColors
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(LoginColors.Overlay),
+                .background(lc.Overlay),
             contentAlignment = Alignment.Center
         ) {
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = LoginColors.Surface,
+                color = lc.Surface,
                 shadowElevation = 8.dp
             ) {
                 Column(
@@ -567,14 +608,14 @@ private fun LoginSuccessOverlayPreview() {
                     Icon(
                         imageVector = Icons.Filled.CheckCircle,
                         contentDescription = null,
-                        tint = LoginColors.SuccessGreen,
+                        tint = lc.SuccessGreen,
                         modifier = Modifier.size(56.dp)
                     )
                     Text(
                         text = "로그인 성공",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = LoginColors.TextPrimary
+                        color = lc.TextPrimary
                     )
                 }
             }
