@@ -48,52 +48,55 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smu.daiary.R
+import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.LocalDarkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BlockSelectionScreen(
     viewModel: WriteViewModel,
     onNext: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
     val blocks by viewModel.blocks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoadingBlocks.collectAsStateWithLifecycle()
     val selectedCount = blocks.count { it.isSelected }
 
     Scaffold(
-        containerColor = WriteColors.Bg,
+        modifier = modifier,
+        containerColor = wc.Bg,
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "블록 선택",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = WriteColors.TextPrimary
-                        )
-                        Text(
-                            text = if (isLoading) "오늘 데이터를 수집하는 중..." else "오늘 하루의 데이터를 선택해주세요",
-                            fontSize = 12.sp,
-                            color = WriteColors.TextMuted
-                        )
-                    }
+                    Text(
+                        text = stringResource(R.string.screen_block_selection),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = wc.TextPrimary
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
-                            tint = WriteColors.TextPrimary
+                            contentDescription = stringResource(R.string.back),
+                            tint = wc.TextPrimary
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = WriteColors.SurfaceBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
             )
         },
         bottomBar = {
-            Surface(color = WriteColors.SurfaceBg, shadowElevation = 8.dp) {
+            Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                 Button(
                     onClick = {
                         viewModel.generateDraft()
@@ -107,12 +110,12 @@ fun BlockSelectionScreen(
                         .height(52.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = WriteColors.Purple,
-                        disabledContainerColor = WriteColors.Border
+                        containerColor = wc.Purple,
+                        disabledContainerColor = wc.Border
                     )
                 ) {
                     Text(
-                        text = if (selectedCount > 0) "초안 생성 (${selectedCount}개 선택됨)" else "초안 생성",
+                        text = stringResource(R.string.btn_select_done),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -121,7 +124,6 @@ fun BlockSelectionScreen(
         }
     ) { padding ->
         if (isLoading) {
-            // 수집 중 로딩 화면
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -129,12 +131,12 @@ fun BlockSelectionScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = WriteColors.Purple)
+                    CircularProgressIndicator(color = wc.Purple)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "날씨, 캘린더, 사진 데이터를\n불러오는 중입니다...",
+                        text = stringResource(R.string.loading_data),
                         fontSize = 14.sp,
-                        color = WriteColors.TextMuted,
+                        color = wc.TextMuted,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
@@ -163,13 +165,15 @@ fun BlockSelectionScreen(
 
 @Composable
 private fun BlockItem(block: ContentBlock, onClick: () -> Unit) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (block.isSelected) WriteColors.PurpleLight else Color.White,
+        color = if (block.isSelected) wc.PurpleLight else wc.Bg,
         border = if (block.isSelected)
-            BorderStroke(1.5.dp, WriteColors.Purple)
+            BorderStroke(1.5.dp, wc.Purple)
         else
-            BorderStroke(0.5.dp, WriteColors.Border),
+            BorderStroke(0.5.dp, wc.Border),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
@@ -183,35 +187,41 @@ private fun BlockItem(block: ContentBlock, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(if (block.isSelected) WriteColors.Purple else WriteColors.Bg),
+                    .background(if (block.isSelected) wc.Purple else wc.SurfaceBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = blockTypeIcon(block.type),
                     contentDescription = null,
-                    tint = if (block.isSelected) Color.White else WriteColors.Purple,
+                    tint = if (block.isSelected) Color.White else wc.Purple,
                     modifier = Modifier.size(20.dp)
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = block.type.label,
+                    text = when (block.type) {
+                        BlockType.PAYMENT  -> stringResource(R.string.block_type_payment)
+                        BlockType.PHOTO    -> stringResource(R.string.block_type_photo)
+                        BlockType.CALENDAR -> stringResource(R.string.block_type_calendar)
+                        BlockType.HEALTH   -> stringResource(R.string.block_type_health)
+                        BlockType.WEATHER  -> stringResource(R.string.block_type_weather)
+                    },
                     fontSize = 11.sp,
-                    color = if (block.isSelected) WriteColors.Purple else WriteColors.TextMuted,
+                    color = if (block.isSelected) wc.Purple else wc.TextMuted,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = block.content,
                     fontSize = 14.sp,
-                    color = WriteColors.TextPrimary
+                    color = wc.TextPrimary
                 )
             }
             Checkbox(
                 checked = block.isSelected,
                 onCheckedChange = { onClick() },
                 colors = CheckboxDefaults.colors(
-                    checkedColor = WriteColors.Purple,
-                    uncheckedColor = WriteColors.Border
+                    checkedColor = wc.Purple,
+                    uncheckedColor = wc.Border
                 )
             )
         }
@@ -224,4 +234,64 @@ private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
     BlockType.CALENDAR -> Icons.Outlined.CalendarMonth
     BlockType.HEALTH   -> Icons.Outlined.FitnessCenter
     BlockType.WEATHER  -> Icons.Outlined.WbSunny
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BlockSelectionScreenPreview() {
+    val sampleBlocks = listOf(
+        ContentBlock("1", BlockType.WEATHER,  "맑음, 23°C", isSelected = true),
+        ContentBlock("2", BlockType.CALENDAR, "오후 3시 팀 미팅", isSelected = false),
+        ContentBlock("3", BlockType.PAYMENT,  "스타벅스 4,500원", isSelected = true),
+        ContentBlock("4", BlockType.HEALTH,   "걸음 수: 8,342보", isSelected = false),
+        ContentBlock("5", BlockType.PHOTO,    "사진 3장", isSelected = false),
+    )
+    DaiaryTheme {
+        val wc = WriteColors
+        Scaffold(
+            containerColor = wc.Bg,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Text(text = stringResource(R.string.screen_block_selection), fontSize = 18.sp, fontWeight = FontWeight.Medium, color = wc.TextPrimary)
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = {}) {
+                            Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.back), tint = wc.TextPrimary)
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
+                )
+            },
+            bottomBar = {
+                Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
+                    Button(
+                        onClick = {},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp)
+                            .padding(bottom = 8.dp)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
+                    ) {
+                        Text(text = stringResource(R.string.btn_select_done), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = 24.dp, end = 24.dp,
+                    top = padding.calculateTopPadding() + 16.dp,
+                    bottom = padding.calculateBottomPadding() + 16.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(sampleBlocks) { block -> BlockItem(block = block, onClick = {}) }
+            }
+        }
+    }
 }

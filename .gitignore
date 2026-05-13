@@ -20,7 +20,4 @@ app/build/
 # Firebase config — re-download from Firebase Console if needed
 app/google-services.json
 google-services.json
-
-# Claude Code / GSD planning
-.claude/
-.planning/
+CLAUDE.md

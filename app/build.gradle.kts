@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.ui:ui-text-google-fonts")
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     testImplementation(libs.junit)
@@ -66,6 +67,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     // Coroutines + Firebase Task 지원
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.0")
@@ -85,4 +87,10 @@ dependencies {
 
     // EXIF (사진 메타데이터 추출용)
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // Coil (이미지 로딩)
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // AppCompat (다크모드 AppCompatDelegate, 언어 전환 setApplicationLocales)
+    implementation("androidx.appcompat:appcompat:1.7.0")
 }

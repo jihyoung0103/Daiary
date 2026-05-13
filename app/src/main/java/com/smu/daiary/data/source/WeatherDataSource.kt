@@ -19,6 +19,19 @@ private const val API_KEY = "f5569a69e61d72b030f10a97a0bf0f4c"
 private const val CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
 private const val FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 
+private fun mapToCanonical(description: String): String {
+    val d = description.lowercase().trim()
+    return when {
+        d.contains("맑") || d.contains("clear") || d.contains("sunny") -> "맑음"
+        d.contains("비") || d.contains("rain") || d.contains("drizzle") ||
+            d.contains("thunder") || d.contains("뇌우") -> "비"
+        d.contains("눈") || d.contains("snow") || d.contains("sleet") -> "눈"
+        d.contains("바람") || d.contains("wind") -> "바람"
+        d.contains("흐") || d.contains("구름") || d.contains("cloud") -> "흐림"
+        else -> "맑음"
+    }
+}
+
 class WeatherDataSource(private val context: Context) {
 
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
@@ -55,7 +68,7 @@ class WeatherDataSource(private val context: Context) {
         val main = json.getJSONObject("main")
 
         return WeatherData(
-            description = weatherObj.getString("description"),
+            description = mapToCanonical(weatherObj.getString("description")),
             temperature = main.getDouble("temp"),
             humidity = main.getInt("humidity"),
             city = json.getString("name")
@@ -86,7 +99,7 @@ class WeatherDataSource(private val context: Context) {
         val main = tomorrowSlot?.getJSONObject("main")
 
         return WeatherData(
-            tomorrowDescription = weatherObj?.getString("description") ?: "",
+            tomorrowDescription = weatherObj?.getString("description")?.let { mapToCanonical(it) } ?: "",
             tomorrowTemperature = main?.getDouble("temp") ?: 0.0,
             tomorrowHumidity = main?.getInt("humidity") ?: 0
         )

@@ -8,7 +8,10 @@ data class DiaryEntry(
     val id: String = "",
     val title: String = "",
     val content: String = "",
-    val mood: String = "neutral",   // "happy" | "neutral" | "sad"
-    val date: String = "",           // "YYYY-MM-DD"
+    val mood: String = "neutral",              // "happy" | "neutral" | "sad"
+    val emotion: String = "",                  // "기쁨" | "슬픔" | "평온" | "화남" | "설렘"
+    val weather: String = "",                  // "맑음" | "흐림" | "비" | "눈" | "바람"
+    val photos: List<String> = emptyList(),    // 첨부 사진 URI 목록
+    val date: String = "",                     // "YYYY-MM-DD"
     val createdAt: Long = System.currentTimeMillis()
 )
