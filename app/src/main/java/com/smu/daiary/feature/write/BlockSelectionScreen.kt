@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -62,6 +63,7 @@ fun BlockSelectionScreen(
     viewModel: WriteViewModel,
     onNext: () -> Unit,
     onBack: () -> Unit,
+    onRetry: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
@@ -140,6 +142,34 @@ fun BlockSelectionScreen(
                         color = wc.TextMuted,
                         textAlign = TextAlign.Center
                     )
+                }
+            }
+        } else if (blocks.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.block_empty_message),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = wc.TextPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                    TextButton(onClick = onRetry) {
+                        Text(
+                            text = stringResource(R.string.btn_retry),
+                            color = wc.Purple,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         } else {

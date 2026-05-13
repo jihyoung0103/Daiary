@@ -119,9 +119,6 @@
     <string name="login_success">로그인 성공</string>
     <string name="signup_success">회원가입 성공</string>
 
-    <!-- 알림 테스트 -->
-    <string name="btn_test_notification">지금 알림 테스트</string>
-
     <!-- 날짜 형식 -->
     <string name="date_format_full">%1$d년 %2$d월 %3$d일</string>
     <string name="diary_title_date">%1$d년 %2$d월 %3$d일</string>
@@ -147,6 +144,22 @@
     <string name="block_type_calendar">일정</string>
     <string name="block_type_health">건강</string>
     <string name="block_type_weather">날씨</string>
+
+    <!-- WriteViewModel: 일기 초안 템플릿 -->
+    <string name="diary_entry_title">%1$d년 %2$d월 %3$d일 일기</string>
+    <string name="draft_intro">오늘 하루를 되돌아보면,</string>
+    <string name="draft_block_payment">• %1$s를 이용했다.</string>
+    <string name="draft_block_photo">• %1$s을 남겼다.</string>
+    <string name="draft_block_calendar">• %1$s이 있었다.</string>
+    <string name="draft_block_health">• 오늘의 건강: %1$s</string>
+    <string name="draft_block_weather">• 날씨는 %1$s이었다.</string>
+    <string name="draft_outro">오늘도 수고했다.</string>
+    <string name="block_weather_content">%1$s %2$d°C · 습도 %3$d%%</string>
+    <string name="block_weather_unavailable">날씨 정보를 가져올 수 없습니다</string>
+    <string name="block_calendar_empty">오늘 등록된 일정이 없습니다</string>
+    <string name="block_calendar_unavailable">캘린더 정보를 가져올 수 없습니다</string>
+    <string name="block_photo_count">오늘 찍은 사진 %1$d장</string>
+    <string name="block_empty_message">수집된 데이터가 없습니다</string>
 
     <!-- 푸시 알림 -->
     <string name="notification_title">오늘도 수고했어요 🌿</string>

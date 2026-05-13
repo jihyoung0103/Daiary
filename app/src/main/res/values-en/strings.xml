@@ -106,9 +106,6 @@
     <string name="login_success">Login Successful</string>
     <string name="signup_success">Sign Up Successful</string>
 
-    <!-- Notification test -->
-    <string name="btn_test_notification">Send Test Notification</string>
-
     <!-- Date formats -->
     <string name="date_format_full">%2$d/%3$d/%1$d</string>
     <string name="diary_title_date">%2$d/%3$d/%1$d</string>
@@ -134,6 +131,22 @@
     <string name="block_type_calendar">Schedule</string>
     <string name="block_type_health">Health</string>
     <string name="block_type_weather">Weather</string>
+
+    <!-- WriteViewModel: Draft templates -->
+    <string name="diary_entry_title">%2$d/%3$d/%1$d Diary</string>
+    <string name="draft_intro">Looking back on today,</string>
+    <string name="draft_block_payment">• Used %1$s.</string>
+    <string name="draft_block_photo">• Captured %1$s.</string>
+    <string name="draft_block_calendar">• Had %1$s.</string>
+    <string name="draft_block_health">• Today\'s health: %1$s</string>
+    <string name="draft_block_weather">• The weather was %1$s.</string>
+    <string name="draft_outro">Good job today.</string>
+    <string name="block_weather_content">%1$s %2$d°C · Humidity %3$d%%</string>
+    <string name="block_weather_unavailable">Weather info unavailable</string>
+    <string name="block_calendar_empty">No events today</string>
+    <string name="block_calendar_unavailable">Calendar info unavailable</string>
+    <string name="block_photo_count">%1$d photo(s) taken today</string>
+    <string name="block_empty_message">No data collected</string>
 
     <!-- Push notifications -->
     <string name="notification_title">Good job today 🌿</string>

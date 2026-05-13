@@ -133,6 +133,7 @@ fun ProfileScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     var customPhotoUrl by remember { mutableStateOf<String?>(null) }
+    var firestoreDisplayName by remember { mutableStateOf("") }
     var isLoadingPhoto by remember { mutableStateOf(currentUser?.uid != null) }
     LaunchedEffect(currentUser?.uid) {
         val uid = currentUser?.uid ?: run {
@@ -144,6 +145,7 @@ fun ProfileScreen(
             .collection("users").document(uid)
             .get().await()
         customPhotoUrl = doc.getString("customPhotoUrl")
+        firestoreDisplayName = doc.getString("displayName") ?: ""
         isLoadingPhoto = false
     }
 
@@ -217,7 +219,7 @@ fun ProfileScreen(
                             }
                             else -> {
                                 Text(
-                                    text = "D",
+                                    text = firestoreDisplayName.firstOrNull()?.uppercase() ?: "D",
                                     fontSize = 40.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = accentColor
@@ -233,7 +235,7 @@ fun ProfileScreen(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = currentUser?.displayName ?: stringResource(R.string.default_user),
+                                text = firestoreDisplayName.ifEmpty { currentUser?.displayName ?: stringResource(R.string.default_user) },
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = textPrimary

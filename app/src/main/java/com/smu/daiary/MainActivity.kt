@@ -211,6 +211,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel = writeViewModel,
                                         onNext = { navController.navigate("draft_preview") },
                                         onBack = { navController.popBackStack() },
+                                        onRetry = { writeViewModel.loadBlocks(userId) },
                                         modifier = Modifier.padding(innerPadding)
                                     )
                                 }

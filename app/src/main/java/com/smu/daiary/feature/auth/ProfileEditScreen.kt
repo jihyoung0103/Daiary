@@ -115,6 +115,8 @@ fun ProfileEditScreen(
             .collection("users").document(uid)
             .get().await()
         customPhotoUrl = doc.getString("customPhotoUrl")
+        val savedName = doc.getString("displayName") ?: ""
+        if (savedName.isNotBlank()) displayName = savedName
     }
 
     val photoLauncher = rememberLauncherForActivityResult(
@@ -155,11 +157,15 @@ fun ProfileEditScreen(
                     storageRef.downloadUrl.await()
                 } else null
 
-                // Firestore에 customPhotoUrl 저장 (앱 자체 사진만 추적, Google 사진 무시)
-                if (photoDownloadUri != null && currentUser != null) {
+                // Firestore에 displayName 저장 (항상), customPhotoUrl은 사진 선택 시만
+                if (currentUser != null) {
+                    val firestoreData = buildMap<String, Any> {
+                        put("displayName", displayName.trim())
+                        if (photoDownloadUri != null) put("customPhotoUrl", photoDownloadUri.toString())
+                    }
                     FirebaseFirestore.getInstance()
                         .collection("users").document(currentUser.uid)
-                        .set(mapOf("customPhotoUrl" to photoDownloadUri.toString()), SetOptions.merge())
+                        .set(firestoreData, SetOptions.merge())
                         .await()
                 }
 
@@ -276,7 +282,7 @@ fun ProfileEditScreen(
                             )
                         } else {
                             Text(
-                                text = "D",
+                                text = displayName.firstOrNull()?.uppercase() ?: "D",
                                 fontSize = 40.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = accentColor

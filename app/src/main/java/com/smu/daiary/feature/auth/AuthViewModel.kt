@@ -70,7 +70,7 @@ class AuthViewModel(
 
     // ── 이메일 회원가입 ────────────────────────────────────────────────────────
 
-    fun signUp(email: String, password: String) {
+    fun signUp(email: String, password: String, displayName: String = "") {
         if (email.isBlank() || password.isBlank()) {
             _authState.value = AuthState.Error("이메일과 비밀번호를 입력해주세요.")
             return
@@ -81,7 +81,7 @@ class AuthViewModel(
         }
         viewModelScope.launch {
             _authState.value = AuthState.Loading
-            when (val result = repository.signUp(email.trim(), password)) {
+            when (val result = repository.signUp(email.trim(), password, displayName.trim())) {
                 is AuthResult.Success -> {
                     Log.d(TAG, "회원가입 성공: uid=${result.data.uid}")
                     _authState.value = AuthState.SignUpSuccess(result.data)
@@ -102,12 +102,12 @@ class AuthViewModel(
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         FirebaseAuth.getInstance().signInWithCredential(credential)
             .addOnSuccessListener { result ->
+                val user = result.user!!
                 val isNew = result.additionalUserInfo?.isNewUser == true
-                Log.d(TAG, "Google 로그인 성공: uid=${result.user?.uid}, 신규=$isNew")
-                _authState.value = if (isNew) {
-                    AuthState.SignUpSuccess(result.user!!)
-                } else {
-                    AuthState.LoginSuccess(result.user!!)
+                Log.d(TAG, "Google 로그인 성공: uid=${user.uid}, 신규=$isNew")
+                viewModelScope.launch {
+                    repository.upsertUser(user.uid, user.email ?: "", user.displayName ?: "")
+                    _authState.value = if (isNew) AuthState.SignUpSuccess(user) else AuthState.LoginSuccess(user)
                 }
             }
             .addOnFailureListener { e ->
