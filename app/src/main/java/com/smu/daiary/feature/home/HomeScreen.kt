@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -39,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,52 +49,102 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.DiaryEntry
+import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.DewDark
+import com.smu.daiary.ui.theme.FernDark
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.MoodSad
+import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.Fern
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Ivory
+import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.Silver
+import com.smu.daiary.ui.theme.Stone
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.TextSecondaryDark
+import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 import java.time.YearMonth
 
-/** HTML 목업과 동일한 메인 캘린더·일기 목록 화면 색상. */
-private object MainCalendarColors {
-    val BackgroundOuter = Color(0xFFF1EFE8)
-    val SurfacePhone = Color(0xFFFAFAF8)
-    val TextPrimary = Color(0xFF2C2C2A)
-    val TextMuted = Color(0xFF888780)
-    val CalCard = Color(0xFFEEEDFE)
-    val CalHeader = Color(0xFF3C3489)
-    val AccentPurple = Color(0xFF533AB7)
-    val DayNames = Color(0xFF7F77DD)
-    val Border = Color(0xFFD3D1C7)
-    val NavInactive = Color(0xFFB4B2A9)
-    val DotDiary = Color(0xFF9FE1CB)
-    val MoodMint = Color(0xFF9FE1CB)
-    val MoodYellow = Color(0xFFFAC775)
-    val AvatarBg = Color(0xFFEEEDFE)
-}
+private data class MainCalendarColorScheme(
+    val BackgroundOuter: Color,
+    val SurfacePhone: Color,
+    val TextPrimary: Color,
+    val TextMuted: Color,
+    val CalCard: Color,
+    val CalHeader: Color,
+    val AccentPurple: Color,
+    val DayNames: Color,
+    val Border: Color,
+    val NavInactive: Color,
+    val DotDiary: Color,
+    val MoodMint: Color,
+    val MoodYellow: Color
+)
 
-/**
- * 메인 탭: 상단 인사·캘린더 카드·최근 일기·하단 네비(캘린더 / 작성 FAB / 프로필).
- *
- * @param modifier [Scaffold] 안전 영역 등 바깥에서 넘기는 [Modifier].
- */
+private val MainCalendarColors = MainCalendarColorScheme(
+    BackgroundOuter = White,
+    SurfacePhone    = Ivory,
+    TextPrimary     = Ink,
+    TextMuted       = Stone,
+    CalCard         = Dew,
+    CalHeader       = SageForest,
+    AccentPurple    = SageForest,
+    DayNames        = Stone,
+    Border          = Linen,
+    NavInactive     = Silver,
+    DotDiary        = SageForest,
+    MoodMint        = Fern,
+    MoodYellow      = Dew
+)
+
+private val MainCalendarColorsDark = MainCalendarColorScheme(
+    BackgroundOuter = BackgroundDark,
+    SurfacePhone    = BackgroundDark,
+    TextPrimary     = TextPrimaryDark,
+    TextMuted       = TextSecondaryDark,
+    CalCard         = DewDark,
+    CalHeader       = SageForestDark,
+    AccentPurple    = SageForestDark,
+    DayNames        = TextSecondaryDark,
+    Border          = BorderDark,
+    NavInactive     = TextSecondaryDark,
+    DotDiary        = SageForestDark,
+    MoodMint        = FernDark,
+    MoodYellow      = DewDark
+)
+
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
     diaries: List<DiaryEntry> = emptyList(),
     onLogout: () -> Unit = {},
-    onStartDiary: () -> Unit = {}
+    onStartDiary: () -> Unit = {},
+    onProfileClick: () -> Unit = {},
+    onDiaryClick: (DiaryEntry) -> Unit = {}
 ) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+
     var visibleMonth by remember { mutableStateOf(YearMonth.from(LocalDate.now())) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MainCalendarColors.BackgroundOuter)
+            .background(mc.BackgroundOuter)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f),
-            color = MainCalendarColors.SurfacePhone,
+            color = mc.SurfacePhone,
             shape = RectangleShape,
             shadowElevation = 0.dp
         ) {
@@ -102,10 +154,7 @@ fun HomeScreen(
                     .padding(horizontal = 0.dp)
             ) {
                 StatusBarPill()
-                TopBarSection(
-                    yearMonth = visibleMonth,
-                    onAvatarClick = onLogout
-                )
+                TopBarSection(yearMonth = visibleMonth)
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -114,20 +163,26 @@ fun HomeScreen(
                     CalendarCard(
                         yearMonth = visibleMonth,
                         diaries = diaries,
+                        selectedDate = selectedDate,
+                        onDateSelect = { date ->
+                            selectedDate = if (selectedDate == date) null else date
+                        },
                         onPrevMonth = {
                             visibleMonth = visibleMonth.minusMonths(1)
+                            selectedDate = null
                         },
                         onNextMonth = {
                             visibleMonth = visibleMonth.plusMonths(1)
+                            selectedDate = null
                         }
                     )
-                    RecentDiaryList(diaries = diaries)
+                    RecentDiaryList(diaries = diaries, selectedDate = selectedDate, onDiaryClick = onDiaryClick)
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 BottomNavBar(
                     onCalendarClick = { /* 현재 탭 */ },
                     onFabClick = onStartDiary,
-                    onProfileClick = { /* TODO: 프로필 */ }
+                    onProfileClick = onProfileClick
                 )
             }
         }
@@ -136,6 +191,8 @@ fun HomeScreen(
 
 @Composable
 private fun StatusBarPill() {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -148,57 +205,33 @@ private fun StatusBarPill() {
                 .width(120.dp)
                 .height(5.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(MainCalendarColors.TextPrimary.copy(alpha = 0.15f))
+                .background(mc.TextPrimary.copy(alpha = 0.15f))
         )
     }
 }
 
 @Composable
-private fun TopBarSection(
-    yearMonth: YearMonth,
-    onAvatarClick: () -> Unit
-) {
-    Row(
+private fun TopBarSection(yearMonth: YearMonth) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 0.dp)
-            .padding(top = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 24.dp)
+            .padding(top = 16.dp)
     ) {
-        Column {
-            Text(
-                text = stringResource(
-                    R.string.month_year_label,
-                    yearMonth.year,
-                    yearMonth.monthValue
-                ),
-                fontSize = 12.sp,
-                color = MainCalendarColors.TextMuted,
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
-            Text(
-                text = stringResource(R.string.today_record_title),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-                color = MainCalendarColors.TextPrimary
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(MainCalendarColors.AvatarBg)
-                .clickable(onClick = onAvatarClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Person,
-                contentDescription = stringResource(R.string.nav_profile),
-                tint = MainCalendarColors.AccentPurple,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        Text(
+            text = stringResource(R.string.year_label, yearMonth.year),
+            fontSize = 12.sp,
+            color = mc.TextMuted,
+            modifier = Modifier.padding(bottom = 2.dp)
+        )
+        Text(
+            text = stringResource(R.string.month_record_title, yearMonth.monthValue),
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Medium,
+            color = mc.TextPrimary
+        )
     }
 }
 
@@ -206,13 +239,17 @@ private fun TopBarSection(
 private fun CalendarCard(
     yearMonth: YearMonth,
     diaries: List<DiaryEntry>,
+    selectedDate: LocalDate?,
+    onDateSelect: (LocalDate) -> Unit,
     onPrevMonth: () -> Unit,
     onNextMonth: () -> Unit
 ) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+
     val today = LocalDate.now()
     val daysInMonth = yearMonth.lengthOfMonth()
     val first = yearMonth.atDay(1)
-    /** 일요일=0 … 토요일=6. ISO 요일(월=1…일=7)을 일요일 시작 열에 맞춤. */
     val leadingEmpty = first.dayOfWeek.value % 7
     val hasDiaryDays = remember(yearMonth, diaries) {
         val prefix = "${yearMonth.year}-${yearMonth.monthValue.toString().padStart(2, '0')}"
@@ -224,7 +261,7 @@ private fun CalendarCard(
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Surface(
-            color = MainCalendarColors.CalCard,
+            color = mc.CalCard,
             shape = RoundedCornerShape(20.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
@@ -239,21 +276,13 @@ private fun CalendarCard(
                             .clickable(onClick = onPrevMonth),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "‹",
-                            fontSize = 22.sp,
-                            color = MainCalendarColors.AccentPurple
-                        )
+                        Text(text = "‹", fontSize = 22.sp, color = mc.AccentPurple)
                     }
                     Text(
-                        text = stringResource(
-                            R.string.month_year_label,
-                            yearMonth.year,
-                            yearMonth.monthValue
-                        ),
+                        text = stringResource(R.string.month_year_label, yearMonth.year, yearMonth.monthValue),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MainCalendarColors.CalHeader
+                        color = mc.CalHeader
                     )
                     Box(
                         modifier = Modifier
@@ -261,22 +290,18 @@ private fun CalendarCard(
                             .clickable(onClick = onNextMonth),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "›",
-                            fontSize = 22.sp,
-                            color = MainCalendarColors.AccentPurple
-                        )
+                        Text(text = "›", fontSize = 22.sp, color = mc.AccentPurple)
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                val weekDays = listOf("일", "월", "화", "수", "목", "금", "토")
+                val weekDays = stringArrayResource(R.array.week_days).toList()
                 CalendarWeekRow {
                     weekDays.forEach { d ->
                         Text(
                             text = d,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
-                            color = MainCalendarColors.DayNames,
+                            color = mc.DayNames,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .weight(1f)
@@ -300,8 +325,14 @@ private fun CalendarCard(
                                     yearMonth.year == today.year &&
                                     yearMonth.monthValue == today.monthValue &&
                                     day == today.dayOfMonth,
+                                isSelected = day != null &&
+                                    selectedDate?.year == yearMonth.year &&
+                                    selectedDate?.monthValue == yearMonth.monthValue &&
+                                    selectedDate?.dayOfMonth == day,
                                 hasDiary = day != null && day in hasDiaryDays,
-                                onClick = { /* TODO: 날짜 선택 */ }
+                                onClick = {
+                                    if (day != null) onDateSelect(yearMonth.atDay(day))
+                                }
                             )
                         }
                     }
@@ -311,7 +342,6 @@ private fun CalendarCard(
     }
 }
 
-/** 요일/날짜 열 너비를 동일하게 맞추기 위해 `spacedBy` 없이 7칸 [Row]만 사용합니다. */
 @Composable
 private fun CalendarWeekRow(content: @Composable RowScope.() -> Unit) {
     Row(
@@ -328,16 +358,23 @@ private fun CalendarDayCell(
     day: Int?,
     modifier: Modifier = Modifier,
     isToday: Boolean,
+    isSelected: Boolean,
     hasDiary: Boolean,
     onClick: () -> Unit
 ) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
     Box(
         modifier = modifier
             .padding(horizontal = 2.dp)
             .height(40.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (isToday) MainCalendarColors.AccentPurple else Color.Transparent
+                when {
+                    isToday    -> mc.AccentPurple
+                    isSelected -> mc.CalCard
+                    else       -> Color.Transparent
+                }
             )
             .clickable(enabled = day != null, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -351,8 +388,12 @@ private fun CalendarDayCell(
                 text = day.toString(),
                 fontSize = 12.sp,
                 lineHeight = 12.sp,
-                fontWeight = if (isToday) FontWeight.Medium else FontWeight.Normal,
-                color = if (isToday) MainCalendarColors.CalCard else MainCalendarColors.TextPrimary
+                fontWeight = if (isToday || isSelected) FontWeight.Medium else FontWeight.Normal,
+                color = when {
+                    isToday    -> mc.CalCard
+                    isSelected -> mc.AccentPurple
+                    else       -> mc.TextPrimary
+                }
             )
             if (hasDiary) {
                 Spacer(modifier = Modifier.height(2.dp))
@@ -360,65 +401,81 @@ private fun CalendarDayCell(
                     modifier = Modifier
                         .size(4.dp)
                         .clip(CircleShape)
-                        .background(
-                            if (isToday) MainCalendarColors.CalCard else MainCalendarColors.DotDiary
-                        )
+                        .background(if (isToday) mc.CalCard else mc.DotDiary)
                 )
             }
         }
     }
 }
 
-/** 최근 일기 한 줄에 표시할 데이터(날짜 뱃지·제목·미리보기·무드 색). */
 data class DiaryListItemUi(
     val day: Int,
     val weekdayLabel: String,
     val title: String,
     val preview: String,
-    val moodColor: Color
+    val moodColor: Color,
+    val entry: DiaryEntry
 )
 
 @Composable
-private fun RecentDiaryList(diaries: List<DiaryEntry>) {
-    val items = remember(diaries) {
-        val weekLabels = listOf("월", "화", "수", "목", "금", "토", "일")
-        diaries.take(5).mapNotNull { entry ->
+private fun RecentDiaryList(
+    diaries: List<DiaryEntry>,
+    selectedDate: LocalDate? = null,
+    onDiaryClick: (DiaryEntry) -> Unit = {}
+) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+
+    val weekLabels = stringArrayResource(R.array.week_days_mon_first).toList()
+    val diaryTitleTemplate = stringResource(R.string.diary_title_date)
+    val items = remember(diaries, selectedDate, weekLabels, diaryTitleTemplate) {
+        val source = if (selectedDate != null) {
+            diaries.filter { it.date == selectedDate.toString() }
+        } else {
+            diaries.take(5)
+        }
+        source.mapNotNull { entry ->
             runCatching {
                 val localDate = LocalDate.parse(entry.date)
                 DiaryListItemUi(
                     day = localDate.dayOfMonth,
                     weekdayLabel = weekLabels[localDate.dayOfWeek.value - 1],
-                    title = entry.title,
+                    title = String.format(diaryTitleTemplate, localDate.year, localDate.monthValue, localDate.dayOfMonth),
                     preview = entry.content.replace("\n", " "),
                     moodColor = when (entry.mood) {
-                        "happy" -> MainCalendarColors.MoodMint
-                        "sad" -> Color(0xFF94B8FF)
-                        else -> MainCalendarColors.MoodYellow
-                    }
+                        "happy" -> mc.MoodMint
+                        "sad" -> MoodSad
+                        else -> mc.MoodYellow
+                    },
+                    entry = entry
                 )
             }.getOrNull()
         }
     }
+    val sectionTitle = if (selectedDate != null)
+        stringResource(R.string.date_record_title, selectedDate.monthValue, selectedDate.dayOfMonth)
+    else stringResource(R.string.recent_record)
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Text(
-            text = stringResource(R.string.recent_diaries),
+            text = sectionTitle,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = MainCalendarColors.TextMuted,
+            color = mc.TextMuted,
             letterSpacing = 0.05.sp,
             modifier = Modifier.padding(bottom = 12.dp)
         )
         if (items.isEmpty()) {
             Text(
-                text = "아직 작성된 일기가 없어요",
+                text = if (selectedDate != null) stringResource(R.string.no_diary_on_date)
+                       else stringResource(R.string.no_diaries_yet),
                 fontSize = 14.sp,
-                color = MainCalendarColors.TextMuted,
+                color = mc.TextMuted,
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items.forEach { item ->
-                    DiaryRow(item = item, onClick = { /* TODO */ })
+                    DiaryRow(item = item, onClick = { onDiaryClick(item.entry) })
                 }
             }
         }
@@ -427,11 +484,14 @@ private fun RecentDiaryList(diaries: List<DiaryEntry>) {
 
 @Composable
 private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+    val cardBg = if (isDark) SurfaceDark else White
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        color = Color.White,
-        border = BorderStroke(0.5.dp, MainCalendarColors.Border)
+        color = cardBg,
+        border = BorderStroke(0.5.dp, mc.Border)
     ) {
         Row(
             modifier = Modifier
@@ -445,7 +505,7 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
                     .width(40.dp)
                     .height(40.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(MainCalendarColors.BackgroundOuter),
+                    .background(mc.BackgroundOuter),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -453,13 +513,13 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
                     text = item.day.toString(),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = MainCalendarColors.TextPrimary,
+                    color = mc.TextPrimary,
                     lineHeight = 16.sp
                 )
                 Text(
                     text = item.weekdayLabel,
                     fontSize = 9.sp,
-                    color = MainCalendarColors.TextMuted
+                    color = mc.TextMuted
                 )
             }
             Column(
@@ -470,14 +530,14 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
                     text = item.title,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = MainCalendarColors.TextPrimary,
+                    color = mc.TextPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = item.preview,
                     fontSize = 12.sp,
-                    color = MainCalendarColors.TextMuted,
+                    color = mc.TextMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -499,8 +559,10 @@ private fun BottomNavBar(
     onFabClick: () -> Unit,
     onProfileClick: () -> Unit
 ) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
     Surface(
-        color = MainCalendarColors.SurfacePhone,
+        color = mc.SurfacePhone,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
@@ -509,7 +571,7 @@ private fun BottomNavBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(MainCalendarColors.Border)
+                    .background(mc.Border)
             )
             Row(
                 modifier = Modifier
@@ -527,21 +589,21 @@ private fun BottomNavBar(
                     Icon(
                         imageVector = Icons.Outlined.CalendarMonth,
                         contentDescription = stringResource(R.string.nav_calendar),
-                        tint = MainCalendarColors.AccentPurple,
+                        tint = mc.AccentPurple,
                         modifier = Modifier.size(22.dp)
                     )
                     Text(
                         text = stringResource(R.string.nav_calendar),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MainCalendarColors.AccentPurple
+                        color = mc.AccentPurple
                     )
                 }
                 FloatingActionButton(
                     onClick = onFabClick,
                     modifier = Modifier.size(50.dp),
-                    containerColor = MainCalendarColors.AccentPurple,
-                    contentColor = MainCalendarColors.CalCard,
+                    containerColor = mc.AccentPurple,
+                    contentColor = mc.CalCard,
                     shape = CircleShape,
                     elevation = FloatingActionButtonDefaults.elevation(
                         defaultElevation = 8.dp,
@@ -562,14 +624,14 @@ private fun BottomNavBar(
                     Icon(
                         imageVector = Icons.Outlined.Person,
                         contentDescription = stringResource(R.string.nav_profile),
-                        tint = MainCalendarColors.NavInactive,
+                        tint = mc.NavInactive,
                         modifier = Modifier.size(22.dp)
                     )
                     Text(
                         text = stringResource(R.string.nav_profile),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
-                        color = MainCalendarColors.NavInactive
+                        color = mc.NavInactive
                     )
                 }
             }

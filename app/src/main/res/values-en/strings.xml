@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Daiary</string>
+    <string name="welcome_subtitle">Write today\'s diary.</string>
+    <string name="month_year_label">%1$d / %2$d</string>
+    <string name="nav_calendar">Calendar</string>
+    <string name="nav_profile">Profile</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">OK</string>
+
+    <!-- Week days (Sun–Sat) -->
+    <string-array name="week_days">
+        <item>Sun</item><item>Mon</item><item>Tue</item><item>Wed</item><item>Thu</item><item>Fri</item><item>Sat</item>
+    </string-array>
+    <!-- Week days Mon–Sun (diary list, dayOfWeek 1=Mon) -->
+    <string-array name="week_days_mon_first">
+        <item>Mon</item><item>Tue</item><item>Wed</item><item>Thu</item><item>Fri</item><item>Sat</item><item>Sun</item>
+    </string-array>
+
+    <!-- HomeScreen -->
+    <string name="year_label">%1$d</string>
+    <string name="month_record_title">Month %1$d Record</string>
+    <string name="recent_record">Recent</string>
+    <string name="no_diary_on_date">No diary for this day</string>
+    <string name="no_diaries_yet">No diaries written yet</string>
+    <string name="date_record_title">%1$d/%2$d Record</string>
+
+    <!-- BlockSelectionScreen -->
+    <string name="screen_block_selection">Select Info</string>
+    <string name="loading_data">Loading weather, calendar,\nand photo data...</string>
+    <string name="btn_select_done">Done</string>
+
+    <!-- DraftPreviewScreen -->
+    <string name="screen_preview">Preview</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_edit">Edit</string>
+    <string name="attached_photos">Attached Photos</string>
+
+    <!-- DiaryEditScreen -->
+    <string name="screen_diary_edit">Edit Diary</string>
+    <string name="btn_done">Done</string>
+    <string name="label_weather">Weather</string>
+    <string name="label_emotion">Mood</string>
+    <string name="hint_write_diary">Write your diary...</string>
+    <string name="btn_add_photo">Add</string>
+    <string name="add_photo_desc">Add photo</string>
+    <string name="delete_photo_desc">Delete</string>
+
+    <!-- DiaryDetailScreen -->
+    <string name="screen_diary">Diary</string>
+    <string name="btn_edit_diary">Edit</string>
+
+    <!-- ProfileScreen -->
+    <string name="screen_profile">Profile</string>
+    <string name="default_user">User</string>
+    <string name="profile_photo_desc">Profile photo</string>
+    <string name="section_app_settings">App Settings</string>
+    <string name="setting_dark_mode">Dark Mode</string>
+    <string name="setting_language">Language</string>
+    <string name="setting_diary_notification">Diary Reminder</string>
+    <string name="setting_notification_time">Reminder Time</string>
+    <string name="section_privacy">Privacy</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_service">Terms of Service</string>
+    <string name="app_version">App Version</string>
+    <string name="section_account">Account</string>
+    <string name="logout">Logout</string>
+    <string name="delete_account">Delete Account</string>
+    <string name="btn_delete_confirm">Delete</string>
+    <string name="dialog_language_title">Select Language</string>
+    <string name="dialog_notification_time_title">Set Reminder Time</string>
+    <string name="hour_label">Hour</string>
+    <string name="minute_label">Min</string>
+    <string name="dialog_logout_title">Logout</string>
+    <string name="dialog_logout_message">Are you sure you want to log out?</string>
+    <string name="dialog_delete_title">Delete Account</string>
+    <string name="dialog_delete_message">Deleting your account will permanently remove all data. Are you sure?</string>
+
+    <!-- ProfileEditScreen -->
+    <string name="screen_profile_edit">Edit Profile</string>
+    <string name="btn_profile_edit">Edit</string>
+    <string name="btn_change_photo">Change Photo</string>
+    <string name="label_name">Name</string>
+    <string name="label_current_password">Current Password</string>
+    <string name="label_new_password">New Password</string>
+    <string name="label_confirm_password">Confirm Password</string>
+    <string name="section_password_change">Change Password</string>
+    <string name="profile_name_empty">Please enter your name</string>
+    <string name="profile_password_short">Password must be at least 6 characters</string>
+    <string name="profile_password_mismatch">Passwords do not match</string>
+    <string name="profile_current_password_required">Please enter your current password</string>
+    <string name="profile_save_error">Failed to save</string>
+    <string name="saving">Saving...</string>
+
+    <!-- LoginScreen -->
+    <string name="tab_login">Login</string>
+    <string name="tab_signup">Sign Up</string>
+    <string name="label_email">Email</string>
+    <string name="label_password">Password</string>
+    <string name="loading_text">Processing...</string>
+    <string name="google_signin">Continue with Google</string>
+    <string name="or_divider">  or  </string>
+    <string name="login_success">Login Successful</string>
+    <string name="signup_success">Sign Up Successful</string>
+
+    <!-- Notification test -->
+    <string name="btn_test_notification">Send Test Notification</string>
+
+    <!-- Date formats -->
+    <string name="date_format_full">%2$d/%3$d/%1$d</string>
+    <string name="diary_title_date">%2$d/%3$d/%1$d Diary</string>
+    <string name="char_count">%1$d chars</string>
+
+    <!-- Weather labels -->
+    <string name="weather_sunny">Sunny</string>
+    <string name="weather_cloudy">Cloudy</string>
+    <string name="weather_rain">Rain</string>
+    <string name="weather_snow">Snow</string>
+    <string name="weather_wind">Windy</string>
+
+    <!-- Emotion labels -->
+    <string name="emotion_joy">Happy</string>
+    <string name="emotion_sad">Sad</string>
+    <string name="emotion_calm">Calm</string>
+    <string name="emotion_angry">Angry</string>
+    <string name="emotion_excited">Excited</string>
+
+    <!-- Block type labels -->
+    <string name="block_type_payment">Payment</string>
+    <string name="block_type_photo">Photo</string>
+    <string name="block_type_calendar">Schedule</string>
+    <string name="block_type_health">Health</string>
+    <string name="block_type_weather">Weather</string>
+
+    <!-- Push notifications -->
+    <string name="notification_title">Good job today 🌿</string>
+    <string name="notification_body">Write today\'s story in your diary</string>
+    <string name="notification_channel_name">Diary Reminder</string>
+    <string name="notification_channel_desc">Daily diary writing reminder</string>
+
+    <!-- Privacy Policy -->
+    <string name="privacy_effective_date">Effective: January 1, 2025</string>
+    <string name="privacy_intro">D.log ("the App") values your privacy. This Privacy Policy explains how we handle your personal information in accordance with applicable laws. The App is an academic capstone project developed by Sangmyung University.</string>
+    <string name="privacy_s1_title">1. Information We Collect</string>
+    <string name="privacy_s1_body">• Email address, password (encrypted)\n• Google account: name, email, profile photo\n• Diary content, creation date\n• Weather, mood, and schedule data\n• Attached photos (stored in Firebase)</string>
+    <string name="privacy_s2_title">2. Purpose of Collection</string>
+    <string name="privacy_s2_body">• User identification and authentication\n• Diary data storage and sync\n• Auto-draft generation from weather and schedule\n• Service improvement and error analysis</string>
+    <string name="privacy_s3_title">3. Retention Period</string>
+    <string name="privacy_s3_body">All personal data and diary entries are immediately deleted upon account deletion. Data stored in Firebase Firestore is removed during deletion, and no separate backup is retained.</string>
+    <string name="privacy_s4_title">4. Third-Party Sharing</string>
+    <string name="privacy_s4_body">We do not share your personal information with third parties. However, we use Firebase (Google LLC) as our backend infrastructure, and Google\'s separate privacy policy applies.</string>
+    <string name="privacy_s5_title">5. Your Rights</string>
+    <string name="privacy_s5_body">• You may request access, correction, or deletion of your data at any time\n• Delete your data instantly via Delete Account in the app\n• Contact: capstone@smu.ac.kr</string>
+    <string name="privacy_s6_title">6. Privacy Contact</string>
+    <string name="privacy_s6_body">Team: Sangmyung University Capstone\nEmail: capstone@smu.ac.kr\nApp Version: 1.0</string>
+
+    <!-- Terms of Service -->
+    <string name="terms_effective_date">Effective: January 1, 2025</string>
+    <string name="terms_intro">These Terms of Service govern your use of D.log, provided by the Sangmyung University Capstone Team ("the Team"). By using the Service, you agree to these Terms.</string>
+    <string name="terms_s1_title">Article 1 (Purpose)</string>
+    <string name="terms_s1_body">These Terms define the conditions of use for the D.log smart diary service and the rights and responsibilities of both the Team and users.</string>
+    <string name="terms_s2_title">Article 2 (Eligibility)</string>
+    <string name="terms_s2_body">• Available to users aged 14 and older\n• Requires Google account or email registration\n• Service is provided only to users who agree to these Terms</string>
+    <string name="terms_s3_title">Article 3 (Service Content)</string>
+    <string name="terms_s3_body">• Personal diary creation, storage, and retrieval\n• Auto-draft generation from weather, schedule, and photos\n• Diary writing reminders via push notifications\n• Service requires an active internet connection.</string>
+    <string name="terms_s4_title">Article 4 (Prohibited Activities)</string>
+    <string name="terms_s4_body">Users must not engage in the following:\n• Impersonating or accessing other users\' accounts\n• Disrupting service operations\n• Storing illegal or harmful content\n• Reverse engineering or redistributing the app</string>
+    <string name="terms_s5_title">Article 5 (Disclaimer)</string>
+    <string name="terms_s5_body">• We are not liable for service interruptions due to natural disasters or technical failures.\n• We are not responsible for data loss caused by user actions.\n• This app is an academic graduation project.</string>
+    <string name="terms_s6_title">Article 6 (Changes to Terms)</string>
+    <string name="terms_s6_body">Changes to these Terms will be announced in-app at least 7 days in advance. Continued use after changes indicates acceptance of the updated Terms.</string>
+</resources>

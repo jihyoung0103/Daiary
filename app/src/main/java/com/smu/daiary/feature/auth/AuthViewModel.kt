@@ -120,6 +120,19 @@ class AuthViewModel : ViewModel() {
         _authState.value = AuthState.Unauthenticated
     }
 
+    fun deleteAccount() {
+        val user = auth.currentUser ?: return
+        user.delete()
+            .addOnSuccessListener {
+                Log.d(TAG, "회원탈퇴 완료")
+                _authState.value = AuthState.Unauthenticated
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "회원탈퇴 실패: ${e.message}")
+                _authState.value = AuthState.Error(e.message ?: "회원탈퇴에 실패했습니다.")
+            }
+    }
+
     fun clearError() {
         if (_authState.value is AuthState.Error) {
             _authState.value = AuthState.Unauthenticated
