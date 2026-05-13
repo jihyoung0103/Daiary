@@ -29,9 +29,10 @@ data class WeatherData(
     val tomorrowHumidity: Int = 0
 )
 
-/** 캘린더 일정 (CalendarContract) */
+/** 캘린더 일정 (CalendarContract + Google Calendar API) */
 data class CalendarEvent(
     val title: String = "",
+    val date: String = "",          // "YYYY-MM-DD" 어느 날 일정인지
     val startTime: Long = 0L,       // epoch millis
     val endTime: Long = 0L,
     val location: String = ""
