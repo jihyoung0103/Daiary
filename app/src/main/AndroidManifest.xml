@@ -45,7 +45,7 @@
 
         <!-- 일기 알림 수신기: AlarmManager 브로드캐스트 + 부팅 후 재예약 -->
         <receiver
-            android:name=".DiaryNotificationReceiver"
+            android:name=".feature.notification.DiaryNotificationReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
