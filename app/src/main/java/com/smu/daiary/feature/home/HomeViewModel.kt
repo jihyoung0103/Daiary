@@ -12,16 +12,41 @@ import kotlinx.coroutines.launch
 class HomeViewModel : ViewModel() {
 
     private val repository = DiaryRepository()
+
     private val _diaries = MutableStateFlow<List<DiaryEntry>>(emptyList())
     val diaries: StateFlow<List<DiaryEntry>> = _diaries.asStateFlow()
 
-    // userId에 해당하는 diaries를 로드하는 함수.
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _isDeletingDiary = MutableStateFlow(false)
+    val isDeletingDiary: StateFlow<Boolean> = _isDeletingDiary.asStateFlow()
+
     fun loadDiaries(userId: String) {
-        viewModelScope.launch { // 비동기 작업
-            repository.getDiaries(userId).collect { list -> _diaries.value = list }
-            // repository.getDiaries(userId): userId의 일기를 읽어옴
-            // .collect: 일기를 수집
-            // { list -> _diaries.value = list }: 수집한 일기를 _diaries에 저장.
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                repository.getDiaries(userId).collect { list ->
+                    _diaries.value = list
+                    _isLoading.value = false
+                }
+            } catch (e: Exception) {
+                _isLoading.value = false
+                _error.value = e.message
+            }
+        }
+    }
+
+    fun deleteDiary(userId: String, diaryId: String, onResult: (Boolean) -> Unit) {
+        _isDeletingDiary.value = true
+        viewModelScope.launch {
+            val result = repository.deleteDiary(userId, diaryId)
+            _isDeletingDiary.value = false
+            onResult(result.isSuccess)
         }
     }
 }

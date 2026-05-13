@@ -119,12 +119,9 @@
     <string name="login_success">로그인 성공</string>
     <string name="signup_success">회원가입 성공</string>
 
-    <!-- 알림 테스트 -->
-    <string name="btn_test_notification">지금 알림 테스트</string>
-
     <!-- 날짜 형식 -->
     <string name="date_format_full">%1$d년 %2$d월 %3$d일</string>
-    <string name="diary_title_date">%1$d년 %2$d월 %3$d일 일기</string>
+    <string name="diary_title_date">%1$d년 %2$d월 %3$d일</string>
     <string name="char_count">%1$d자</string>
 
     <!-- 날씨 라벨 -->
@@ -148,6 +145,22 @@
     <string name="block_type_health">건강</string>
     <string name="block_type_weather">날씨</string>
 
+    <!-- WriteViewModel: 일기 초안 템플릿 -->
+    <string name="diary_entry_title">%1$d년 %2$d월 %3$d일 일기</string>
+    <string name="draft_intro">오늘 하루를 되돌아보면,</string>
+    <string name="draft_block_payment">• %1$s를 이용했다.</string>
+    <string name="draft_block_photo">• %1$s을 남겼다.</string>
+    <string name="draft_block_calendar">• %1$s이 있었다.</string>
+    <string name="draft_block_health">• 오늘의 건강: %1$s</string>
+    <string name="draft_block_weather">• 날씨는 %1$s이었다.</string>
+    <string name="draft_outro">오늘도 수고했다.</string>
+    <string name="block_weather_content">%1$s %2$d°C · 습도 %3$d%%</string>
+    <string name="block_weather_unavailable">날씨 정보를 가져올 수 없습니다</string>
+    <string name="block_calendar_empty">오늘 등록된 일정이 없습니다</string>
+    <string name="block_calendar_unavailable">캘린더 정보를 가져올 수 없습니다</string>
+    <string name="block_photo_count">오늘 찍은 사진 %1$d장</string>
+    <string name="block_empty_message">수집된 데이터가 없습니다</string>
+
     <!-- 푸시 알림 -->
     <string name="notification_title">오늘도 수고했어요 🌿</string>
     <string name="notification_body">오늘의 이야기를 일기로 남겨보세요</string>
@@ -169,6 +182,42 @@
     <string name="privacy_s5_body">• 언제든지 개인정보 열람·수정 요청 가능\n• 앱 내 회원탈퇴를 통해 즉시 데이터 삭제\n• 문의: capstone@smu.ac.kr</string>
     <string name="privacy_s6_title">6. 개인정보 보호책임자</string>
     <string name="privacy_s6_body">소속: 상명대학교 캡스톤팀\n이메일: capstone@smu.ac.kr\n앱 버전: 1.0</string>
+
+    <!-- Task 1: 일기 삭제 -->
+    <string name="btn_delete">삭제</string>
+    <string name="dialog_delete_diary_title">일기 삭제</string>
+    <string name="dialog_delete_diary_message">정말 삭제하시겠습니까?</string>
+
+    <!-- Task 2: 빈 화면 -->
+    <string name="no_diaries_subtitle">첫 일기를 작성해보세요</string>
+
+    <!-- Task 3: 로그인 유효성 -->
+    <string name="error_email_empty">이메일을 입력해주세요</string>
+    <string name="error_email_invalid">올바른 이메일 형식을 입력해주세요</string>
+    <string name="error_password_empty">비밀번호를 입력해주세요</string>
+    <string name="error_password_short">비밀번호는 6자 이상이어야 합니다</string>
+
+    <!-- Task 4: 뒤로가기 다이얼로그 -->
+    <string name="dialog_exit_title">작성 중인 내용이 있습니다</string>
+    <string name="dialog_exit_message">나가시겠습니까?</string>
+    <string name="dialog_exit_confirm">나가기</string>
+    <string name="dialog_exit_cancel">계속 작성</string>
+
+    <!-- Task 6: 저장 완료 스낵바 -->
+    <string name="save_done">일기가 저장되었습니다</string>
+
+    <!-- 로딩/에러 상태 -->
+    <string name="error_load_failed">데이터를 불러오지 못했어요</string>
+    <string name="btn_retry">다시 시도</string>
+
+    <!-- Auth 에러 메시지 -->
+    <string name="error_email_password_required">이메일과 비밀번호를 입력해주세요.</string>
+    <string name="error_password_min_length">비밀번호는 6자리 이상이어야 합니다.</string>
+    <string name="error_login_failed">로그인에 실패했습니다.</string>
+    <string name="error_signup_failed">회원가입에 실패했습니다.</string>
+    <string name="error_google_login_failed">Google 로그인에 실패했습니다.</string>
+    <string name="error_delete_account_failed">회원탈퇴에 실패했습니다.</string>
+    <string name="error_google_token_missing">Google 계정 토큰을 가져올 수 없습니다.</string>
 
     <!-- 서비스 이용약관 -->
     <string name="terms_effective_date">시행일: 2025년 1월 1일</string>

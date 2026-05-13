@@ -10,9 +10,13 @@ import com.smu.daiary.data.repository.DiaryRepository
 import com.smu.daiary.data.source.CalendarDataSource
 import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
+import com.smu.daiary.R
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,6 +61,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedEmotion = MutableStateFlow<String?>(null)
     val selectedEmotion: StateFlow<String?> = _selectedEmotion.asStateFlow()
 
+    // 저장 완료 이벤트 (스낵바 표시용)
+    private val _saveEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saveEvent: SharedFlow<Unit> = _saveEvent.asSharedFlow()
+
+    // 기존 일기 편집 시 원본 ID (null = 신규 작성)
+    private val _existingEntryId = MutableStateFlow<String?>(null)
+
     /**
      * 실제 DataSource로부터 오늘 데이터를 수집하고
      * DailyDataRepository에 저장한 뒤 블록 목록을 구성합니다.
@@ -84,12 +95,17 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     dailyDataRepository.updateWeather(userId, date, weather)
                     blocks.add(ContentBlock(
                         id = "weather", type = BlockType.WEATHER,
-                        content = "${weather.description} ${weather.temperature.toInt()}°C · 습도 ${weather.humidity}%"
+                        content = context.getString(
+                            R.string.block_weather_content,
+                            localizedWeatherDescription(weather.description),
+                            weather.temperature.toInt(),
+                            weather.humidity
+                        )
                     ))
                 }
                 .onFailure {
                     Log.w(TAG, "⚠️ 날씨 수집 실패 (권한 또는 네트워크 문제)", it)
-                    blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = "날씨 정보를 가져올 수 없습니다"))
+                    blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = context.getString(R.string.block_weather_unavailable)))
                 }
 
             // 캘린더
@@ -98,7 +114,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "📅 캘린더 수집 완료: ${events.size}개")
                     dailyDataRepository.updateCalendar(userId, date, events)
                     if (events.isEmpty()) {
-                        blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = "오늘 등록된 일정이 없습니다"))
+                        blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = context.getString(R.string.block_calendar_empty)))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
                         events.forEachIndexed { i, event ->
@@ -114,7 +130,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .onFailure {
                     Log.w(TAG, "⚠️ 캘린더 수집 실패 (권한 문제)", it)
-                    blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = "캘린더 정보를 가져올 수 없습니다"))
+                    blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = context.getString(R.string.block_calendar_unavailable)))
                 }
 
             // 사진
@@ -123,7 +139,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "🖼️ 사진 수집 완료: ${photos.size}장")
                     dailyDataRepository.updatePhotos(userId, date, photos)
                     if (photos.isNotEmpty()) {
-                        blocks.add(ContentBlock(id = "photo", type = BlockType.PHOTO, content = "오늘 찍은 사진 ${photos.size}장"))
+                        blocks.add(ContentBlock(id = "photo", type = BlockType.PHOTO, content = context.getString(R.string.block_photo_count, photos.size)))
                     }
                 }
                 .onFailure { Log.w(TAG, "⚠️ 사진 수집 실패 (권한 문제)", it) }
@@ -148,6 +164,15 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun localizedWeatherDescription(canonical: String): String = when (canonical) {
+        "맑음" -> context.getString(R.string.weather_sunny)
+        "흐림" -> context.getString(R.string.weather_cloudy)
+        "비"   -> context.getString(R.string.weather_rain)
+        "눈"   -> context.getString(R.string.weather_snow)
+        "바람" -> context.getString(R.string.weather_wind)
+        else   -> canonical
+    }
+
     fun toggleBlock(id: String) {
         _blocks.update { list ->
             list.map { if (it.id == id) it.copy(isSelected = !it.isSelected) else it }
@@ -159,19 +184,19 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         if (selected.isEmpty()) return
         val today = LocalDate.now().toString()
         val content = buildString {
-            appendLine("오늘 하루를 되돌아보면,")
+            appendLine(context.getString(R.string.draft_intro))
             appendLine()
             selected.forEach { block ->
                 when (block.type) {
-                    BlockType.PAYMENT  -> appendLine("• ${block.content}를 이용했다.")
-                    BlockType.PHOTO    -> appendLine("• ${block.content}을 남겼다.")
-                    BlockType.CALENDAR -> appendLine("• ${block.content}이 있었다.")
-                    BlockType.HEALTH   -> appendLine("• 오늘의 건강: ${block.content}")
-                    BlockType.WEATHER  -> appendLine("• 날씨는 ${block.content}이었다.")
+                    BlockType.PAYMENT  -> appendLine(context.getString(R.string.draft_block_payment, block.content))
+                    BlockType.PHOTO    -> appendLine(context.getString(R.string.draft_block_photo, block.content))
+                    BlockType.CALENDAR -> appendLine(context.getString(R.string.draft_block_calendar, block.content))
+                    BlockType.HEALTH   -> appendLine(context.getString(R.string.draft_block_health, block.content))
+                    BlockType.WEATHER  -> appendLine(context.getString(R.string.draft_block_weather, block.content))
                 }
             }
             appendLine()
-            append("오늘도 수고했다.")
+            append(context.getString(R.string.draft_outro))
         }
         _draft.value = DiaryDraft(date = today, aiContent = content)
     }
@@ -192,17 +217,36 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         val d = _draft.value ?: return
         _isSaving.value = true
         viewModelScope.launch {
+            val localDate = runCatching { LocalDate.parse(d.date) }.getOrNull()
+            val formattedTitle = if (localDate != null)
+                context.getString(R.string.diary_entry_title, localDate.year, localDate.monthValue, localDate.dayOfMonth)
+            else d.date
+            val mood = when (_selectedEmotion.value) {
+                context.getString(R.string.emotion_joy),
+                context.getString(R.string.emotion_excited) -> "happy"
+                context.getString(R.string.emotion_sad),
+                context.getString(R.string.emotion_angry) -> "sad"
+                else -> "neutral"
+            }
+            val existingId = _existingEntryId.value
             val entry = DiaryEntry(
-                title = "${d.date} 일기",
+                id = existingId ?: "",
+                title = formattedTitle,
                 content = d.editedContent ?: d.aiContent,
                 date = d.date,
+                mood = mood,
                 emotion = _selectedEmotion.value ?: "",
                 weather = _selectedWeather.value ?: "",
                 photos = d.photos
             )
-            val result = diaryRepository.addDiary(userId, entry)
+            val result = if (existingId != null) {
+                diaryRepository.updateDiary(userId, entry)
+            } else {
+                diaryRepository.addDiary(userId, entry)
+            }
             _isSaving.value = false
             _draft.update { it?.copy(status = if (result.isSuccess) DraftStatus.SAVED else DraftStatus.IDLE) }
+            if (result.isSuccess) _saveEvent.tryEmit(Unit)
             onComplete(result.isSuccess)
         }
     }
@@ -211,6 +255,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun updateEmotionSelection(emotion: String?) { _selectedEmotion.value = emotion }
 
     fun loadExistingEntry(entry: DiaryEntry) {
+        _existingEntryId.value = entry.id
         _draft.value = DiaryDraft(
             date = entry.date,
             aiContent = entry.content,
@@ -226,5 +271,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _blocks.value = emptyList()
         _selectedWeather.value = null
         _selectedEmotion.value = null
+        _existingEntryId.value = null
     }
 }

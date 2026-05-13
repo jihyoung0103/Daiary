@@ -24,15 +24,19 @@ class AuthRepository(
         }
     }
 
-    suspend fun signUp(email: String, password: String): AuthResult<FirebaseUser> {
+    suspend fun signUp(email: String, password: String, displayName: String = ""): AuthResult<FirebaseUser> {
         return try {
             val user = authSource.signUp(email, password)
-            val displayName = user.email?.substringBefore("@").orEmpty()
-            runCatching { userSource.upsertUser(user.uid, user.email ?: "", displayName) }
+            val nameToSave = displayName.trim().ifBlank { user.email?.substringBefore("@").orEmpty() }
+            runCatching { userSource.upsertUser(user.uid, user.email ?: "", nameToSave) }
             AuthResult.Success(user)
         } catch (e: Exception) {
             AuthResult.Error(e)
         }
+    }
+
+    suspend fun upsertUser(uid: String, email: String, displayName: String = "") {
+        runCatching { userSource.upsertUser(uid, email, displayName) }
     }
 
     fun signOut() = authSource.signOut()

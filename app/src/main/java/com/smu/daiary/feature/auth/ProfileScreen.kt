@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -132,12 +133,20 @@ fun ProfileScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     var customPhotoUrl by remember { mutableStateOf<String?>(null) }
+    var firestoreDisplayName by remember { mutableStateOf("") }
+    var isLoadingPhoto by remember { mutableStateOf(currentUser?.uid != null) }
     LaunchedEffect(currentUser?.uid) {
-        val uid = currentUser?.uid ?: return@LaunchedEffect
+        val uid = currentUser?.uid ?: run {
+            isLoadingPhoto = false
+            return@LaunchedEffect
+        }
+        isLoadingPhoto = true
         val doc = FirebaseFirestore.getInstance()
             .collection("users").document(uid)
             .get().await()
         customPhotoUrl = doc.getString("customPhotoUrl")
+        firestoreDisplayName = doc.getString("displayName") ?: ""
+        isLoadingPhoto = false
     }
 
     Scaffold(
@@ -191,21 +200,31 @@ fun ProfileScreen(
                             .border(1.dp, borderColor, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (customPhotoUrl != null) {
-                            AsyncImage(
-                                model = customPhotoUrl,
-                                contentDescription = stringResource(R.string.profile_photo_desc),
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                            )
-                        } else {
-                            Text(
-                                text = "D",
-                                fontSize = 40.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = accentColor
-                            )
+                        when {
+                            isLoadingPhoto -> {
+                                CircularProgressIndicator(
+                                    color = accentColor,
+                                    modifier = Modifier.size(32.dp),
+                                    strokeWidth = 2.5.dp
+                                )
+                            }
+                            customPhotoUrl != null -> {
+                                AsyncImage(
+                                    model = customPhotoUrl,
+                                    contentDescription = stringResource(R.string.profile_photo_desc),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                )
+                            }
+                            else -> {
+                                Text(
+                                    text = firestoreDisplayName.firstOrNull()?.uppercase() ?: "D",
+                                    fontSize = 40.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = accentColor
+                                )
+                            }
                         }
                     }
 
@@ -216,7 +235,7 @@ fun ProfileScreen(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(
-                                text = currentUser?.displayName ?: stringResource(R.string.default_user),
+                                text = firestoreDisplayName.ifEmpty { currentUser?.displayName ?: stringResource(R.string.default_user) },
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = textPrimary

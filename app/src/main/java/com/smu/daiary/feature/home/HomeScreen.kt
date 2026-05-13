@@ -24,10 +24,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,11 +55,11 @@ import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
-import com.smu.daiary.ui.theme.FernDark
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.MoodHappy
+import com.smu.daiary.ui.theme.MoodNeutral
 import com.smu.daiary.ui.theme.MoodSad
 import com.smu.daiary.ui.theme.Dew
-import com.smu.daiary.ui.theme.Fern
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
@@ -72,59 +74,56 @@ import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 import java.time.YearMonth
 
+// Fix 5: 프로퍼티명 소문자 시작으로 수정
 private data class MainCalendarColorScheme(
-    val BackgroundOuter: Color,
-    val SurfacePhone: Color,
-    val TextPrimary: Color,
-    val TextMuted: Color,
-    val CalCard: Color,
-    val CalHeader: Color,
-    val AccentPurple: Color,
-    val DayNames: Color,
-    val Border: Color,
-    val NavInactive: Color,
-    val DotDiary: Color,
-    val MoodMint: Color,
-    val MoodYellow: Color
+    val backgroundOuter: Color,
+    val surfacePhone: Color,
+    val textPrimary: Color,
+    val textMuted: Color,
+    val calCard: Color,
+    val calHeader: Color,
+    val accentPurple: Color,
+    val dayNames: Color,
+    val border: Color,
+    val navInactive: Color,
+    val dotDiary: Color
 )
 
 private val MainCalendarColors = MainCalendarColorScheme(
-    BackgroundOuter = White,
-    SurfacePhone    = Ivory,
-    TextPrimary     = Ink,
-    TextMuted       = Stone,
-    CalCard         = Dew,
-    CalHeader       = SageForest,
-    AccentPurple    = SageForest,
-    DayNames        = Stone,
-    Border          = Linen,
-    NavInactive     = Silver,
-    DotDiary        = SageForest,
-    MoodMint        = Fern,
-    MoodYellow      = Dew
+    backgroundOuter = White,
+    surfacePhone    = Ivory,
+    textPrimary     = Ink,
+    textMuted       = Stone,
+    calCard         = Dew,
+    calHeader       = SageForest,
+    accentPurple    = SageForest,
+    dayNames        = Stone,
+    border          = Linen,
+    navInactive     = Silver,
+    dotDiary        = SageForest
 )
 
 private val MainCalendarColorsDark = MainCalendarColorScheme(
-    BackgroundOuter = BackgroundDark,
-    SurfacePhone    = BackgroundDark,
-    TextPrimary     = TextPrimaryDark,
-    TextMuted       = TextSecondaryDark,
-    CalCard         = DewDark,
-    CalHeader       = SageForestDark,
-    AccentPurple    = SageForestDark,
-    DayNames        = TextSecondaryDark,
-    Border          = BorderDark,
-    NavInactive     = TextSecondaryDark,
-    DotDiary        = SageForestDark,
-    MoodMint        = FernDark,
-    MoodYellow      = DewDark
+    backgroundOuter = BackgroundDark,
+    surfacePhone    = BackgroundDark,
+    textPrimary     = TextPrimaryDark,
+    textMuted       = TextSecondaryDark,
+    calCard         = DewDark,
+    calHeader       = SageForestDark,
+    accentPurple    = SageForestDark,
+    dayNames        = TextSecondaryDark,
+    border          = BorderDark,
+    navInactive     = TextSecondaryDark,
+    dotDiary        = SageForestDark
 )
 
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
     diaries: List<DiaryEntry> = emptyList(),
-    onLogout: () -> Unit = {},
+    isLoading: Boolean = false,
+    error: String? = null,
+    onRetry: () -> Unit = {},
     onStartDiary: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {}
@@ -138,13 +137,13 @@ fun HomeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(mc.BackgroundOuter)
+            .background(mc.backgroundOuter)
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f),
-            color = mc.SurfacePhone,
+            color = mc.surfacePhone,
             shape = RectangleShape,
             shadowElevation = 0.dp
         ) {
@@ -176,7 +175,14 @@ fun HomeScreen(
                             selectedDate = null
                         }
                     )
-                    RecentDiaryList(diaries = diaries, selectedDate = selectedDate, onDiaryClick = onDiaryClick)
+                    RecentDiaryList(
+                        diaries = diaries,
+                        selectedDate = selectedDate,
+                        isLoading = isLoading,
+                        error = error,
+                        onRetry = onRetry,
+                        onDiaryClick = onDiaryClick
+                    )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 BottomNavBar(
@@ -205,7 +211,7 @@ private fun StatusBarPill() {
                 .width(120.dp)
                 .height(5.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(mc.TextPrimary.copy(alpha = 0.15f))
+                .background(mc.textPrimary.copy(alpha = 0.15f))
         )
     }
 }
@@ -223,14 +229,14 @@ private fun TopBarSection(yearMonth: YearMonth) {
         Text(
             text = stringResource(R.string.year_label, yearMonth.year),
             fontSize = 12.sp,
-            color = mc.TextMuted,
+            color = mc.textMuted,
             modifier = Modifier.padding(bottom = 2.dp)
         )
         Text(
             text = stringResource(R.string.month_record_title, yearMonth.monthValue),
             fontSize = 22.sp,
             fontWeight = FontWeight.Medium,
-            color = mc.TextPrimary
+            color = mc.textPrimary
         )
     }
 }
@@ -251,17 +257,24 @@ private fun CalendarCard(
     val daysInMonth = yearMonth.lengthOfMonth()
     val first = yearMonth.atDay(1)
     val leadingEmpty = first.dayOfWeek.value % 7
-    val hasDiaryDays = remember(yearMonth, diaries) {
+    val moodByDay = remember(yearMonth, diaries) {
         val prefix = "${yearMonth.year}-${yearMonth.monthValue.toString().padStart(2, '0')}"
         diaries
             .filter { it.date.startsWith(prefix) }
-            .mapNotNull { it.date.substringAfterLast("-").toIntOrNull() }
-            .toSet()
+            .mapNotNull { entry ->
+                entry.date.substringAfterLast("-").toIntOrNull()?.let { day ->
+                    day to when (entry.mood) {
+                        "happy" -> MoodHappy
+                        "sad"   -> MoodSad
+                        else    -> MoodNeutral
+                    }
+                }
+            }.toMap()
     }
 
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Surface(
-            color = mc.CalCard,
+            color = mc.calCard,
             shape = RoundedCornerShape(20.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
@@ -276,13 +289,13 @@ private fun CalendarCard(
                             .clickable(onClick = onPrevMonth),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "‹", fontSize = 22.sp, color = mc.AccentPurple)
+                        Text(text = "‹", fontSize = 22.sp, color = mc.accentPurple)
                     }
                     Text(
                         text = stringResource(R.string.month_year_label, yearMonth.year, yearMonth.monthValue),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = mc.CalHeader
+                        color = mc.calHeader
                     )
                     Box(
                         modifier = Modifier
@@ -290,7 +303,7 @@ private fun CalendarCard(
                             .clickable(onClick = onNextMonth),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "›", fontSize = 22.sp, color = mc.AccentPurple)
+                        Text(text = "›", fontSize = 22.sp, color = mc.accentPurple)
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -301,7 +314,7 @@ private fun CalendarCard(
                             text = d,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium,
-                            color = mc.DayNames,
+                            color = mc.dayNames,
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .weight(1f)
@@ -325,11 +338,12 @@ private fun CalendarCard(
                                     yearMonth.year == today.year &&
                                     yearMonth.monthValue == today.monthValue &&
                                     day == today.dayOfMonth,
+                                // Fix 4: selectedDate?.year 는 남기고, smart-cast 이후 나머지는 .으로
                                 isSelected = day != null &&
                                     selectedDate?.year == yearMonth.year &&
-                                    selectedDate?.monthValue == yearMonth.monthValue &&
-                                    selectedDate?.dayOfMonth == day,
-                                hasDiary = day != null && day in hasDiaryDays,
+                                    selectedDate.monthValue == yearMonth.monthValue &&
+                                    selectedDate.dayOfMonth == day,
+                                diaryMoodColor = if (day != null) moodByDay[day] else null,
                                 onClick = {
                                     if (day != null) onDateSelect(yearMonth.atDay(day))
                                 }
@@ -359,7 +373,7 @@ private fun CalendarDayCell(
     modifier: Modifier = Modifier,
     isToday: Boolean,
     isSelected: Boolean,
-    hasDiary: Boolean,
+    diaryMoodColor: Color?,
     onClick: () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
@@ -371,8 +385,8 @@ private fun CalendarDayCell(
             .clip(RoundedCornerShape(8.dp))
             .background(
                 when {
-                    isToday    -> mc.AccentPurple
-                    isSelected -> mc.CalCard
+                    isToday    -> mc.accentPurple
+                    isSelected -> mc.calCard
                     else       -> Color.Transparent
                 }
             )
@@ -390,18 +404,18 @@ private fun CalendarDayCell(
                 lineHeight = 12.sp,
                 fontWeight = if (isToday || isSelected) FontWeight.Medium else FontWeight.Normal,
                 color = when {
-                    isToday    -> mc.CalCard
-                    isSelected -> mc.AccentPurple
-                    else       -> mc.TextPrimary
+                    isToday    -> mc.calCard
+                    isSelected -> mc.accentPurple
+                    else       -> mc.textPrimary
                 }
             )
-            if (hasDiary) {
+            if (diaryMoodColor != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Box(
                     modifier = Modifier
                         .size(4.dp)
                         .clip(CircleShape)
-                        .background(if (isToday) mc.CalCard else mc.DotDiary)
+                        .background(if (isToday) mc.calCard else diaryMoodColor)
                 )
             }
         }
@@ -421,6 +435,9 @@ data class DiaryListItemUi(
 private fun RecentDiaryList(
     diaries: List<DiaryEntry>,
     selectedDate: LocalDate? = null,
+    isLoading: Boolean = false,
+    error: String? = null,
+    onRetry: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {}
 ) {
     val isDark = LocalDarkTheme.current
@@ -443,9 +460,9 @@ private fun RecentDiaryList(
                     title = String.format(diaryTitleTemplate, localDate.year, localDate.monthValue, localDate.dayOfMonth),
                     preview = entry.content.replace("\n", " "),
                     moodColor = when (entry.mood) {
-                        "happy" -> mc.MoodMint
-                        "sad" -> MoodSad
-                        else -> mc.MoodYellow
+                        "happy"   -> MoodHappy
+                        "sad"     -> MoodSad
+                        else      -> MoodNeutral
                     },
                     entry = entry
                 )
@@ -455,23 +472,95 @@ private fun RecentDiaryList(
     val sectionTitle = if (selectedDate != null)
         stringResource(R.string.date_record_title, selectedDate.monthValue, selectedDate.dayOfMonth)
     else stringResource(R.string.recent_record)
+
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Text(
             text = sectionTitle,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = mc.TextMuted,
+            color = mc.textMuted,
             letterSpacing = 0.05.sp,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        if (items.isEmpty()) {
-            Text(
-                text = if (selectedDate != null) stringResource(R.string.no_diary_on_date)
-                       else stringResource(R.string.no_diaries_yet),
-                fontSize = 14.sp,
-                color = mc.TextMuted,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+        if (isLoading && selectedDate == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    color = mc.accentPurple,
+                    modifier = Modifier.size(32.dp),
+                    strokeWidth = 2.5.dp
+                )
+            }
+        } else if (error != null && selectedDate == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.error_load_failed),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = mc.textPrimary
+                    )
+                    TextButton(onClick = onRetry) {
+                        Text(
+                            text = stringResource(R.string.btn_retry),
+                            color = mc.accentPurple,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        } else if (items.isEmpty()) {
+            if (selectedDate != null) {
+                Text(
+                    text = stringResource(R.string.no_diary_on_date),
+                    fontSize = 14.sp,
+                    color = mc.textMuted,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Create,
+                            contentDescription = null,
+                            tint = mc.accentPurple.copy(alpha = 0.4f),
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.no_diaries_yet),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = mc.textPrimary
+                        )
+                        Text(
+                            text = stringResource(R.string.no_diaries_subtitle),
+                            fontSize = 13.sp,
+                            color = mc.textMuted
+                        )
+                    }
+                }
+            }
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items.forEach { item ->
@@ -491,7 +580,7 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = cardBg,
-        border = BorderStroke(0.5.dp, mc.Border)
+        border = BorderStroke(0.5.dp, mc.border)
     ) {
         Row(
             modifier = Modifier
@@ -505,7 +594,7 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
                     .width(40.dp)
                     .height(40.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(mc.BackgroundOuter),
+                    .background(mc.backgroundOuter),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -513,13 +602,13 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
                     text = item.day.toString(),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = mc.TextPrimary,
+                    color = mc.textPrimary,
                     lineHeight = 16.sp
                 )
                 Text(
                     text = item.weekdayLabel,
                     fontSize = 9.sp,
-                    color = mc.TextMuted
+                    color = mc.textMuted
                 )
             }
             Column(
@@ -530,14 +619,14 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
                     text = item.title,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = mc.TextPrimary,
+                    color = mc.textPrimary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = item.preview,
                     fontSize = 12.sp,
-                    color = mc.TextMuted,
+                    color = mc.textMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -562,7 +651,7 @@ private fun BottomNavBar(
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
     Surface(
-        color = mc.SurfacePhone,
+        color = mc.surfacePhone,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
@@ -571,7 +660,7 @@ private fun BottomNavBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(mc.Border)
+                    .background(mc.border)
             )
             Row(
                 modifier = Modifier
@@ -589,21 +678,21 @@ private fun BottomNavBar(
                     Icon(
                         imageVector = Icons.Outlined.CalendarMonth,
                         contentDescription = stringResource(R.string.nav_calendar),
-                        tint = mc.AccentPurple,
+                        tint = mc.accentPurple,
                         modifier = Modifier.size(22.dp)
                     )
                     Text(
                         text = stringResource(R.string.nav_calendar),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
-                        color = mc.AccentPurple
+                        color = mc.accentPurple
                     )
                 }
                 FloatingActionButton(
                     onClick = onFabClick,
                     modifier = Modifier.size(50.dp),
-                    containerColor = mc.AccentPurple,
-                    contentColor = mc.CalCard,
+                    containerColor = mc.accentPurple,
+                    contentColor = mc.calCard,
                     shape = CircleShape,
                     elevation = FloatingActionButtonDefaults.elevation(
                         defaultElevation = 8.dp,
@@ -624,14 +713,14 @@ private fun BottomNavBar(
                     Icon(
                         imageVector = Icons.Outlined.Person,
                         contentDescription = stringResource(R.string.nav_profile),
-                        tint = mc.NavInactive,
+                        tint = mc.navInactive,
                         modifier = Modifier.size(22.dp)
                     )
                     Text(
                         text = stringResource(R.string.nav_profile),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
-                        color = mc.NavInactive
+                        color = mc.navInactive
                     )
                 }
             }

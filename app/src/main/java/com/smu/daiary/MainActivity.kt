@@ -16,15 +16,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -82,17 +90,32 @@ class MainActivity : ComponentActivity() {
 
                 // Material3의 기본 레이아웃 틀.
                 // innerPadding이란 상단바/하단바 여백 자동 계산 설정
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                val snackbarHostState = remember { SnackbarHostState() }
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    snackbarHost = {
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.padding(bottom = 80.dp)
+                        ) { data ->
+                            Snackbar(
+                                snackbarData    = data,
+                                containerColor  = Color(0xFF3D7A5C),
+                                contentColor    = Color.White
+                            )
+                        }
+                    }
+                ) { innerPadding ->
                     when (authState) { // authState, 즉 로그인 상태
                         // 로딩 중일 때.
                         is AuthState.Loading -> {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color(0xFFFDFAF5)),
+                                    .background(MaterialTheme.colorScheme.background),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = Color(0xFF3D7A5C))
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             }
                         }
 
@@ -101,7 +124,26 @@ class MainActivity : ComponentActivity() {
                             val userId = (authState as AuthState.Authenticated).user.uid // 유저 id
                             val navController = rememberNavController()                  // 화면 이동 객체
                             val writeViewModel: WriteViewModel = viewModel()
+                            val homeViewModel: HomeViewModel = viewModel()
+                            val diaries by homeViewModel.diaries.collectAsStateWithLifecycle()
+                            val isLoading by homeViewModel.isLoading.collectAsStateWithLifecycle()
+                            val homeError by homeViewModel.error.collectAsStateWithLifecycle()
+                            val isDeletingDiary by homeViewModel.isDeletingDiary.collectAsStateWithLifecycle()
                             var selectedDiary by remember { mutableStateOf<DiaryEntry?>(null) }
+                            var editFromDetail by remember { mutableStateOf(false) }
+                            val scope = rememberCoroutineScope()
+                            val saveFailedMessage = stringResource(R.string.profile_save_error)
+
+                            LaunchedEffect(userId) {
+                                homeViewModel.loadDiaries(userId)
+                            }
+
+                            val saveDoneMessage = stringResource(R.string.save_done)
+                            LaunchedEffect(writeViewModel) {
+                                writeViewModel.saveEvent.collect {
+                                    snackbarHostState.showSnackbar(saveDoneMessage)
+                                }
+                            }
 
                             // 데이터 수집에 필요한 권한 목록
                             val requiredPermissions = buildList {
@@ -145,17 +187,13 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 // "main": 메인 캘린더 화면
                                 composable("main") {
-                                    val homeViewModel: HomeViewModel = viewModel()
-                                    val diaries by homeViewModel.diaries.collectAsStateWithLifecycle()
-                                    // userId가 설정될 때, 딱 한 번 실행하는 기능
-                                    LaunchedEffect(userId) {
-                                        homeViewModel.loadDiaries(userId) // userId에 해당하는 일기들 로드함
-                                    }
                                     // UI
                                     HomeScreen(
                                         modifier = Modifier.padding(innerPadding),
                                         diaries = diaries,
-                                        onLogout = { authViewModel.logout() },
+                                        isLoading = isLoading,
+                                        error = homeError,
+                                        onRetry = { homeViewModel.loadDiaries(userId) },
                                         onStartDiary = {
                                             // 권한 요청 → 결과 콜백에서 loadBlocks + navigate 실행
                                             permissionLauncher.launch(requiredPermissions)
@@ -173,6 +211,7 @@ class MainActivity : ComponentActivity() {
                                         viewModel = writeViewModel,
                                         onNext = { navController.navigate("draft_preview") },
                                         onBack = { navController.popBackStack() },
+                                        onRetry = { writeViewModel.loadBlocks(userId) },
                                         modifier = Modifier.padding(innerPadding)
                                     )
                                 }
@@ -194,7 +233,23 @@ class MainActivity : ComponentActivity() {
                                 composable("diary_edit") {
                                     DiaryEditScreen(
                                         viewModel = writeViewModel,
-                                        onDone = { navController.popBackStack() },
+                                        onDone = {
+                                            if (editFromDetail) {
+                                                writeViewModel.saveDraft(userId) { success ->
+                                                    if (success) {
+                                                        editFromDetail = false
+                                                        writeViewModel.resetDraft()
+                                                        navController.popBackStack(route = "main", inclusive = false)
+                                                    } else {
+                                                        scope.launch {
+                                                            snackbarHostState.showSnackbar(saveFailedMessage)
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                navController.popBackStack()
+                                            }
+                                        },
                                         onBack = { navController.popBackStack() },
                                         modifier = Modifier.padding(innerPadding)
                                     )
@@ -241,9 +296,16 @@ class MainActivity : ComponentActivity() {
                                     selectedDiary?.let { entry ->
                                         DiaryDetailScreen(
                                             entry = entry,
+                                            isDeleting = isDeletingDiary,
                                             onEdit = {
+                                                editFromDetail = true
                                                 writeViewModel.loadExistingEntry(entry)
                                                 navController.navigate("diary_edit")
+                                            },
+                                            onDelete = {
+                                                homeViewModel.deleteDiary(userId, entry.id) { success ->
+                                                    if (success) navController.popBackStack()
+                                                }
                                             },
                                             onBack = { navController.popBackStack() },
                                             modifier = Modifier.padding(innerPadding)
