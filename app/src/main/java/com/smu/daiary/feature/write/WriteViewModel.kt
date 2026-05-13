@@ -11,8 +11,11 @@ import com.smu.daiary.data.source.CalendarDataSource
 import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -56,6 +59,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedEmotion = MutableStateFlow<String?>(null)
     val selectedEmotion: StateFlow<String?> = _selectedEmotion.asStateFlow()
+
+    // 저장 완료 이벤트 (스낵바 표시용)
+    private val _saveEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saveEvent: SharedFlow<Unit> = _saveEvent.asSharedFlow()
+
+    // 기존 일기 편집 시 원본 ID (null = 신규 작성)
+    private val _existingEntryId = MutableStateFlow<String?>(null)
 
     /**
      * 실제 DataSource로부터 오늘 데이터를 수집하고
@@ -192,17 +202,34 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         val d = _draft.value ?: return
         _isSaving.value = true
         viewModelScope.launch {
+            val localDate = runCatching { LocalDate.parse(d.date) }.getOrNull()
+            val formattedTitle = if (localDate != null)
+                "${localDate.year}년 ${localDate.monthValue}월 ${localDate.dayOfMonth}일 일기"
+            else "${d.date} 일기"
+            val mood = when (_selectedEmotion.value) {
+                "기쁨", "설렘" -> "happy"
+                "슬픔", "화남" -> "sad"
+                else -> "neutral"
+            }
+            val existingId = _existingEntryId.value
             val entry = DiaryEntry(
-                title = "${d.date} 일기",
+                id = existingId ?: "",
+                title = formattedTitle,
                 content = d.editedContent ?: d.aiContent,
                 date = d.date,
+                mood = mood,
                 emotion = _selectedEmotion.value ?: "",
                 weather = _selectedWeather.value ?: "",
                 photos = d.photos
             )
-            val result = diaryRepository.addDiary(userId, entry)
+            val result = if (existingId != null) {
+                diaryRepository.updateDiary(userId, entry)
+            } else {
+                diaryRepository.addDiary(userId, entry)
+            }
             _isSaving.value = false
             _draft.update { it?.copy(status = if (result.isSuccess) DraftStatus.SAVED else DraftStatus.IDLE) }
+            if (result.isSuccess) _saveEvent.tryEmit(Unit)
             onComplete(result.isSuccess)
         }
     }
@@ -211,6 +238,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun updateEmotionSelection(emotion: String?) { _selectedEmotion.value = emotion }
 
     fun loadExistingEntry(entry: DiaryEntry) {
+        _existingEntryId.value = entry.id
         _draft.value = DiaryDraft(
             date = entry.date,
             aiContent = entry.content,
@@ -226,5 +254,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _blocks.value = emptyList()
         _selectedWeather.value = null
         _selectedEmotion.value = null
+        _existingEntryId.value = null
     }
 }

@@ -375,7 +375,7 @@ fun ProfileEditScreen(
                         .background(Color.Black.copy(alpha = 0.25f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = SageForest)
+                    CircularProgressIndicator(color = if (isDark) SageForestDark else SageForest)
                 }
             }
         }

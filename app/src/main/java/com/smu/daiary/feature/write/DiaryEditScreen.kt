@@ -1,5 +1,7 @@
 package com.smu.daiary.feature.write
 
+import android.content.Intent
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,13 +34,13 @@ import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,7 +69,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import coil.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -125,17 +130,56 @@ fun DiaryEditScreen(
     val wc = if (isDark) WriteColorsDark else WriteColors
     val accent = wc.Purple
     val accentLight = wc.PurpleLight
+    val context = LocalContext.current
 
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     var text by remember(draft?.date) {
         mutableStateOf(draft?.editedContent ?: draft?.aiContent ?: "")
     }
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
+    val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
+
+    var showExitDialog by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = text.isNotEmpty()) {
+        showExitDialog = true
+    }
+    BackHandler(enabled = isSaving) {}
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text(stringResource(R.string.dialog_exit_title)) },
+            text  = { Text(stringResource(R.string.dialog_exit_message)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitDialog = false
+                    onBack()
+                }) {
+                    Text(stringResource(R.string.dialog_exit_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text(stringResource(R.string.dialog_exit_cancel))
+                }
+            }
+        )
+    }
 
     val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 5)
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3)
     ) { uris ->
-        uris.forEach { viewModel.addPhoto(it.toString()) }
+        val slots = (3 - (viewModel.draft.value?.photos?.size ?: 0)).coerceAtLeast(0)
+        uris.take(slots).forEach { uri ->
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            viewModel.addPhoto(uri.toString())
+        }
     }
 
     Scaffold(
@@ -152,7 +196,9 @@ fun DiaryEditScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (text.isNotEmpty()) showExitDialog = true else onBack()
+                    }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.back),
@@ -237,16 +283,16 @@ fun DiaryEditScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = 12.dp)
                     ) {
-                        val today = LocalDate.now()
+                        val dateToShow = draft?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
                         Text(
-                            text = stringResource(R.string.date_format_full, today.year, today.monthValue, today.dayOfMonth),
+                            text = stringResource(R.string.date_format_full, dateToShow.year, dateToShow.monthValue, dateToShow.dayOfMonth),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             color = accent
                         )
                         if (selectedWeather != null) {
                             Text(text = "·", fontSize = 13.sp, color = accent)
-                            Text(text = selectedWeather!!, fontSize = 13.sp, color = accent)
+                            Text(text = localizedWeatherLabel(selectedWeather!!), fontSize = 13.sp, color = accent)
                         }
                     }
                     Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -320,24 +366,26 @@ fun DiaryEditScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         items(photos) { uri ->
-                            PhotoChip(uri = uri, onRemove = { viewModel.removePhoto(uri) })
+                            PhotoThumbnail(uri = uri, onRemove = { viewModel.removePhoto(uri) })
                         }
-                        item {
-                            TextButton(
-                                onClick = {
-                                    photoPicker.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        if (photos.size < 3) {
+                            item {
+                                TextButton(
+                                    onClick = {
+                                        photoPicker.launch(
+                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                        )
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.AddPhotoAlternate,
+                                        contentDescription = stringResource(R.string.add_photo_desc),
+                                        tint = accent,
+                                        modifier = Modifier.size(18.dp)
                                     )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
                                 }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.AddPhotoAlternate,
-                                    contentDescription = stringResource(R.string.add_photo_desc),
-                                    tint = accent,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
                             }
                         }
                     }
@@ -408,48 +456,34 @@ fun IconSelectChip(
 }
 
 @Composable
-private fun PhotoChip(uri: String, onRemove: () -> Unit) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-    val accent = wc.Purple
-    val accentLight = wc.PurpleLight
-    Surface(
-        shape = RoundedCornerShape(10.dp),
-        color = accentLight,
-        border = BorderStroke(0.5.dp, accent.copy(alpha = 0.3f))
+private fun PhotoThumbnail(uri: String, onRemove: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(60.dp)
+            .clip(RoundedCornerShape(10.dp))
     ) {
-        Row(
-            modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        AsyncImage(
+            model = uri,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(3.dp)
+                .size(18.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f))
+                .clickable { onRemove() },
+            contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Outlined.PhotoLibrary,
-                contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(14.dp)
+                imageVector = Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.delete_photo_desc),
+                tint = Color.White,
+                modifier = Modifier.size(11.dp)
             )
-            Text(
-                text = uri.substringAfterLast("/").take(24),
-                fontSize = 12.sp,
-                color = accent
-            )
-            Box(
-                modifier = Modifier
-                    .size(18.dp)
-                    .clip(CircleShape)
-                    .background(accent.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(onClick = onRemove, modifier = Modifier.size(18.dp)) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = stringResource(R.string.delete_photo_desc),
-                        tint = accent,
-                        modifier = Modifier.size(10.dp)
-                    )
-                }
-            }
         }
     }
 }

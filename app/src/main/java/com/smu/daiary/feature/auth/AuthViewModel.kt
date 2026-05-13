@@ -2,12 +2,16 @@ package com.smu.daiary.feature.auth
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 private const val TAG = "AuthViewModel"
 
@@ -122,15 +126,29 @@ class AuthViewModel : ViewModel() {
 
     fun deleteAccount() {
         val user = auth.currentUser ?: return
-        user.delete()
-            .addOnSuccessListener {
+        val uid = user.uid
+        _authState.value = AuthState.Loading
+        viewModelScope.launch {
+            try {
+                val db = FirebaseFirestore.getInstance()
+                val userRef = db.collection("users").document(uid)
+
+                userRef.collection("diaries").get().await()
+                    .documents.forEach { it.reference.delete().await() }
+
+                userRef.collection("dailyData").get().await()
+                    .documents.forEach { it.reference.delete().await() }
+
+                userRef.delete().await()
+
+                user.delete().await()
                 Log.d(TAG, "회원탈퇴 완료")
                 _authState.value = AuthState.Unauthenticated
-            }
-            .addOnFailureListener { e ->
+            } catch (e: Exception) {
                 Log.e(TAG, "회원탈퇴 실패: ${e.message}")
                 _authState.value = AuthState.Error(e.message ?: "회원탈퇴에 실패했습니다.")
             }
+        }
     }
 
     fun clearError() {

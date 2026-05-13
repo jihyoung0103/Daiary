@@ -140,9 +140,11 @@ fun LoginScreen(
     val authState by authViewModel.authState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    var selectedTab by remember { mutableIntStateOf(0) }  // 0=로그인, 1=회원가입
-    var email       by remember { mutableStateOf("") }
-    var password    by remember { mutableStateOf("") }
+    var selectedTab   by remember { mutableIntStateOf(0) }  // 0=로그인, 1=회원가입
+    var email         by remember { mutableStateOf("") }
+    var password      by remember { mutableStateOf("") }
+    var emailError    by remember { mutableStateOf<String?>(null) }
+    var passwordError by remember { mutableStateOf<String?>(null) }
 
     // ── Google Sign-In 런처 ──────────────────────────────────────────────────
     val googleSignInClient = remember {
@@ -171,8 +173,10 @@ fun LoginScreen(
 
     // ── 탭 전환 시 입력값·에러 초기화 ───────────────────────────────────────
     LaunchedEffect(selectedTab) {
-        email    = ""
-        password = ""
+        email         = ""
+        password      = ""
+        emailError    = null
+        passwordError = null
         authViewModel.clearError()
     }
 
@@ -255,9 +259,10 @@ fun LoginScreen(
                 // ── 이메일 입력 ────────────────────────────────────────────────
                 OutlinedTextField(
                     value           = email,
-                    onValueChange   = { email = it },
+                    onValueChange   = { email = it; if (emailError != null) emailError = null },
                     label           = { Text(stringResource(R.string.label_email)) },
                     singleLine      = true,
+                    isError         = emailError != null,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier        = Modifier.fillMaxWidth(),
                     shape           = RoundedCornerShape(12.dp),
@@ -266,18 +271,32 @@ fun LoginScreen(
                         focusedLabelColor       = lc.AccentPurple,
                         cursorColor             = lc.AccentPurple,
                         focusedContainerColor   = lc.InputBg,
-                        unfocusedContainerColor = lc.InputBg
+                        unfocusedContainerColor = lc.InputBg,
+                        errorBorderColor        = lc.ErrorRed,
+                        errorLabelColor         = lc.ErrorRed,
+                        errorContainerColor     = lc.InputBg
                     )
                 )
+                if (emailError != null) {
+                    Text(
+                        text     = emailError!!,
+                        color    = lc.ErrorRed,
+                        fontSize = 11.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, start = 4.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // ── 비밀번호 입력 ──────────────────────────────────────────────
                 OutlinedTextField(
                     value                = password,
-                    onValueChange        = { password = it },
+                    onValueChange        = { password = it; if (passwordError != null) passwordError = null },
                     label                = { Text(stringResource(R.string.label_password)) },
                     singleLine           = true,
+                    isError              = passwordError != null,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions      = KeyboardOptions(keyboardType = KeyboardType.Password),
                     modifier             = Modifier.fillMaxWidth(),
@@ -287,9 +306,22 @@ fun LoginScreen(
                         focusedLabelColor       = lc.AccentPurple,
                         cursorColor             = lc.AccentPurple,
                         focusedContainerColor   = lc.InputBg,
-                        unfocusedContainerColor = lc.InputBg
+                        unfocusedContainerColor = lc.InputBg,
+                        errorBorderColor        = lc.ErrorRed,
+                        errorLabelColor         = lc.ErrorRed,
+                        errorContainerColor     = lc.InputBg
                     )
                 )
+                if (passwordError != null) {
+                    Text(
+                        text     = passwordError!!,
+                        color    = lc.ErrorRed,
+                        fontSize = 11.sp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, start = 4.dp)
+                    )
+                }
 
                 // ── 에러 메시지 ────────────────────────────────────────────────
                 AnimatedVisibility(visible = authState is AuthState.Error) {
@@ -308,8 +340,20 @@ fun LoginScreen(
                 // ── 이메일 확인 버튼 ───────────────────────────────────────────
                 Button(
                     onClick  = {
-                        if (selectedTab == 0) authViewModel.login(email, password)
-                        else authViewModel.signUp(email, password)
+                        emailError = when {
+                            email.isBlank()      -> context.getString(R.string.error_email_empty)
+                            !email.contains('@') -> context.getString(R.string.error_email_invalid)
+                            else                 -> null
+                        }
+                        passwordError = when {
+                            password.isBlank()   -> context.getString(R.string.error_password_empty)
+                            password.length < 6  -> context.getString(R.string.error_password_short)
+                            else                 -> null
+                        }
+                        if (emailError == null && passwordError == null) {
+                            if (selectedTab == 0) authViewModel.login(email, password)
+                            else authViewModel.signUp(email, password)
+                        }
                     },
                     enabled  = authState !is AuthState.Loading,
                     modifier = Modifier.fillMaxWidth().height(50.dp),
