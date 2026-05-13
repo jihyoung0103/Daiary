@@ -4,42 +4,41 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.FirebaseFirestore
+import com.smu.daiary.data.repository.AuthRepository
+import com.smu.daiary.data.repository.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
+
 
 private const val TAG = "AuthViewModel"
 
 /** Firebase 인증 상태 */
 sealed class AuthState {
-    /** 앱 시작 직후 Firebase 확인 중 */
     object Loading : AuthState()
-    /** 비로그인 */
     object Unauthenticated : AuthState()
-    /** 로그인 성공 직후 (피드백 표시용, 곧 Authenticated로 전환) */
     data class LoginSuccess(val user: FirebaseUser) : AuthState()
-    /** 회원가입 성공 직후 (피드백 표시용, 곧 Authenticated로 전환) */
     data class SignUpSuccess(val user: FirebaseUser) : AuthState()
-    /** 로그인 완료 → 메인 화면 */
     data class Authenticated(val user: FirebaseUser) : AuthState()
-    /** 오류 */
     data class Error(val message: String) : AuthState()
 }
 
-class AuthViewModel : ViewModel() {
-
-    private val auth = FirebaseAuth.getInstance()
+class AuthViewModel(
+    private val repository: AuthRepository = AuthRepository()
+) : ViewModel() {
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Loading)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
     init {
-        val currentUser = auth.currentUser
+        val currentUser = repository.currentUser()
         _authState.value = if (currentUser != null) {
             AuthState.Authenticated(currentUser)
         } else {
@@ -54,17 +53,19 @@ class AuthViewModel : ViewModel() {
             _authState.value = AuthState.Error("이메일과 비밀번호를 입력해주세요.")
             return
         }
-        Log.d(TAG, "로그인 시도: $email")
-        _authState.value = AuthState.Loading
-        auth.signInWithEmailAndPassword(email.trim(), password)
-            .addOnSuccessListener { result ->
-                Log.d(TAG, "로그인 성공: uid=${result.user?.uid}")
-                _authState.value = AuthState.LoginSuccess(result.user!!)
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            when (val result = repository.signIn(email.trim(), password)) {
+                is AuthResult.Success -> {
+                    Log.d(TAG, "로그인 성공: uid=${result.data.uid}")
+                    _authState.value = AuthState.LoginSuccess(result.data)
+                }
+                is AuthResult.Error -> {
+                    Log.e(TAG, "로그인 실패: ${result.exception.message}")
+                    _authState.value = AuthState.Error(mapAuthError(result.exception))
+                }
             }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "로그인 실패: ${e.message}")
-                _authState.value = AuthState.Error(e.message ?: "로그인에 실패했습니다.")
-            }
+        }
     }
 
     // ── 이메일 회원가입 ────────────────────────────────────────────────────────
@@ -78,17 +79,19 @@ class AuthViewModel : ViewModel() {
             _authState.value = AuthState.Error("비밀번호는 6자리 이상이어야 합니다.")
             return
         }
-        Log.d(TAG, "회원가입 시도: $email")
-        _authState.value = AuthState.Loading
-        auth.createUserWithEmailAndPassword(email.trim(), password)
-            .addOnSuccessListener { result ->
-                Log.d(TAG, "회원가입 성공: uid=${result.user?.uid}")
-                _authState.value = AuthState.SignUpSuccess(result.user!!)
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            when (val result = repository.signUp(email.trim(), password)) {
+                is AuthResult.Success -> {
+                    Log.d(TAG, "회원가입 성공: uid=${result.data.uid}")
+                    _authState.value = AuthState.SignUpSuccess(result.data)
+                }
+                is AuthResult.Error -> {
+                    Log.e(TAG, "회원가입 실패: ${result.exception.message}")
+                    _authState.value = AuthState.Error(mapAuthError(result.exception))
+                }
             }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "회원가입 실패: ${e.message}")
-                _authState.value = AuthState.Error(e.message ?: "회원가입에 실패했습니다.")
-            }
+        }
     }
 
     // ── Google 로그인 ──────────────────────────────────────────────────────────
@@ -97,19 +100,19 @@ class AuthViewModel : ViewModel() {
         Log.d(TAG, "Google 로그인 시도")
         _authState.value = AuthState.Loading
         val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.signInWithCredential(credential)
+        FirebaseAuth.getInstance().signInWithCredential(credential)
             .addOnSuccessListener { result ->
                 val isNew = result.additionalUserInfo?.isNewUser == true
                 Log.d(TAG, "Google 로그인 성공: uid=${result.user?.uid}, 신규=$isNew")
-                if (isNew) {
-                    _authState.value = AuthState.SignUpSuccess(result.user!!)
+                _authState.value = if (isNew) {
+                    AuthState.SignUpSuccess(result.user!!)
                 } else {
-                    _authState.value = AuthState.LoginSuccess(result.user!!)
+                    AuthState.LoginSuccess(result.user!!)
                 }
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Google 로그인 실패: ${e.message}")
-                _authState.value = AuthState.Error(e.message ?: "Google 로그인에 실패했습니다.")
+                _authState.value = AuthState.Error("Google 로그인에 실패했습니다.")
             }
     }
 
@@ -120,35 +123,22 @@ class AuthViewModel : ViewModel() {
     }
 
     fun logout() {
-        auth.signOut()
+        repository.signOut()
         _authState.value = AuthState.Unauthenticated
     }
 
     fun deleteAccount() {
-        val user = auth.currentUser ?: return
-        val uid = user.uid
+        val user = repository.currentUser() ?: return
         _authState.value = AuthState.Loading
-        viewModelScope.launch {
-            try {
-                val db = FirebaseFirestore.getInstance()
-                val userRef = db.collection("users").document(uid)
-
-                userRef.collection("diaries").get().await()
-                    .documents.forEach { it.reference.delete().await() }
-
-                userRef.collection("dailyData").get().await()
-                    .documents.forEach { it.reference.delete().await() }
-
-                userRef.delete().await()
-
-                user.delete().await()
+        user.delete()
+            .addOnSuccessListener {
                 Log.d(TAG, "회원탈퇴 완료")
                 _authState.value = AuthState.Unauthenticated
-            } catch (e: Exception) {
-                Log.e(TAG, "회원탈퇴 실패: ${e.message}")
-                _authState.value = AuthState.Error(e.message ?: "회원탈퇴에 실패했습니다.")
             }
-        }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "회원탈퇴 실패: ${e.message}")
+                _authState.value = AuthState.Error(mapAuthError(e))
+            }
     }
 
     fun clearError() {
@@ -159,5 +149,22 @@ class AuthViewModel : ViewModel() {
 
     fun setError(message: String) {
         _authState.value = AuthState.Error(message)
+    }
+
+    // ── 에러 메시지 매핑 ───────────────────────────────────────────────────────
+
+    private fun mapAuthError(e: Exception): String = when {
+        e is FirebaseAuthInvalidCredentialsException -> when (e.errorCode) {
+            "ERROR_INVALID_EMAIL" -> "이메일 형식이 올바르지 않습니다."
+            else -> "이메일 또는 비밀번호가 올바르지 않습니다."
+        }
+        e is FirebaseAuthInvalidUserException -> "등록되지 않은 이메일입니다."
+        e is FirebaseAuthUserCollisionException -> "이미 사용 중인 이메일입니다."
+        e is FirebaseAuthWeakPasswordException -> "비밀번호는 6자 이상이어야 합니다."
+        e.message?.contains("ERROR_TOO_MANY_REQUESTS", ignoreCase = true) == true ->
+            "요청이 너무 많습니다. 잠시 후 다시 시도하세요."
+        e.message?.contains("NETWORK_REQUEST_FAILED", ignoreCase = true) == true ->
+            "네트워크 오류가 발생했습니다. 연결을 확인하세요."
+        else -> "오류가 발생했습니다. 다시 시도하세요."
     }
 }

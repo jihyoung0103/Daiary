@@ -67,8 +67,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import com.smu.daiary.R
-import com.smu.daiary.cancelNotification
-import com.smu.daiary.scheduleNotification
+import com.smu.daiary.feature.notification.cancelNotification
+import com.smu.daiary.feature.notification.scheduleNotification
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
