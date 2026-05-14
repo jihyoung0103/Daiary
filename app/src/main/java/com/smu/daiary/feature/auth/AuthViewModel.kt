@@ -10,8 +10,8 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.smu.daiary.data.repository.AuthRepository
-import com.smu.daiary.data.repository.AuthResult
+import com.smu.daiary.data.repository.firebase.AuthRepository
+import com.smu.daiary.data.repository.firebase.AuthResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
