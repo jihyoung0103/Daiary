@@ -1,8 +1,8 @@
-package com.smu.daiary.data.repository
+package com.smu.daiary.data.repository.firebase
 
 import com.google.firebase.auth.FirebaseUser
-import com.smu.daiary.data.source.FirebaseAuthDataSource
-import com.smu.daiary.data.source.FirestoreUserDataSource
+import com.smu.daiary.data.source.firebase.FirebaseAuthDataSource
+import com.smu.daiary.data.source.firebase.FirestoreUserDataSource
 
 sealed class AuthResult<out T> {
     data class Success<out T>(val data: T) : AuthResult<T>()

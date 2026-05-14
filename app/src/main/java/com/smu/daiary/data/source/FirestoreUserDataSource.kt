@@ -1,4 +1,4 @@
-package com.smu.daiary.data.source
+package com.smu.daiary.data.source.firebase
 
 import android.util.Log
 import com.google.firebase.firestore.FieldValue
