@@ -4,7 +4,8 @@
       "Bash(Get-ChildItem -Recurse -Depth 2)",
       "Bash(Select-Object FullName)",
       "Bash(Head -100)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(./gradlew assembleDebug --no-daemon)"
     ]
   }
 }

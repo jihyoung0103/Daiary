@@ -1,6 +1,8 @@
 package com.smu.daiary.feature.write
 
 import android.app.Application
+import android.content.Context
+import android.content.res.Configuration
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -24,12 +26,25 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private const val TAG = "WriteViewModel"
 
 class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context = application.applicationContext
+
+    // SharedPreferences 언어 설정("한국어"/"English")에 맞는 로케일 Context를 반환.
+    // Application context는 MainActivity.attachBaseContext의 로케일 재설정 영향을 받지
+    // 않으므로, 매번 직접 Configuration을 덮어써야 한다.
+    private fun localizedContext(): Context {
+        val prefs = context.getSharedPreferences("daiary_settings", Context.MODE_PRIVATE)
+        val lang = prefs.getString("language", "한국어") ?: "한국어"
+        val locale = if (lang == "English") Locale("en") else Locale("ko")
+        val config = Configuration(context.resources.configuration)
+        config.setLocale(locale)
+        return context.createConfigurationContext(config)
+    }
 
     // Repositories & DataSources
     private val diaryRepository = DiaryRepository()
@@ -95,7 +110,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     dailyDataRepository.updateWeather(userId, date, weather)
                     blocks.add(ContentBlock(
                         id = "weather", type = BlockType.WEATHER,
-                        content = context.getString(
+                        content = localizedContext().getString(
                             R.string.block_weather_content,
                             localizedWeatherDescription(weather.description),
                             weather.temperature.toInt(),
@@ -105,7 +120,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .onFailure {
                     Log.w(TAG, "⚠️ 날씨 수집 실패 (권한 또는 네트워크 문제)", it)
-                    blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = context.getString(R.string.block_weather_unavailable)))
+                    blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable)))
                 }
 
             // 캘린더
@@ -114,7 +129,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "📅 캘린더 수집 완료: ${events.size}개")
                     dailyDataRepository.updateCalendar(userId, date, events)
                     if (events.isEmpty()) {
-                        blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = context.getString(R.string.block_calendar_empty)))
+                        blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = localizedContext().getString(R.string.block_calendar_empty)))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
                         events.forEachIndexed { i, event ->
@@ -130,7 +145,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .onFailure {
                     Log.w(TAG, "⚠️ 캘린더 수집 실패 (권한 문제)", it)
-                    blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = context.getString(R.string.block_calendar_unavailable)))
+                    blocks.add(ContentBlock(id = "calendar_0", type = BlockType.CALENDAR, content = localizedContext().getString(R.string.block_calendar_unavailable)))
                 }
 
             // 사진
@@ -139,7 +154,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "🖼️ 사진 수집 완료: ${photos.size}장")
                     dailyDataRepository.updatePhotos(userId, date, photos)
                     if (photos.isNotEmpty()) {
-                        blocks.add(ContentBlock(id = "photo", type = BlockType.PHOTO, content = context.getString(R.string.block_photo_count, photos.size)))
+                        blocks.add(ContentBlock(id = "photo", type = BlockType.PHOTO, content = localizedContext().getString(R.string.block_photo_count, photos.size)))
                     }
                 }
                 .onFailure { Log.w(TAG, "⚠️ 사진 수집 실패 (권한 문제)", it) }
@@ -165,11 +180,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun localizedWeatherDescription(canonical: String): String = when (canonical) {
-        "맑음" -> context.getString(R.string.weather_sunny)
-        "흐림" -> context.getString(R.string.weather_cloudy)
-        "비"   -> context.getString(R.string.weather_rain)
-        "눈"   -> context.getString(R.string.weather_snow)
-        "바람" -> context.getString(R.string.weather_wind)
+        "맑음" -> localizedContext().getString(R.string.weather_sunny)
+        "흐림" -> localizedContext().getString(R.string.weather_cloudy)
+        "비"   -> localizedContext().getString(R.string.weather_rain)
+        "눈"   -> localizedContext().getString(R.string.weather_snow)
+        "바람" -> localizedContext().getString(R.string.weather_wind)
         else   -> canonical
     }
 
@@ -184,19 +199,19 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         if (selected.isEmpty()) return
         val today = LocalDate.now().toString()
         val content = buildString {
-            appendLine(context.getString(R.string.draft_intro))
+            appendLine(localizedContext().getString(R.string.draft_intro))
             appendLine()
             selected.forEach { block ->
                 when (block.type) {
-                    BlockType.PAYMENT  -> appendLine(context.getString(R.string.draft_block_payment, block.content))
-                    BlockType.PHOTO    -> appendLine(context.getString(R.string.draft_block_photo, block.content))
-                    BlockType.CALENDAR -> appendLine(context.getString(R.string.draft_block_calendar, block.content))
-                    BlockType.HEALTH   -> appendLine(context.getString(R.string.draft_block_health, block.content))
-                    BlockType.WEATHER  -> appendLine(context.getString(R.string.draft_block_weather, block.content))
+                    BlockType.PAYMENT  -> appendLine(localizedContext().getString(R.string.draft_block_payment, block.content))
+                    BlockType.PHOTO    -> appendLine(localizedContext().getString(R.string.draft_block_photo, block.content))
+                    BlockType.CALENDAR -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
+                    BlockType.HEALTH   -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
+                    BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
                 }
             }
             appendLine()
-            append(context.getString(R.string.draft_outro))
+            append(localizedContext().getString(R.string.draft_outro))
         }
         _draft.value = DiaryDraft(date = today, aiContent = content)
     }
@@ -219,13 +234,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val localDate = runCatching { LocalDate.parse(d.date) }.getOrNull()
             val formattedTitle = if (localDate != null)
-                context.getString(R.string.diary_entry_title, localDate.year, localDate.monthValue, localDate.dayOfMonth)
+                localizedContext().getString(R.string.diary_entry_title, localDate.year, localDate.monthValue, localDate.dayOfMonth)
             else d.date
             val mood = when (_selectedEmotion.value) {
-                context.getString(R.string.emotion_joy),
-                context.getString(R.string.emotion_excited) -> "happy"
-                context.getString(R.string.emotion_sad),
-                context.getString(R.string.emotion_angry) -> "sad"
+                localizedContext().getString(R.string.emotion_joy),
+                localizedContext().getString(R.string.emotion_excited) -> "happy"
+                localizedContext().getString(R.string.emotion_sad),
+                localizedContext().getString(R.string.emotion_angry) -> "sad"
                 else -> "neutral"
             }
             val existingId = _existingEntryId.value
