@@ -49,6 +49,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // Repositories & DataSources
     private val diaryRepository = DiaryRepository()
     private val dailyDataRepository = DailyDataRepository()
+    private val aiRepository = com.smu.daiary.data.repository.AiRepository()
     private val weatherDataSource = WeatherDataSource(context)
     private val photoDataSource = PhotoDataSource(context)
     private val calendarDataSource = CalendarDataSource(context)
@@ -75,6 +76,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedEmotion = MutableStateFlow<String?>(null)
     val selectedEmotion: StateFlow<String?> = _selectedEmotion.asStateFlow()
+
+    // AI 초안 생성 상태
+    private val _isGenerating = MutableStateFlow(false)
+    val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
+
+    private val _generateError = MutableStateFlow<String?>(null)
+    val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
     // 저장 완료 이벤트 (스낵바 표시용)
     private val _saveEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -198,23 +206,46 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) return
         val today = LocalDate.now().toString()
-        val content = buildString {
-            appendLine(localizedContext().getString(R.string.draft_intro))
-            appendLine()
-            selected.forEach { block ->
-                when (block.type) {
-                    BlockType.PAYMENT  -> appendLine(localizedContext().getString(R.string.draft_block_payment, block.content))
-                    BlockType.PHOTO    -> appendLine(localizedContext().getString(R.string.draft_block_photo, block.content))
-                    BlockType.CALENDAR -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
-                    BlockType.HEALTH   -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
-                    BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
-                }
+
+        viewModelScope.launch {
+            _isGenerating.value = true
+            _generateError.value = null
+
+            val prefs = context.getSharedPreferences("daiary_settings", android.content.Context.MODE_PRIVATE)
+            val locale = if (prefs.getString("language", "한국어") == "English") "en" else "ko"
+
+            val result = aiRepository.generateDraft(selected, locale)
+            val content = result.getOrElse { fallbackTemplate(selected) }
+
+            if (result.isFailure) {
+                _generateError.value = if (locale == "en")
+                    "AI generation failed. Using default template."
+                else
+                    "초안 생성에 실패했습니다. 기본 템플릿으로 대체합니다."
             }
-            appendLine()
-            append(localizedContext().getString(R.string.draft_outro))
+
+            _draft.value = DiaryDraft(date = today, aiContent = content)
+            _isGenerating.value = false
         }
-        _draft.value = DiaryDraft(date = today, aiContent = content)
     }
+
+    private fun fallbackTemplate(selected: List<ContentBlock>): String = buildString {
+        appendLine(localizedContext().getString(R.string.draft_intro))
+        appendLine()
+        selected.forEach { block ->
+            when (block.type) {
+                BlockType.PAYMENT  -> appendLine(localizedContext().getString(R.string.draft_block_payment, block.content))
+                BlockType.PHOTO    -> appendLine(localizedContext().getString(R.string.draft_block_photo, block.content))
+                BlockType.CALENDAR -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
+                BlockType.HEALTH   -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
+                BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
+            }
+        }
+        appendLine()
+        append(localizedContext().getString(R.string.draft_outro))
+    }
+
+    fun clearGenerateError() { _generateError.value = null }
 
     fun updateEditedContent(content: String) {
         _draft.update { it?.copy(editedContent = content) }
