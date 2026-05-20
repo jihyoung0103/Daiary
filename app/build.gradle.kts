@@ -1,7 +1,14 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+}
+
+val localProps = Properties().also { props ->
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { props.load(it) }
 }
 
 android {
@@ -19,6 +26,9 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val apiKey = localProps["ANTHROPIC_API_KEY"] as String? ?: ""
+        buildConfigField("String", "ANTHROPIC_API_KEY", "\"$apiKey\"")
     }
 
     buildTypes {
@@ -37,6 +47,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -93,4 +104,7 @@ dependencies {
 
     // AppCompat (다크모드 AppCompatDelegate, 언어 전환 setApplicationLocales)
     implementation("androidx.appcompat:appcompat:1.7.0")
+
+    // HTTP client (Anthropic API 호출용)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 }

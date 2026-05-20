@@ -62,6 +62,7 @@
     <string name="setting_language">Language</string>
     <string name="setting_diary_notification">Diary Reminder</string>
     <string name="setting_notification_time">Reminder Time</string>
+    <string name="setting_payment_notification">Payment Notification</string>
     <string name="section_privacy">Privacy</string>
     <string name="privacy_policy">Privacy Policy</string>
     <string name="terms_of_service">Terms of Service</string>
