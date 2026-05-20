@@ -75,6 +75,7 @@
     <string name="setting_language">언어</string>
     <string name="setting_diary_notification">일기 알림</string>
     <string name="setting_notification_time">알림 시간</string>
+    <string name="setting_payment_notification">결제 알림 수집</string>
     <string name="section_privacy">개인정보</string>
     <string name="privacy_policy">개인정보 처리방침</string>
     <string name="terms_of_service">서비스 이용약관</string>
