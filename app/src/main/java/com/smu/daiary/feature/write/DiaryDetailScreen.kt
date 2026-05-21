@@ -235,22 +235,22 @@ fun DiaryDetailScreen(
                                 .background(wc.PurpleLight),
                             contentAlignment = Alignment.Center
                         ) {
-                            var imageState by remember { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
+                            var imageState = remember { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
                             AsyncImage(
                                 model = uri,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),
-                                onState = { imageState = it }
+                                onState = { imageState.value = it }
                             )
-                            if (imageState is AsyncImagePainter.State.Loading) {
+                            if (imageState.value is AsyncImagePainter.State.Loading) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
                                     color = wc.Purple,
                                     strokeWidth = 2.dp
                                 )
                             }
-                            if (imageState is AsyncImagePainter.State.Error) {
+                            if (imageState.value is AsyncImagePainter.State.Error) {
                                 Icon(
                                     imageVector = Icons.Outlined.BrokenImage,
                                     contentDescription = stringResource(R.string.photo_load_error),
