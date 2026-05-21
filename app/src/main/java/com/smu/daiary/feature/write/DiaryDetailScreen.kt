@@ -54,7 +54,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.outlined.BrokenImage
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -230,14 +232,32 @@ fun DiaryDetailScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(wc.PurpleLight)
+                                .background(wc.PurpleLight),
+                            contentAlignment = Alignment.Center
                         ) {
+                            var imageState by remember { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
                             AsyncImage(
                                 model = uri,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
+                                onState = { imageState = it }
                             )
+                            if (imageState is AsyncImagePainter.State.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = wc.Purple,
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                            if (imageState is AsyncImagePainter.State.Error) {
+                                Icon(
+                                    imageVector = Icons.Outlined.BrokenImage,
+                                    contentDescription = stringResource(R.string.photo_load_error),
+                                    tint = wc.TextMuted,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
                         }
                     }
                 }

@@ -44,11 +44,14 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.outlined.BrokenImage
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -240,14 +243,32 @@ fun DraftPreviewScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(wc.PurpleLight)
+                                .background(wc.PurpleLight),
+                            contentAlignment = Alignment.Center
                         ) {
+                            var imageState by remember { mutableStateOf<AsyncImagePainter.State>(AsyncImagePainter.State.Empty) }
                             AsyncImage(
                                 model = uri,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier.fillMaxSize(),
+                                onState = { imageState = it }
                             )
+                            if (imageState is AsyncImagePainter.State.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = wc.Purple,
+                                    strokeWidth = 2.dp
+                                )
+                            }
+                            if (imageState is AsyncImagePainter.State.Error) {
+                                Icon(
+                                    imageVector = Icons.Outlined.BrokenImage,
+                                    contentDescription = stringResource(R.string.photo_load_error),
+                                    tint = wc.TextMuted,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
                         }
                     }
                 }
