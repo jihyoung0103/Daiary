@@ -154,6 +154,7 @@ fun ProfileScreen(
     var showTimePickerDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showNotificationListenerDialog by remember { mutableStateOf(false) }
 
     var customPhotoUrl by remember { mutableStateOf<String?>(null) }
     var firestoreDisplayName by remember { mutableStateOf("") }
@@ -326,7 +327,11 @@ fun ProfileScreen(
                         label = stringResource(R.string.setting_payment_notification),
                         checked = paymentListenerEnabled,
                         onCheckedChange = {
-                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            if (!paymentListenerEnabled) {
+                                showNotificationListenerDialog = true
+                            } else {
+                                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            }
                         }
                     )
                 }
@@ -604,6 +609,44 @@ fun ProfileScreen(
             containerColor = cardBg
         )
     }
+    if (showNotificationListenerDialog) {
+        AlertDialog(
+            onDismissRequest = { showNotificationListenerDialog = false },
+            title = {
+                Text(
+                    text = stringResource(R.string.dialog_notification_listener_title),
+                    color = textPrimary
+                )
+            },
+            text = {
+                Text(
+                    text = stringResource(R.string.dialog_notification_listener_message),
+                    color = textMuted,
+                    lineHeight = 22.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showNotificationListenerDialog = false
+                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                ) {
+                    Text(
+                        text = stringResource(R.string.dialog_notification_listener_confirm),
+                        color = accentColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNotificationListenerDialog = false }) {
+                    Text(stringResource(R.string.cancel), color = textMuted)
+                }
+            },
+            containerColor = cardBg
+        )
+    }
 }
 
 @Composable
@@ -758,6 +801,7 @@ private fun InfoRow(label: String, value: String) {
         )
     }
 }
+
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @OptIn(ExperimentalMaterial3Api::class)

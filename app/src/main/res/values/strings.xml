@@ -88,6 +88,9 @@
     <string name="dialog_notification_time_title">알림 시간 설정</string>
     <string name="hour_label">시</string>
     <string name="minute_label">분</string>
+    <string name="dialog_notification_listener_title">결제 알림 접근 권한</string>
+    <string name="dialog_notification_listener_message">결제 내역을 자동으로 감지하려면 알림 접근 권한이 필요해요.\n설정 화면에서 Daiary를 활성화해 주세요.</string>
+    <string name="dialog_notification_listener_confirm">설정으로 이동</string>
     <string name="dialog_logout_title">로그아웃</string>
     <string name="dialog_logout_message">정말 로그아웃 하시겠어요?</string>
     <string name="dialog_delete_title">회원탈퇴</string>
