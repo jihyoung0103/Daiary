@@ -197,7 +197,7 @@ class MainActivity : ComponentActivity() {
                                             showPaymentListenerOnboarding = false
                                             startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                                         }) {
-                                            Text("설정으로 이동")
+                                            Text("허용하기")
                                         }
                                     },
                                     dismissButton = {
