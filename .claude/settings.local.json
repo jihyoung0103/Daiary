@@ -8,7 +8,9 @@
       "Bash(./gradlew assembleDebug --no-daemon)",
       "Bash(Get-Content \"C:\\\\.AndroidStudioProjects\\\\Daiary\\\\.gitignore\")",
       "Bash(Select-String \"local.properties\")",
-      "Bash(git -C \"C:\\\\.AndroidStudioProjects\\\\Daiary\" ls-files local.properties)"
+      "Bash(git -C \"C:\\\\.AndroidStudioProjects\\\\Daiary\" ls-files local.properties)",
+      "Bash(git fetch *)",
+      "Bash(git add *)"
     ]
   }
 }
