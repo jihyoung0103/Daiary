@@ -59,6 +59,12 @@ import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.MoodHappy
 import com.smu.daiary.ui.theme.MoodNeutral
 import com.smu.daiary.ui.theme.MoodSad
+import androidx.compose.material.icons.outlined.SentimentVerySatisfied
+import androidx.compose.material.icons.outlined.SentimentDissatisfied
+import androidx.compose.material.icons.outlined.SentimentNeutral
+import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
@@ -428,6 +434,7 @@ data class DiaryListItemUi(
     val title: String,
     val preview: String,
     val moodColor: Color,
+    val moodIcon: ImageVector,
     val entry: DiaryEntry
 )
 
@@ -463,6 +470,11 @@ private fun RecentDiaryList(
                         "happy"   -> MoodHappy
                         "sad"     -> MoodSad
                         else      -> MoodNeutral
+                    },
+                    moodIcon = when (entry.mood) {
+                        "happy"   -> Icons.Outlined.SentimentVerySatisfied
+                        "sad"     -> Icons.Outlined.SentimentDissatisfied
+                        else      -> Icons.Outlined.SentimentNeutral
                     },
                     entry = entry
                 )
@@ -631,12 +643,13 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Box(
+            Icon(
+                imageVector = item.moodIcon,
+                contentDescription = null,
+                tint = item.moodColor,
                 modifier = Modifier
-                    .padding(top = 4.dp)
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(item.moodColor)
+                    .padding(top = 2.dp)
+                    .size(18.dp)
             )
         }
     }
