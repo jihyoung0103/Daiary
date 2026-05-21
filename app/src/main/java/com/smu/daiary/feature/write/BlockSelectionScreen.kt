@@ -40,7 +40,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,11 +76,33 @@ fun BlockSelectionScreen(
 
     val blocks by viewModel.blocks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoadingBlocks.collectAsStateWithLifecycle()
+    val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
+    val generateError by viewModel.generateError.collectAsStateWithLifecycle()
+    val draft by viewModel.draft.collectAsStateWithLifecycle()
     val selectedCount = blocks.count { it.isSelected }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // AI 초안 생성 완료 → 다음 화면 자동 전환
+    LaunchedEffect(draft) {
+        if (draft != null) onNext()
+    }
+
+    // 생성 오류 → 스낵바 표시
+    LaunchedEffect(generateError) {
+        val error = generateError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(error)
+        viewModel.clearGenerateError()
+    }
 
     Scaffold(
         modifier = modifier,
         containerColor = wc.Bg,
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(snackbarData = data, containerColor = Color(0xFFB00020), contentColor = Color.White)
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -101,11 +128,8 @@ fun BlockSelectionScreen(
         bottomBar = {
             Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                 Button(
-                    onClick = {
-                        viewModel.generateDraft()
-                        onNext()
-                    },
-                    enabled = selectedCount > 0 && !isLoading,
+                    onClick = { viewModel.generateDraft() },
+                    enabled = selectedCount > 0 && !isLoading && !isGenerating,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
@@ -117,11 +141,19 @@ fun BlockSelectionScreen(
                         disabledContainerColor = wc.Border
                     )
                 ) {
-                    Text(
-                        text = stringResource(R.string.btn_select_done),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (isGenerating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            color = Color.White,
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        Text(
+                            text = stringResource(R.string.btn_select_done),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }
@@ -186,6 +218,7 @@ fun BlockSelectionScreen(
                 items(blocks) { block ->
                     BlockItem(
                         block = block,
+                        enabled = !isGenerating,
                         onClick = { viewModel.toggleBlock(block.id) }
                     )
                 }
@@ -195,7 +228,7 @@ fun BlockSelectionScreen(
 }
 
 @Composable
-private fun BlockItem(block: ContentBlock, onClick: () -> Unit) {
+private fun BlockItem(block: ContentBlock, enabled: Boolean = true, onClick: () -> Unit) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
     Surface(
@@ -207,7 +240,7 @@ private fun BlockItem(block: ContentBlock, onClick: () -> Unit) {
             BorderStroke(0.5.dp, wc.Border),
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
@@ -249,7 +282,7 @@ private fun BlockItem(block: ContentBlock, onClick: () -> Unit) {
             }
             Checkbox(
                 checked = block.isSelected,
-                onCheckedChange = { onClick() },
+                onCheckedChange = { if (enabled) onClick() },
                 colors = CheckboxDefaults.colors(
                     checkedColor = wc.Purple,
                     uncheckedColor = wc.Border

@@ -1,7 +1,12 @@
 package com.smu.daiary.feature.auth
 
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.LocalActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -41,6 +46,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,6 +91,11 @@ import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.TextSecondaryDark
 import com.smu.daiary.ui.theme.White
 
+private fun isNotificationListenerEnabled(context: Context): Boolean {
+    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
+    return flat?.contains(context.packageName) == true
+}
+
 private object ProfileColors {
     val Bg = Ivory
     val CardBg = White
@@ -126,6 +137,18 @@ fun ProfileScreen(
     var notificationEnabled by remember { mutableStateOf(prefs.getBoolean("notification_enabled", true)) }
     var notificationHour by remember { mutableStateOf(prefs.getInt("notification_hour", 21)) }
     var notificationMinute by remember { mutableStateOf(prefs.getInt("notification_minute", 0)) }
+
+    var paymentListenerEnabled by remember { mutableStateOf(isNotificationListenerEnabled(context)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                paymentListenerEnabled = isNotificationListenerEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     var showLanguageDialog by remember { mutableStateOf(false) }
     var showTimePickerDialog by remember { mutableStateOf(false) }
@@ -298,6 +321,14 @@ fun ProfileScreen(
                             onClick = { showTimePickerDialog = true }
                         )
                     }
+                    ProfileDivider()
+                    SwitchRow(
+                        label = stringResource(R.string.setting_payment_notification),
+                        checked = paymentListenerEnabled,
+                        onCheckedChange = {
+                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        }
+                    )
                 }
             }
 
