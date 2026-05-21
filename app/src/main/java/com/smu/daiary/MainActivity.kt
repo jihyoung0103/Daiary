@@ -16,11 +16,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import android.content.Intent
+import android.provider.Settings
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -170,6 +175,41 @@ class MainActivity : ComponentActivity() {
                             val notifPermissionLauncher = rememberLauncherForActivityResult(
                                 contract = ActivityResultContracts.RequestPermission()
                             ) { /* 허용/거부 무관하게 계속 진행 */ }
+
+                            // 결제 알림 수집 온보딩 팝업 (최초 1회)
+                            var showPaymentListenerOnboarding by remember {
+                                val shown = prefs.getBoolean("payment_listener_onboarding_shown", false)
+                                val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+                                    ?.contains(packageName) == true
+                                mutableStateOf(!shown && !enabled)
+                            }
+                            if (showPaymentListenerOnboarding) {
+                                AlertDialog(
+                                    onDismissRequest = {
+                                        prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
+                                        showPaymentListenerOnboarding = false
+                                    },
+                                    title = { Text(text = "결제 알림 자동 수집") },
+                                    text = { Text(text = "오늘 쓴 결제 내역을 일기에 자동으로 담을 수 있어요.\n설정에서 Daiary 알림 접근을 허용하면 결제 기록이 블록으로 추가됩니다.") },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
+                                            showPaymentListenerOnboarding = false
+                                            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                                        }) {
+                                            Text("설정으로 이동")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = {
+                                            prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
+                                            showPaymentListenerOnboarding = false
+                                        }) {
+                                            Text("나중에")
+                                        }
+                                    }
+                                )
+                            }
 
                             LaunchedEffect(Unit) {
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

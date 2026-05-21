@@ -322,18 +322,6 @@ fun ProfileScreen(
                             onClick = { showTimePickerDialog = true }
                         )
                     }
-                    ProfileDivider()
-                    SwitchRow(
-                        label = stringResource(R.string.setting_payment_notification),
-                        checked = paymentListenerEnabled,
-                        onCheckedChange = {
-                            if (!paymentListenerEnabled) {
-                                showNotificationListenerDialog = true
-                            } else {
-                                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                            }
-                        }
-                    )
                 }
             }
 
