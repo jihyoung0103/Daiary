@@ -21,8 +21,19 @@ class CalendarDataSource(private val context: Context) {
         return start to end
     }
 
+    suspend fun fetchEventsForDate(date: LocalDate): List<CalendarEvent> = withContext(Dispatchers.IO) {
+        val zone = ZoneId.systemDefault()
+        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        queryEvents(start, end)
+    }
+
     suspend fun fetchUpcomingEvents(): List<CalendarEvent> = withContext(Dispatchers.IO) {
         val (start, end) = upcomingRange()
+        queryEvents(start, end)
+    }
+
+    private suspend fun queryEvents(start: Long, end: Long): List<CalendarEvent> = withContext(Dispatchers.IO) {
         val events = mutableListOf<CalendarEvent>()
 
         val uri = CalendarContract.Events.CONTENT_URI

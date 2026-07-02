@@ -63,6 +63,7 @@ import com.smu.daiary.feature.write.BlockSelectionScreen
 import com.smu.daiary.feature.write.DiaryDetailScreen
 import com.smu.daiary.feature.write.DiaryEditScreen
 import com.smu.daiary.feature.write.DraftPreviewScreen
+import com.smu.daiary.feature.schedule.ScheduleViewScreen
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.ui.theme.DaiaryTheme
 import java.util.Locale
@@ -312,6 +313,9 @@ class MainActivity : ComponentActivity() {
                                         onDiaryClick = { entry ->
                                             selectedDiary = entry
                                             navController.navigate("diary_detail")
+                                        },
+                                        onScheduleClick = { date ->
+                                            navController.navigate("schedule_view/$date")
                                         }
                                     )
                                 }
@@ -451,6 +455,14 @@ class MainActivity : ComponentActivity() {
                                 composable("settings") {
                                     SettingsScreen(
                                         onConfirm = { navController.popBackStack() }
+                                    )
+                                }
+                                // "schedule_view/{date}": 날짜별 캘린더 일정 화면
+                                composable("schedule_view/{date}") { backStackEntry ->
+                                    val date = backStackEntry.arguments?.getString("date") ?: ""
+                                    ScheduleViewScreen(
+                                        date = date,
+                                        onBack = { navController.popBackStack() }
                                     )
                                 }
                             }

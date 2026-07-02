@@ -132,7 +132,8 @@ fun HomeScreen(
     onRetry: () -> Unit = {},
     onStartDiary: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onDiaryClick: (DiaryEntry) -> Unit = {}
+    onDiaryClick: (DiaryEntry) -> Unit = {},
+    onScheduleClick: (String) -> Unit = {}
 ) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
@@ -187,7 +188,8 @@ fun HomeScreen(
                         isLoading = isLoading,
                         error = error,
                         onRetry = onRetry,
-                        onDiaryClick = onDiaryClick
+                        onDiaryClick = onDiaryClick,
+                        onScheduleClick = onScheduleClick
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -445,7 +447,8 @@ private fun RecentDiaryList(
     isLoading: Boolean = false,
     error: String? = null,
     onRetry: () -> Unit = {},
-    onDiaryClick: (DiaryEntry) -> Unit = {}
+    onDiaryClick: (DiaryEntry) -> Unit = {},
+    onScheduleClick: (String) -> Unit = {}
 ) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
@@ -542,6 +545,16 @@ private fun RecentDiaryList(
                     color = mc.textMuted,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
+                TextButton(
+                    onClick = { onScheduleClick(selectedDate.toString()) },
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Text(
+                        text = "일정 보기",
+                        fontSize = 13.sp,
+                        color = mc.accentPurple
+                    )
+                }
             } else {
                 Box(
                     modifier = Modifier
