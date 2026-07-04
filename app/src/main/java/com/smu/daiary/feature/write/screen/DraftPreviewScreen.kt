@@ -1,4 +1,7 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
+
+import com.smu.daiary.feature.write.WriteViewModel
+import com.smu.daiary.feature.write.model.*
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke

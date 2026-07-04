@@ -29,6 +29,9 @@ android {
 
         val apiKey = localProps["ANTHROPIC_API_KEY"] as String? ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$apiKey\"")
+
+        val weatherApiKey = localProps["OPENWEATHER_API_KEY"] as String? ?: ""
+        buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherApiKey\"")
     }
 
     buildTypes {

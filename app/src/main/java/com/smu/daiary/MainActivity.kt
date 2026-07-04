@@ -59,11 +59,12 @@ import com.smu.daiary.feature.home.HomeViewModel
 import com.smu.daiary.feature.settings.SettingsScreen
 import com.smu.daiary.feature.notification.createNotificationChannel
 import com.smu.daiary.feature.settings.SettingsScreen
-import com.smu.daiary.feature.write.BlockSelectionScreen
-import com.smu.daiary.feature.write.DiaryDetailScreen
-import com.smu.daiary.feature.write.DiaryEditScreen
-import com.smu.daiary.feature.write.DraftPreviewScreen
 import com.smu.daiary.feature.write.WriteViewModel
+import com.smu.daiary.feature.write.screen.BlockSelectionScreen
+import com.smu.daiary.feature.write.screen.ContextQnAScreen
+import com.smu.daiary.feature.write.screen.DiaryDetailScreen
+import com.smu.daiary.feature.write.screen.DiaryEditScreen
+import com.smu.daiary.feature.write.screen.DraftPreviewScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
 import java.util.Locale
 
@@ -320,15 +321,30 @@ class MainActivity : ComponentActivity() {
                                     BlockSelectionScreen(
                                         viewModel = writeViewModel,
                                         onNext = {
-                                            navController.navigate("draft_preview") {
-                                                popUpTo("block_selection") {
-                                                    inclusive = false
-                                                }
+                                            navController.navigate("context_qna") {
+                                                popUpTo("block_selection") { inclusive = false }
                                                 launchSingleTop = true
                                             }
                                         },
                                         onBack = { navController.popBackStack() },
                                         onRetry = { writeViewModel.loadBlocks(userId) },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "context_qna": 맥락 질답 화면
+                                composable("context_qna") {
+                                    ContextQnAScreen(
+                                        viewModel = writeViewModel,
+                                        onComplete = {
+                                            navController.navigate("draft_preview") {
+                                                popUpTo("block_selection") { inclusive = false }
+                                                launchSingleTop = true
+                                            }
+                                        },
+                                        onBack = {
+                                            writeViewModel.clearDraftOnly()
+                                            navController.popBackStack()
+                                        },
                                         modifier = Modifier.padding(innerPadding)
                                     )
                                 }

@@ -1,4 +1,4 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
 
 import androidx.compose.ui.graphics.Color
 

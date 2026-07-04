@@ -1,8 +1,7 @@
 package com.smu.daiary.data.source
 
 import com.smu.daiary.BuildConfig
-import com.smu.daiary.feature.write.BlockType
-import com.smu.daiary.feature.write.ContentBlock
+import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,12 +22,89 @@ class AnthropicDataSource {
 
     private val jsonMediaType = "application/json".toMediaType()
 
+    suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
+        withContext(Dispatchers.IO) {
+            if (blocks.isEmpty()) return@withContext emptyList()
+
+            val blocksText = blocks.joinToString("\n") { "- ID: ${it.id} | [${it.type.label}] ${it.content}" }
+
+            val prompt = """
+아래는 오늘 하루의 데이터 블럭이야.
+각 블럭에서 일기를 더 풍성하게 만들 수 있는 맥락이 빠져있다면,
+짧고 대답하기 쉬운 질문을 만들어줘.
+
+규칙:
+- 전체 질문 수는 최대 8개. 맥락이 충분하면 0개도 괜찮아.
+- 이미 데이터로 알 수 있는 것은 묻지 마
+- quickOptions는 3~4개, 10자 이내로 짧게
+- 마지막 선택지는 항상 "기타"
+- 대답하기 귀찮을 것 같은 질문은 하지 마
+
+데이터 블럭:
+$blocksText
+
+반드시 아래 JSON 형식으로만 응답해. 다른 텍스트는 포함하지 마:
+{
+  "questions": [
+    {
+      "blockId": "블럭 id",
+      "question": "질문 텍스트",
+      "quickOptions": ["선택지1", "선택지2", "기타"]
+    }
+  ]
+}
+            """.trimIndent()
+
+            val body = JSONObject().apply {
+                put("model", "claude-haiku-4-5-20251001")
+                put("max_tokens", 512)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
+
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
+
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: return@withContext emptyList()
+                val text = JSONObject(responseBody)
+                    .getJSONArray("content")
+                    .getJSONObject(0)
+                    .getString("text")
+                    .trim()
+                    .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+                val questionsArray = JSONObject(text).getJSONArray("questions")
+                (0 until questionsArray.length()).map { i ->
+                    val q = questionsArray.getJSONObject(i)
+                    val opts = q.getJSONArray("quickOptions")
+                    ContextQuestion(
+                        blockId      = q.getString("blockId"),
+                        question     = q.getString("question"),
+                        quickOptions = (0 until opts.length()).map { opts.getString(it) }
+                    )
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+
     suspend fun generateDiary(
         blocks: List<ContentBlock>,
         locale: String,
         mbti: String,
         photoSummary: String? = null,
-        recentDiarySamples: String = ""
+        recentDiarySamples: String = "",
+        qaAnswers: Map<String, String> = emptyMap()
     ): String =
         withContext(Dispatchers.IO) {
             val blocksText = blocks.joinToString("\n") { "- [${it.type.label}] ${it.content}" }
@@ -48,7 +124,8 @@ class AnthropicDataSource {
                 blocksText = blocksText + photoText,
                 locale = locale,
                 mbti = mbti,
-                recentDiarySamples = recentDiarySamples
+                recentDiarySamples = recentDiarySamples,
+                qaAnswers = qaAnswers
             )
 
             val body = JSONObject().apply {
@@ -152,8 +229,18 @@ class AnthropicDataSource {
         blocksText: String,
         locale: String,
         mbti: String,
-        recentDiarySamples: String = ""
+        recentDiarySamples: String = "",
+        qaAnswers: Map<String, String> = emptyMap()
     ): String {
+        val qaSection = if (qaAnswers.isNotEmpty()) {
+            if (locale == "en") {
+                "\n\n[User's additional context]\n" +
+                qaAnswers.entries.joinToString("\n") { "- ${it.key}: ${it.value}" }
+            } else {
+                "\n\n[사용자 추가 답변]\n" +
+                qaAnswers.entries.joinToString("\n") { "- ${it.key}: ${it.value}" }
+            }
+        } else ""
         val mbtiStyle = getMbtiStylePrompt(mbti)
         return if (locale == "en") {
             """
@@ -187,7 +274,7 @@ $recentDiarySamples
 """ else ""}
 
 [Data]
-$blocksText
+$blocksText$qaSection
             """.trimIndent()
         } else {
             """
@@ -249,7 +336,7 @@ $recentDiarySamples
 """ else ""}
 
 [오늘의 데이터]
-$blocksText
+$blocksText$qaSection
 """.trimIndent()
         }
     }
