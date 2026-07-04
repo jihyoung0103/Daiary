@@ -48,13 +48,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -76,9 +79,11 @@ import coil.compose.AsyncImage
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import com.smu.daiary.BuildConfig
 import com.smu.daiary.R
 import com.smu.daiary.feature.notification.cancelNotification
 import com.smu.daiary.feature.notification.scheduleNotification
+import com.smu.daiary.feature.retrospect.RetrospectDebugSeeder
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -197,6 +202,8 @@ fun ProfileScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showNotificationListenerDialog by remember { mutableStateOf(false) }
+    var isSeedingRetrospect by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     var customPhotoUrl by remember { mutableStateOf<String?>(null) }
     var firestoreDisplayName by remember { mutableStateOf("") }
@@ -407,6 +414,28 @@ fun ProfileScreen(
                         labelColor = ProfileColors.Danger,
                         onClick = { showDeleteDialog = true }
                     )
+                }
+            }
+
+            // ── 개발자 옵션 섹션 (디버그 빌드 전용) ──────────────────────────────
+            if (BuildConfig.DEBUG) {
+                ProfileSectionLabel("개발자 옵션")
+                ProfileCard {
+                    Column {
+                        SimpleRow(
+                            label = if (isSeedingRetrospect) "생성 중..." else "회고 테스트 데이터 생성 (최근 10일)",
+                            onClick = {
+                                val uid = currentUser?.uid
+                                if (uid == null || isSeedingRetrospect) return@SimpleRow
+                                isSeedingRetrospect = true
+                                coroutineScope.launch {
+                                    runCatching { RetrospectDebugSeeder.seedTestData(uid) }
+                                    isSeedingRetrospect = false
+                                    Toast.makeText(context, "테스트 일기 10일치를 생성했어요", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
                 }
             }
 

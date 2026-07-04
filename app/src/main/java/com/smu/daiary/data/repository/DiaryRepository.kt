@@ -42,6 +42,20 @@ class DiaryRepository {
         awaitClose { listener.remove() }
     }
 
+    /**
+     * 기간(startDate ~ endDate, 포함) 내 일기 목록을 한 번만 조회합니다.
+     * date는 "YYYY-MM-DD" 문자열이므로 사전식 비교가 곧 날짜 비교와 동일합니다.
+     */
+    suspend fun getDiariesInRange(userId: String, startDate: String, endDate: String): Result<List<DiaryEntry>> = runCatching {
+        diariesRef(userId)
+            .whereGreaterThanOrEqualTo("date", startDate)
+            .whereLessThanOrEqualTo("date", endDate)
+            .get()
+            .await()
+            .documents
+            .mapNotNull { doc -> doc.toObject<DiaryEntry>()?.copy(id = doc.id) }
+    }
+
     /** 일기를 Firestore에 추가합니다. */
     suspend fun addDiary(userId: String, entry: DiaryEntry): Result<Unit> = runCatching {
         diariesRef(userId).add(entry).await()

@@ -1,6 +1,8 @@
 package com.smu.daiary.data.repository
 
+import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.data.source.AnthropicDataSource
+import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 
 class AiRepository(
@@ -28,6 +30,27 @@ class AiRepository(
                 photoSummary = photoSummary,
                 recentDiarySamples = recentDiarySamples,
                 qaAnswers = qaAnswers
+            )
+        }
+
+    suspend fun generateRetrospect(
+        type: RetrospectType,
+        periodLabel: String,
+        diarySummaries: String,
+        emotionSummary: String,
+        healthSummary: String,
+        spendingSummary: String,
+        scheduleSummary: String
+    ): Result<RetrospectAiResult> =
+        runCatching {
+            dataSource.generateRetrospect(
+                type = type,
+                periodLabel = periodLabel,
+                diarySummaries = diarySummaries,
+                emotionSummary = emotionSummary,
+                healthSummary = healthSummary,
+                spendingSummary = spendingSummary,
+                scheduleSummary = scheduleSummary
             )
         }
 }

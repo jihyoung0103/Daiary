@@ -40,9 +40,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.feature.retrospect.RetrospectCardScreen
+import com.smu.daiary.feature.retrospect.RetrospectLoadingScreen
+import com.smu.daiary.feature.retrospect.RetrospectState
+import com.smu.daiary.feature.retrospect.RetrospectSummaryScreen
+import com.smu.daiary.feature.retrospect.RetrospectViewModel
+import kotlinx.coroutines.delay
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import com.smu.daiary.data.source.HealthDataSource
@@ -145,8 +154,14 @@ class MainActivity : ComponentActivity() {
                             val scope = rememberCoroutineScope()
                             val saveFailedMessage = stringResource(R.string.profile_save_error)
 
+                            val retrospectViewModel: RetrospectViewModel = viewModel()
+                            val weeklyBannerStatus by retrospectViewModel.weeklyBannerStatus.collectAsStateWithLifecycle()
+                            val monthlyBannerStatus by retrospectViewModel.monthlyBannerStatus.collectAsStateWithLifecycle()
+                            val retrospectState by retrospectViewModel.state.collectAsStateWithLifecycle()
+
                             LaunchedEffect(userId) {
                                 homeViewModel.loadDiaries(userId)
+                                retrospectViewModel.loadBannerStatuses(userId)
                             }
 
                             val saveDoneMessage = stringResource(R.string.save_done)
@@ -313,8 +328,98 @@ class MainActivity : ComponentActivity() {
                                         onDiaryClick = { entry ->
                                             selectedDiary = entry
                                             navController.navigate("diary_detail")
+                                        },
+                                        weeklyBannerStatus = weeklyBannerStatus,
+                                        monthlyBannerStatus = monthlyBannerStatus,
+                                        weeklyBannerSubLabel = retrospectViewModel.weeklyPeriod.rangeLabel,
+                                        monthlyBannerSubLabel = retrospectViewModel.monthlyPeriod.rangeLabel,
+                                        onWeeklyBannerClick = {
+                                            if (weeklyBannerStatus == com.smu.daiary.feature.retrospect.BannerStatus.SAVED) {
+                                                retrospectViewModel.openSaved(userId, RetrospectType.WEEKLY)
+                                                navController.navigate("retrospect_summary")
+                                            } else {
+                                                navController.navigate("retrospect_loading/${RetrospectType.WEEKLY.name}")
+                                            }
+                                        },
+                                        onMonthlyBannerClick = {
+                                            if (monthlyBannerStatus == com.smu.daiary.feature.retrospect.BannerStatus.SAVED) {
+                                                retrospectViewModel.openSaved(userId, RetrospectType.MONTHLY)
+                                                navController.navigate("retrospect_summary")
+                                            } else {
+                                                navController.navigate("retrospect_loading/${RetrospectType.MONTHLY.name}")
+                                            }
                                         }
                                     )
+                                }
+                                // "retrospect_loading/{type}": 회고 생성 로딩 화면
+                                composable(
+                                    "retrospect_loading/{type}",
+                                    arguments = listOf(navArgument("type") { type = NavType.StringType })
+                                ) { backStackEntry ->
+                                    val type = RetrospectType.valueOf(
+                                        backStackEntry.arguments?.getString("type") ?: RetrospectType.WEEKLY.name
+                                    )
+                                    val periodLabel = if (type == RetrospectType.WEEKLY)
+                                        retrospectViewModel.weeklyPeriod.titleLabel
+                                    else retrospectViewModel.monthlyPeriod.titleLabel
+
+                                    LaunchedEffect(type) {
+                                        retrospectViewModel.generateRetrospect(userId, type)
+                                    }
+                                    LaunchedEffect(retrospectState) {
+                                        when (val s = retrospectState) {
+                                            is RetrospectState.CardView -> {
+                                                delay(500)
+                                                navController.navigate("retrospect_card") {
+                                                    popUpTo("retrospect_loading/{type}") { inclusive = true }
+                                                }
+                                            }
+                                            is RetrospectState.Error -> {
+                                                snackbarHostState.showSnackbar(s.message)
+                                                retrospectViewModel.resetState()
+                                                navController.popBackStack()
+                                            }
+                                            else -> {}
+                                        }
+                                    }
+                                    RetrospectLoadingScreen(
+                                        periodLabel = periodLabel,
+                                        state = retrospectState,
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "retrospect_card": 카드 리캡 화면
+                                composable("retrospect_card") {
+                                    val s = retrospectState
+                                    if (s is RetrospectState.CardView) {
+                                        RetrospectCardScreen(
+                                            report = s.report,
+                                            onBack = { navController.popBackStack("main", inclusive = false) },
+                                            onSave = { navController.popBackStack("main", inclusive = false) },
+                                            onViewDiary = { date ->
+                                                diaries.find { it.date == date }?.let { entry ->
+                                                    selectedDiary = entry
+                                                    navController.navigate("diary_detail")
+                                                }
+                                            },
+                                            modifier = Modifier.padding(innerPadding)
+                                        )
+                                    }
+                                }
+                                // "retrospect_summary": 저장된 회고 재진입 요약 화면
+                                composable("retrospect_summary") {
+                                    val s = retrospectState
+                                    if (s is RetrospectState.Summary) {
+                                        RetrospectSummaryScreen(
+                                            report = s.report,
+                                            onBack = { navController.popBackStack() },
+                                            onViewFull = {
+                                                retrospectViewModel.showFullRecap()
+                                                navController.navigate("retrospect_card")
+                                            },
+                                            modifier = Modifier.padding(innerPadding)
+                                        )
+                                    }
                                 }
                                 // "block_selection": 블록 선택 화면
                                 composable("block_selection") {

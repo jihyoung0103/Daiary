@@ -1,6 +1,8 @@
 package com.smu.daiary.data.source
 
 import com.smu.daiary.BuildConfig
+import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -223,6 +225,105 @@ $blocksText
             } catch (e: Exception) {
                 ""
             }
+        }
+
+    /**
+     * 주간/월간 회고를 위한 AI 호출 — 내러티브 + 키워드 + 기억에 남는 하루를 1회 호출로 받는다.
+     * 실패 시 예외를 던지며, 호출부(AiRepository/ViewModel)에서 로컬 폴백으로 대체한다.
+     */
+    suspend fun generateRetrospect(
+        type: RetrospectType,
+        periodLabel: String,
+        diarySummaries: String,
+        emotionSummary: String,
+        healthSummary: String,
+        spendingSummary: String,
+        scheduleSummary: String
+    ): RetrospectAiResult =
+        withContext(Dispatchers.IO) {
+            val periodInstruction = if (type == RetrospectType.WEEKLY) {
+                "- 하루하루의 구체적 사건 언급 가능\n- 감정 흐름 변화 반영"
+            } else {
+                "- 한 달의 큰 흐름과 변화에 초점\n- 월초/월말 차이나 성장 반영\n- 세세한 하루 언급보다 전체 색채 표현"
+            }
+
+            val prompt = """
+당신은 따뜻하고 공감 어린 시선을 가진 회고 작가입니다.
+아래 사용자의 $periodLabel 데이터를 바탕으로 회고를 작성하세요.
+
+[일기 목록 (날짜 · 감정 · 내용 일부)]
+$diarySummaries
+
+[감정 집계]
+$emotionSummary
+
+[건강 집계]
+$healthSummary
+
+[소비 집계]
+$spendingSummary
+
+[주요 일정]
+$scheduleSummary
+
+작성 규칙:
+- narrative: 2~3문장, 1인칭 공감형, 과거형으로 작성
+$periodInstruction
+- keywords: 명사형 3~5개, 해시태그(#) 없이
+- memorableDay: 위 일기 목록 중 하나의 날짜를 골라, 그 이유를 1~2문장으로 데이터 근거를 포함해서 작성
+- 이모지 사용 금지
+- JSON 외 텍스트 출력 금지
+
+반드시 아래 JSON 형식으로만 응답하세요:
+{
+  "narrative": "...",
+  "keywords": ["...", "..."],
+  "memorableDay": { "date": "YYYY-MM-DD", "reason": "..." }
+}
+            """.trimIndent()
+
+            val body = JSONObject().apply {
+                put("model", "claude-haiku-4-5-20251001")
+                put("max_tokens", 512)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
+
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: throw Exception("빈 응답")
+
+            if (!response.isSuccessful) {
+                throw Exception("API 오류 (${response.code}): $responseBody")
+            }
+
+            val text = JSONObject(responseBody)
+                .getJSONArray("content")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            val json = JSONObject(text)
+            val keywordsArray = json.getJSONArray("keywords")
+            val memorableDay = json.getJSONObject("memorableDay")
+
+            RetrospectAiResult(
+                narrative = json.getString("narrative"),
+                keywords = (0 until keywordsArray.length()).map { keywordsArray.getString(it) },
+                memorableDate = memorableDay.getString("date"),
+                memorableReason = memorableDay.getString("reason")
+            )
         }
 
     private fun buildPrompt(
