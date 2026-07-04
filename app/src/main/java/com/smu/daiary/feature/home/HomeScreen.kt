@@ -110,7 +110,7 @@ private val MainCalendarColors = MainCalendarColorScheme(
 )
 
 private val MainCalendarColorsDark = MainCalendarColorScheme(
-    backgroundOuter = BackgroundDark,
+    backgroundOuter = Color(0xFF1E3D2F),
     surfacePhone    = BackgroundDark,
     textPrimary     = TextPrimaryDark,
     textMuted       = TextSecondaryDark,
@@ -601,28 +601,6 @@ private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(mc.backgroundOuter),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = item.day.toString(),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = mc.textPrimary,
-                    lineHeight = 16.sp
-                )
-                Text(
-                    text = item.weekdayLabel,
-                    fontSize = 9.sp,
-                    color = mc.textMuted
-                )
-            }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(3.dp)

@@ -1,13 +1,14 @@
 package com.smu.daiary.data.repository
 
 import com.smu.daiary.data.source.AnthropicDataSource
+import com.smu.daiary.data.source.EncodedImage
 import com.smu.daiary.feature.write.model.*
 
 class AiRepository(
     private val dataSource: AnthropicDataSource = AnthropicDataSource()
 ) {
-    suspend fun analyzePhotos(photoBase64List: List<String>): String =
-        dataSource.analyzePhotos(photoBase64List)
+    suspend fun analyzePhotos(images: List<EncodedImage>): String =
+        dataSource.analyzePhotos(images)
 
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         dataSource.generateContextQuestions(blocks)

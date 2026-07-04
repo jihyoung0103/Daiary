@@ -36,6 +36,7 @@ import android.net.Uri
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
+import com.smu.daiary.data.source.EncodedImage
 
 
 private const val TAG = "WriteViewModel"
@@ -151,6 +152,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
+
     // ─────────────────────────────────────────────────────────────
     // 이벤트
     // ─────────────────────────────────────────────────────────────
@@ -189,7 +191,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val date = DiaryDateUtil.diaryDate().toString()
             val blocks = mutableListOf<ContentBlock>()
 
-            Log.d(TAG, "📡 데이터 수집 시작 | userId=$userId, date=$date")
 
             // --- 날씨, 캘린더, 사진, 건강 병렬 수집 ---
             val weatherDeferred = async { runCatching { weatherDataSource.fetchWeather() } }
@@ -300,7 +301,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             ContentBlock(
                                 id = "photo",
                                 type = BlockType.PHOTO,
-                                content = "오늘 찍은 사진 ${photos.size}장 · 선택 ${photos.size}장",
+                                content = localizedContext().getString(R.string.block_photo_selection_content, photos.size, photos.size),
                                 isSelected = photos.isNotEmpty()
                                 )
                             )
@@ -405,30 +406,71 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         else   -> canonical
     }
     /** 사진 URI를 Base64 문자열로 변환 — Claude Vision API 전달용 */
-    private fun uriToBase64(uriString: String): String? {
+    private fun encodeImage(uriString: String): EncodedImage? {
         return try {
             val uri = Uri.parse(uriString)
 
-            context.contentResolver
-                .openInputStream(uri)
-                ?.use { input ->
+            val mimeTypeFromResolver =
+                context.contentResolver.getType(uri)
 
-                    val bytes =
+            val bytes =
+                context.contentResolver
+                    .openInputStream(uri)
+                    ?.use { input ->
                         input.readBytes()
+                    } ?: return null
 
-                    Base64.encodeToString(
-                        bytes,
-                        Base64.NO_WRAP
-                    )
-                }
+            val mediaType =
+                detectImageMediaType(bytes, mimeTypeFromResolver)
+
+            val base64 =
+                Base64.encodeToString(
+                    bytes,
+                    Base64.NO_WRAP
+                )
+
+            EncodedImage(
+                base64 = base64,
+                mediaType = mediaType
+            )
 
         } catch (e: Exception) {
             Log.e(
                 TAG,
-                "이미지 Base64 변환 실패",
+                "이미지 인코딩 실패",
                 e
             )
             null
+        }
+    }
+
+    private fun detectImageMediaType(
+        bytes: ByteArray,
+        resolverMimeType: String?
+    ): String {
+        val normalized =
+            when (resolverMimeType?.lowercase()) {
+                "image/jpeg", "image/jpg" -> "image/jpeg"
+                "image/png" -> "image/png"
+                "image/webp" -> "image/webp"
+                else -> null
+            }
+
+        if (normalized != null) return normalized
+
+        return when {
+            bytes.size >= 3 &&
+                    bytes[0] == 0xFF.toByte() &&
+                    bytes[1] == 0xD8.toByte() &&
+                    bytes[2] == 0xFF.toByte() -> "image/jpeg"
+
+            bytes.size >= 4 &&
+                    bytes[0] == 0x89.toByte() &&
+                    bytes[1] == 0x50.toByte() &&
+                    bytes[2] == 0x4E.toByte() &&
+                    bytes[3] == 0x47.toByte() -> "image/png"
+
+            else -> "image/jpeg"
         }
     }
 
@@ -710,7 +752,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             list.map { block ->
                 if (block.type == BlockType.PHOTO) {
                     block.copy(
-                        content = "오늘 찍은 사진 ${totalCount}장 · 선택 ${selectedCount}장",
+                        content = localizedContext().getString(R.string.block_photo_selection_content, totalCount, selectedCount),
                         isSelected = hasSelectedPhoto
                     )
                 } else {
@@ -719,6 +761,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
 
 
 
@@ -797,21 +840,23 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             val prefs = context.getSharedPreferences("daiary_settings", android.content.Context.MODE_PRIVATE)
-            val locale = if (prefs.getString("language", "한국어") == "English") "en" else "ko"
+            val savedLang = prefs.getString("language", "한국어")
+            val locale = if (savedLang == "English") "en" else "ko"
+            android.util.Log.d(TAG, "🌐 저장된 언어: $savedLang → locale: $locale")
 
-            val selectedPhotoBase64 =
+            val selectedEncodedImages =
                 _photos.value
                     .filter { it.isSelected }
-                    .mapNotNull { uriToBase64(it.uri) }
+                    .mapNotNull { encodeImage(it.uri) }
 
             Log.d(TAG, "📸 선택된 사진 수: ${_photos.value.count { it.isSelected }}")
-            Log.d(TAG, "📸 base64 변환 성공 수: ${selectedPhotoBase64.size}")
+            Log.d(TAG, "📦 인코딩 성공 수: ${selectedEncodedImages.size}")
 
             val photoSummary = try {
-                aiRepository.analyzePhotos(selectedPhotoBase64)
+                aiRepository.analyzePhotos(selectedEncodedImages)
             } catch (e: Exception) {
                 Log.e(TAG, "❌ 사진 분석 실패", e)
-                "사진 ${selectedPhotoBase64.size}장이 선택됨"
+                "사진 ${selectedEncodedImages.size}장이 선택됨"
             }
 
             Log.d(TAG, "📸 사진 분석 결과: $photoSummary")
@@ -824,6 +869,15 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 .getString("mbti", "INFP") ?: "INFP"
 
+            val selectedDebugText = selected.joinToString("\n") {
+                "- [${it.type.label}] ${it.content}"
+            }
+
+            Log.d(TAG, "===== SELECTED BLOCKS =====")
+            Log.d(TAG, selectedDebugText)
+            Log.d(TAG, "===========================")
+
+
             val result =
                 aiRepository.generateDraft(
                     blocks = selected,
@@ -833,8 +887,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     recentDiarySamples = recentDiarySamples,
                     qaAnswers = qaAnswers
                 )
-            val content = result.getOrElse { fallbackTemplate(selected) }
 
+            val content = result.getOrElse { fallbackTemplate(selected) }
             if (result.isFailure) {
                 _generateError.value = if (locale == "en")
                     "AI generation failed. Using default template."
@@ -852,9 +906,35 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 aiContent = content,
                 photos = selectedPhotoUris
             )
+
             _isGenerating.value = false
         }
     }
+
+
+
+
+    private fun encodeImage(uri: Uri): EncodedImage? {
+        return try {
+            val mimeTypeFromResolver = context.contentResolver.getType(uri)
+
+            val bytes = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                inputStream.readBytes()
+            } ?: return null
+
+            val mediaType = detectImageMediaType(bytes, mimeTypeFromResolver)
+            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+
+            EncodedImage(
+                base64 = base64,
+                mediaType = mediaType
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
 
     /** AI 생성 실패 시 블록 내용을 단순 나열한 기본 초안 반환 */
     private fun fallbackTemplate(selected: List<ContentBlock>): String = buildString {

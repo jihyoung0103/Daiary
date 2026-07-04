@@ -15,7 +15,7 @@ val Stone = Color(0xFF6C6C70)
 val Silver = Color(0xFFAEAEB2)
 
 // Dark
-val SageForestDark = Color(0xFF6BAF8A)
+val SageForestDark = Color(0xFF4E8C6F)
 val FernDark = Color(0xFF4E8A6A)
 val DewDark = Color(0xFF1E3329)
 val BackgroundDark = Color(0xFF121714)

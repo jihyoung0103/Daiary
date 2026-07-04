@@ -23,8 +23,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.net.Uri
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
+import com.smu.daiary.R
+import com.smu.daiary.ui.theme.LocalDarkTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +35,9 @@ fun PhotoSelectionScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val selectedCount = photos.count { it.isSelected }
 
@@ -52,34 +57,41 @@ fun PhotoSelectionScreen(
         }
 
     Scaffold(
+        containerColor = wc.Bg,
         topBar = {
             TopAppBar(
-                title = { Text("사진 선택") },
+                title = { Text(stringResource(R.string.screen_photo_selection)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "뒤로가기"
+                            contentDescription = stringResource(R.string.back)
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFFDFAF5)
-                )
+                    containerColor = wc.SurfaceBg
+                ),
+                windowInsets = WindowInsets(0)
             )
         },
         bottomBar = {
-            Button(
-                onClick = {
-                    viewModel.syncPhotoBlockSelection()
-                    onBack()
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .height(56.dp)
-            ) {
-                Text("선택 완료")
+            Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
+                Button(
+                    onClick = {
+                        viewModel.syncPhotoBlockSelection()
+                        onBack()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .padding(bottom = 8.dp)
+                        .height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
+                ) {
+                    Text(stringResource(R.string.btn_select_done))
+                }
             }
         },
         modifier = modifier
@@ -100,19 +112,19 @@ fun PhotoSelectionScreen(
                     verticalAlignment = Alignment.CenterVertically
                 )
                 {
-                    Text("사진 선택 $selectedCount/${photos.size}")
+                    Text(stringResource(R.string.photo_selection_count, selectedCount, photos.size), color = wc.TextPrimary)
 
                     Row {
                         TextButton(
                             onClick = { viewModel.setAllPhotosSelected(true) }
                         ) {
-                            Text("전체 선택")
+                            Text(stringResource(R.string.btn_select_all), color = wc.Purple)
                         }
 
                         TextButton(
                             onClick = { viewModel.setAllPhotosSelected(false) }
                         ) {
-                            Text("전체 해제")
+                            Text(stringResource(R.string.btn_deselect_all), color = wc.Purple)
                         }
                     }
 
@@ -123,12 +135,12 @@ fun PhotoSelectionScreen(
                     onClick = {
                         galleryLauncher.launch("image/*")
                     },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                 ) {
-                    Text("갤러리에서 사진 추가")
+                    Text(stringResource(R.string.btn_add_from_gallery))
                 }
             }
 
@@ -141,9 +153,9 @@ fun PhotoSelectionScreen(
                         },
                     colors = CardDefaults.cardColors(
                         containerColor = if (photo.isSelected)
-                            Color(0xFFE8F5E9)
+                            wc.PurpleLight
                         else
-                            MaterialTheme.colorScheme.surface
+                            wc.Bg
                     )
                 ) {
                     Row(

@@ -1,0 +1,40 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- D shape: 18~46 x, 24~78 y -->
+    <path
+        android:pathData="M18,24 L18,78 L32,78 Q52,78 52,51 Q52,24 32,24 Z"
+        android:fillColor="#FDFAF5"/>
+    <path android:pathData="M27,32 L46,32 L46,36 L27,36 Z" android:fillColor="#3D7A5C"/>
+    <path android:pathData="M27,39 L42,39 L42,43 L27,43 Z" android:fillColor="#3D7A5C"/>
+    <path android:pathData="M27,46 L46,46 L46,50 L27,50 Z" android:fillColor="#3D7A5C"/>
+    <path android:pathData="M27,53 L40,53 L40,57 L27,57 Z" android:fillColor="#3D7A5C"/>
+    <path android:pathData="M27,60 L44,60 L44,64 L27,64 Z" android:fillColor="#3D7A5C"/>
+
+    <!-- dot -->
+    <path
+        android:pathData="M57,73 m-3,0 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0"
+        android:fillColor="#FDFAF5"/>
+
+    <!-- pencil body -->
+    <path android:pathData="M63,46 Q65,44 67,46 L67,70 Q65,72 63,70 Z" android:fillColor="#FDFAF5"/>
+    <!-- pencil eraser -->
+    <path android:pathData="M63,37 Q65,35 67,37 L67,47 Q65,49 63,47 Z" android:fillColor="#C8E6D8"/>
+    <!-- pencil band -->
+    <path android:pathData="M63,46 L67,46 L67,49 L63,49 Z" android:fillColor="#3D7A5C" android:fillAlpha="0.25"/>
+    <!-- pencil tip -->
+    <path android:pathData="M63,70 L67,70 L65,78 Z" android:fillColor="#FDFAF5"/>
+    <path android:pathData="M64,74 L66,74 L65,78 Z" android:fillColor="#C8E6D8"/>
+
+    <!-- o -->
+    <path
+        android:pathData="M72,60 Q72,50 79,50 Q86,50 86,60 Q86,70 79,70 Q72,70 72,60 Z M75,60 Q75,67 79,67 Q83,67 83,60 Q83,53 79,53 Q75,53 75,60 Z"
+        android:fillColor="#FDFAF5"/>
+    <!-- g -->
+    <path
+        android:pathData="M90,52 Q95,48 100,52 L100,55 Q96,51 91,54 Q88,57 88,62 Q88,69 93,70 L93,64 L90,64 L90,61 L96,61 L96,73 Q88,73 85,67 Q82,60 86,54 Z"
+        android:fillColor="#FDFAF5"/>
+</vector>

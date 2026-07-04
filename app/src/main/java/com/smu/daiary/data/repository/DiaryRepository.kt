@@ -31,7 +31,7 @@ class DiaryRepository {
             .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 val diaries = snapshot?.documents?.mapNotNull { doc ->

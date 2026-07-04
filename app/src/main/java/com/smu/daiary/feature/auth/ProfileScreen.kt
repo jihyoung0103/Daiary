@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -174,7 +175,8 @@ fun ProfileScreen(
 
     var currentMbti by remember { mutableStateOf(prefs.getString("mbti", null)) }
 
-    var language by remember { mutableStateOf(prefs.getString("language", "한국어") ?: "한국어") }
+    val diaryPrefs = remember { context.getSharedPreferences("daiary_settings", Context.MODE_PRIVATE) }
+    var language by remember { mutableStateOf(diaryPrefs.getString("language", "한국어") ?: "한국어") }
     var notificationEnabled by remember { mutableStateOf(prefs.getBoolean("notification_enabled", true)) }
     var notificationHour by remember { mutableStateOf(prefs.getInt("notification_hour", 21)) }
     var notificationMinute by remember { mutableStateOf(prefs.getInt("notification_minute", 0)) }
@@ -237,7 +239,8 @@ fun ProfileScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg),
+                windowInsets = WindowInsets(0)
             )
         }
     ) { padding ->
@@ -330,8 +333,8 @@ fun ProfileScreen(
             ProfileCard {
                 Column {
                     ArrowRow(
-                        label = "AI 작성 스타일",
-                        value = currentMbti ?: "사용자 문체 기반",
+                        label = stringResource(R.string.setting_ai_style),
+                        value = currentMbti,
                         onClick = {
                             navController.navigate("settings")
                         }
@@ -375,12 +378,6 @@ fun ProfileScreen(
                             onClick = { showTimePickerDialog = true }
                         )
                     }
-                    ProfileDivider()
-                    ArrowRow(
-                        label = "MBTI 설정",
-                        value = currentMbti ?: "사용자 문체 기반",
-                        onClick = { navController.navigate("settings") }
-                    )
                 }
             }
 
@@ -425,7 +422,7 @@ fun ProfileScreen(
                         TextButton(
                             onClick = {
                                 language = lang
-                                prefs.edit().putString("language", lang).apply()
+                                diaryPrefs.edit().putString("language", lang).apply()
                                 AppCompatDelegate.setApplicationLocales(
                                     if (lang == "English") LocaleListCompat.forLanguageTags("en")
                                     else LocaleListCompat.forLanguageTags("ko")

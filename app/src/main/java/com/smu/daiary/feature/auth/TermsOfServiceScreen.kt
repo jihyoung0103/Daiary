@@ -3,6 +3,7 @@ package com.smu.daiary.feature.auth
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -74,7 +75,8 @@ fun TermsOfServiceScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg),
+                windowInsets = WindowInsets(0)
             )
         }
     ) { padding ->

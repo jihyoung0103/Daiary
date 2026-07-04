@@ -30,7 +30,7 @@ internal val WriteColorsDark = WriteColorScheme(
     TextPrimary = Color(0xFFF0F0F0),
     TextMuted   = Color(0xFFA0A0A0),
     Purple      = Color(0xFF6BAF8A),
-    PurpleLight = Color(0xFF1E3329),
+    PurpleLight = Color(0xFF243D30),
     Border      = Color(0xFF2C3530),
     MintGreen   = Color(0xFF4E8A6A)
 )

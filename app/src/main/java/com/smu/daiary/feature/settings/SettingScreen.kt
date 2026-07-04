@@ -1,6 +1,7 @@
 package com.smu.daiary.feature.settings
 
 import android.content.Context
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -13,8 +14,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.smu.daiary.R
+import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
 
 
 data class MbtiOption(
@@ -34,26 +44,33 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
         )
 
     val mbtiList = listOf(
-        MbtiOption("ISTJ", "계획형"),
-        MbtiOption("ISFJ", "배려형"),
-        MbtiOption("INFJ", "통찰형"),
-        MbtiOption("INTJ", "전략형"),
+        MbtiOption("ISTJ", stringResource(R.string.mbti_istj)),
+        MbtiOption("ISFJ", stringResource(R.string.mbti_isfj)),
+        MbtiOption("INFJ", stringResource(R.string.mbti_infj)),
+        MbtiOption("INTJ", stringResource(R.string.mbti_intj)),
 
-        MbtiOption("ISTP", "실용형"),
-        MbtiOption("ISFP", "자유형"),
-        MbtiOption("INFP", "공감형"),
-        MbtiOption("INTP", "탐구형"),
+        MbtiOption("ISTP", stringResource(R.string.mbti_istp)),
+        MbtiOption("ISFP", stringResource(R.string.mbti_isfp)),
+        MbtiOption("INFP", stringResource(R.string.mbti_infp)),
+        MbtiOption("INTP", stringResource(R.string.mbti_intp)),
 
-        MbtiOption("ESTP", "즉흥형"),
-        MbtiOption("ESFP", "표현형"),
-        MbtiOption("ENFP", "열정형"),
-        MbtiOption("ENTP", "토론형"),
+        MbtiOption("ESTP", stringResource(R.string.mbti_estp)),
+        MbtiOption("ESFP", stringResource(R.string.mbti_esfp)),
+        MbtiOption("ENFP", stringResource(R.string.mbti_enfp)),
+        MbtiOption("ENTP", stringResource(R.string.mbti_entp)),
 
-        MbtiOption("ESTJ", "실행형"),
-        MbtiOption("ESFJ", "조화형"),
-        MbtiOption("ENFJ", "리더형"),
-        MbtiOption("ENTJ", "결단형")
+        MbtiOption("ESTJ", stringResource(R.string.mbti_estj)),
+        MbtiOption("ESFJ", stringResource(R.string.mbti_esfj)),
+        MbtiOption("ENFJ", stringResource(R.string.mbti_enfj)),
+        MbtiOption("ENTJ", stringResource(R.string.mbti_entj))
     )
+
+    val isDark = LocalDarkTheme.current
+    val bgColor = if (isDark) BackgroundDark else Color(0xFFFDFAF5)
+    val cardBg = if (isDark) SurfaceDark else Color(0xFFFDFAF5)
+    val textColor = if (isDark) TextPrimaryDark else Color.Black
+    val accentColor = if (isDark) SageForestDark else MaterialTheme.colorScheme.primary
+    val borderColor = if (isDark) BorderDark else MaterialTheme.colorScheme.outlineVariant
 
     var selected by remember {
         mutableStateOf<String?>(
@@ -62,14 +79,14 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
     }
     var showSavedMessage by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(bgColor)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(start = 24.dp, top = 48.dp, end = 24.dp, bottom = 24.dp)
         ) {
             Text(
-                text = "MBTI 설정",
+                text = stringResource(R.string.screen_mbti_settings),
                 style = MaterialTheme.typography.headlineMedium
             )
 
@@ -84,16 +101,14 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
                         modifier = Modifier
                             .padding(4.dp)
                             .fillMaxWidth()
+                            .aspectRatio(1f)
                             .border(
                                 width = if (selected == mbti.type) 2.dp else 1.dp,
-                                color = if (selected == mbti.type)
-                                    MaterialTheme.colorScheme.primary
-                                else
-                                    MaterialTheme.colorScheme.outlineVariant,
+                                color = if (selected == mbti.type) accentColor else borderColor,
                                 shape = RoundedCornerShape(16.dp)
                             ),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFFDFAF5)
+                            containerColor = cardBg
                         ),
                         elevation = CardDefaults.cardElevation(
                             defaultElevation = 0.dp,
@@ -111,16 +126,13 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
                                     text = mbti.type,
                                     style = MaterialTheme.typography.titleMedium,
                                     textAlign = TextAlign.Center,
-                                    color = if (selected == mbti.type)
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.onSurface
+                                    color = if (selected == mbti.type) accentColor else textColor
                                 )
                                 if (selected == mbti.type) {
                                     Text(
                                         text = "✓",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary,
+                                        color = accentColor,
                                         modifier = Modifier.align(Alignment.TopStart)
                                     )
                                 }
@@ -130,6 +142,9 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
                                 text = mbti.keywords,
                                 style = MaterialTheme.typography.bodySmall,
                                 textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = textColor,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -141,8 +156,9 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
 
             if (selected != null) {
                 Text(
-                    text = "나의 MBTI: $selected",
+                    text = stringResource(R.string.my_mbti, selected ?: ""),
                     style = MaterialTheme.typography.titleMedium,
+                    color = textColor,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
             }
@@ -159,15 +175,15 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
                 },
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             ) {
-                Text("저장")
+                Text(stringResource(R.string.btn_save_mbti))
             }
         }
 
         if (showSavedMessage) {
             AlertDialog(
                 onDismissRequest = { showSavedMessage = false },
-                title = { Text("저장 완료") },
-                text = { Text("MBTI가 저장되었습니다 ✓") },
+                title = { Text(stringResource(R.string.mbti_saved_title), color = textColor) },
+                text = { Text(stringResource(R.string.mbti_saved_message), color = textColor) },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -175,9 +191,10 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
                             onConfirm()
                         }
                     ) {
-                        Text("확인")
+                        Text(stringResource(R.string.confirm))
                     }
-                }
+                },
+                containerColor = cardBg
             )
         }
     }
