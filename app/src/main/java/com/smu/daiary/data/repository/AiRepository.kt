@@ -9,8 +9,8 @@ import com.smu.daiary.feature.write.model.*
 class AiRepository(
     private val dataSource: AnthropicDataSource = AnthropicDataSource()
 ) {
-    suspend fun analyzePhoto(image: EncodedImage): String =
-        dataSource.analyzePhoto(image)
+    suspend fun analyzePhoto(image: EncodedImage, isCameraPhoto: Boolean): String =
+        dataSource.analyzePhoto(image, isCameraPhoto)
 
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         dataSource.generateContextQuestions(blocks)

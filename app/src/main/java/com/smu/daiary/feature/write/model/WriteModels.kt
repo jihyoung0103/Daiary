@@ -54,6 +54,8 @@ data class PhotoSelectableItem(
     /** EXIF 위치 (없으면 0.0). 저장만 하고 현재 일기 본문엔 미사용 */
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    /** EXIF 카메라 정보가 있으면 직접 촬영한 사진. 없으면 스크린샷/수신 이미지 */
+    val isCameraPhoto: Boolean = false,
     /** Claude Vision 사진별 분석 결과 (세션 캐시). 미분석이면 null */
     val analysis: String? = null
 )

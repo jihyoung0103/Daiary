@@ -283,7 +283,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             isSelected = true,
                             takenAt = photo.takenAt,
                             latitude = photo.latitude,
-                            longitude = photo.longitude
+                            longitude = photo.longitude,
+                            isCameraPhoto = photo.isCameraPhoto
                         )
                     }
 
@@ -568,7 +569,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     isSelected = true,
                     takenAt = meta.takenAt,
                     latitude = meta.latitude,
-                    longitude = meta.longitude
+                    longitude = meta.longitude,
+                    isCameraPhoto = meta.isCameraPhoto
                 )
             }
 
@@ -851,7 +853,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         if (!photo.analysis.isNullOrBlank()) return@async photo
                         val encoded = encodeImage(photo.uri) ?: return@async photo
                         val result = try {
-                            aiRepository.analyzePhoto(encoded)
+                            aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
                         } catch (e: Exception) {
                             Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
                             ""
@@ -872,13 +874,15 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 .filter { !it.analysis.isNullOrBlank() }
                 .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
                 .mapIndexed { index, photo ->
-                    val timeLabel = if (photo.takenAt > 0L) {
+                    val kindLabel = if (photo.isCameraPhoto) "촬영 사진" else "화면 캡처/수신 이미지"
+                    // 촬영 시각은 직접 촬영한 사진에서만 의미가 있으므로 그 경우에만 표시
+                    val timeLabel = if (photo.isCameraPhoto && photo.takenAt > 0L) {
                         val t = Instant.ofEpochMilli(photo.takenAt)
                             .atZone(ZoneId.systemDefault())
                             .format(photoTimeFormatter)
-                        " (촬영 $t)"
+                        ", 촬영 $t"
                     } else ""
-                    "사진 ${index + 1}$timeLabel:\n${photo.analysis}"
+                    "사진 ${index + 1} [$kindLabel$timeLabel]:\n${photo.analysis}"
                 }
                 .joinToString("\n\n")
 

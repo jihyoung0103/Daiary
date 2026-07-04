@@ -65,7 +65,8 @@ class PhotoDataSource(private val context: Context) {
                         uri = contentUri.toString(),
                         takenAt = takenAt,
                         latitude = exif.latitude,
-                        longitude = exif.longitude
+                        longitude = exif.longitude,
+                        isCameraPhoto = exif.isCameraPhoto
                     )
                 )
             }
@@ -84,7 +85,8 @@ class PhotoDataSource(private val context: Context) {
             uri = uri,
             takenAt = exif.takenAt ?: 0L,
             latitude = exif.latitude,
-            longitude = exif.longitude
+            longitude = exif.longitude,
+            isCameraPhoto = exif.isCameraPhoto
         )
     }
 
@@ -92,7 +94,8 @@ class PhotoDataSource(private val context: Context) {
     private data class ExifData(
         val takenAt: Long?,
         val latitude: Double,
-        val longitude: Double
+        val longitude: Double,
+        val isCameraPhoto: Boolean
     )
 
     /**
@@ -113,14 +116,20 @@ class PhotoDataSource(private val context: Context) {
                         0.0 to 0.0
                     }
 
+                // 카메라 제조사/기종 태그가 있으면 직접 촬영한 사진으로 판별
+                val isCameraPhoto =
+                    exif.getAttribute(ExifInterface.TAG_MAKE) != null ||
+                        exif.getAttribute(ExifInterface.TAG_MODEL) != null
+
                 ExifData(
                     takenAt = exif.dateTimeOriginal,
                     latitude = lat,
-                    longitude = lon
+                    longitude = lon,
+                    isCameraPhoto = isCameraPhoto
                 )
-            } ?: ExifData(null, 0.0, 0.0)
+            } ?: ExifData(null, 0.0, 0.0, false)
         } catch (e: Exception) {
-            ExifData(null, 0.0, 0.0)
+            ExifData(null, 0.0, 0.0, false)
         }
     }
 }
