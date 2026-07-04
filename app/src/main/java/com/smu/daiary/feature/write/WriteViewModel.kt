@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -198,24 +197,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val photoDeferred = async { runCatching { photoDataSource.fetchTodayPhotos() } }
             val healthDeferred = async { runCatching { healthDataSource.fetchTodayHealth() } }
 
-            // 날씨
-            // 날씨 — 최대 3회 재시도 (시도 간 1.5초 대기)
-            val maxWeatherRetry = 3
-            var weatherResult: Result<com.smu.daiary.data.model.WeatherData> =
-                weatherDeferred.await()
-            var weatherAttempt = 1
-
-            while (weatherResult.isFailure && weatherAttempt < maxWeatherRetry) {
-                Log.w(TAG, "⚠️ 날씨 수집 실패 — 재시도 $weatherAttempt/$maxWeatherRetry",
-                    weatherResult.exceptionOrNull())
-                delay(1500L)
-                weatherAttempt++
-                weatherResult = runCatching { weatherDataSource.fetchWeather() }
-            }
-
-            weatherResult
+            // 날씨 — 생성 시점 1회만 수집 (재시도 없음, 추후 백그라운드 정기 수집으로 이전 예정)
+            weatherDeferred.await()
                 .onSuccess { weather ->
-                    Log.d(TAG, "🌤️ 날씨 수집 완료 (${weatherAttempt}회 시도): ${weather.description} ${weather.temperature}°C")
+                    Log.d(TAG, "🌤️ 날씨 수집 완료: ${weather.description} ${weather.temperature}°C")
                     dailyDataRepository.updateWeather(userId, date, weather)
                     blocks.add(ContentBlock(
                         id = "weather", type = BlockType.WEATHER,
@@ -228,7 +213,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     ))
                 }
                 .onFailure {
-                    Log.w(TAG, "⚠️ 날씨 수집 최종 실패 (${maxWeatherRetry}회 시도)", it)
+                    Log.w(TAG, "⚠️ 날씨 수집 실패", it)
                     blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable)))
                 }
 
