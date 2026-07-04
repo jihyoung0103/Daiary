@@ -48,5 +48,12 @@ data class PaymentSelectableItem(
 
 data class PhotoSelectableItem(
     val uri: String,
-    val isSelected: Boolean = true
+    val isSelected: Boolean = true,
+    /** 촬영 시각 (epoch millis). 갤러리 수동 추가 등 정보 없으면 0 */
+    val takenAt: Long = 0L,
+    /** EXIF 위치 (없으면 0.0). 저장만 하고 현재 일기 본문엔 미사용 */
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    /** Claude Vision 사진별 분석 결과 (세션 캐시). 미분석이면 null */
+    val analysis: String? = null
 )

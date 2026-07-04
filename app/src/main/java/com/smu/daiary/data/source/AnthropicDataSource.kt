@@ -176,10 +176,12 @@ $blocksText
                 .getString("text")
         }
 
-    suspend fun analyzePhotos(images: List<EncodedImage>): String =
+    /**
+     * 사진 1장을 분석해 관찰 가능한 사실만 요약한다.
+     * 여러 장은 호출부에서 각 사진마다 병렬로 호출한다 (배치 분석 아님).
+     */
+    suspend fun analyzePhoto(image: EncodedImage): String =
         withContext(Dispatchers.IO) {
-            if (images.isEmpty()) return@withContext ""
-
             val contentArray = JSONArray().apply {
                 put(
                     JSONObject()
@@ -187,87 +189,42 @@ $blocksText
                         .put(
                             "text",
                             """
-다음 이미지는 사용자가 오늘 하루의 일기 생성을 위해 선택한 사진들입니다.
-너의 역할은 일기를 직접 쓰는 것이 아니라, 사진에서 확인 가능한 정보를 구조화해서 정리하는 것입니다.
+이 사진 한 장에서 실제로 보이는 사실만 짧게 정리해줘. 일기를 쓰지 말고 관찰만 하면 돼.
 
-[핵심 원칙]
-- 절대 일기 본문을 작성하지 마세요.
-- "오늘은", "나는", "~했다" 같은 일기체 표현을 사용하지 마세요.
-- 사진에서 실제로 보이는 사실만 작성하세요.
-- 사용자의 감정, 의도, 이동 경로, 시간 순서는 추측하지 마세요.
-- 여러 장의 사진에서 공통적으로 관찰되는 요소는 함께 요약하되, 사진 사이의 시간 흐름이나 인과관계는 추측하지 마세요.
-- 사진 순서를 하루의 시간 순서로 단정하지 마세요.
-- 장소는 명확히 식별될 때만 작성하세요.
-- 확실하지 않은 장소, 음식, 사물은 "~처럼 보임", "~계열로 보임"이라고 표시하세요.
-- 집, 학교, 회사, 외출, 귀가 같은 생활 맥락은 사진만으로 단정하지 마세요.
-- 사진에 없는 행동이나 일정을 새로 만들지 마세요.
-- 감정 표현은 사용하지 말고, 분위기 표현도 시각적으로 확인 가능한 범위로 제한하세요.
-- 각 항목은 짧은 키워드 또는 짧은 문장으로 작성하세요.
+[규칙]
+- "오늘은", "나는", "~했다" 같은 일기체 표현 금지.
+- 사진에 실제로 보이는 것만 작성. 감정, 의도, 이동 경로, 시간, 전후 맥락은 추측 금지.
+- 확실하지 않은 장소·음식·사물은 "~처럼 보임"으로 표시.
+- 집·학교·회사·외출·귀가 같은 생활 맥락은 단정하지 말 것.
+- 화면 캡처(스크린샷)이면 그 사실과 화면에 보이는 앱·텍스트만 적을 것.
+- 감정 표현 금지. 분위기는 시각적으로 확인 가능한 범위로만.
+- 3~5개의 짧은 bullet로만 작성.
 
-[여러 장 사진 분석 규칙]
-- 사진이 여러 장이면 개별 사진의 요소뿐 아니라 공통적으로 보이는 소재도 정리하세요.
-- 단, 공통점은 "반복적으로 보이는 시각 요소"만 작성하세요.
-- 사진 간 관계가 불확실하면 "동일 장소 가능성 있음", "관련성 불확실"처럼 표시하세요.
-- "그 후", "이후", "마지막으로", "집에 돌아와서" 같은 시간 연결 표현은 사용하지 마세요.
-- 서로 관련 없어 보이는 사물이나 장면은 같은 카테고리 안이라도 하나로 합치지 말고 각각 구분된 bullet로 작성하세요.
-- 예: 서로 다른 두 개의 피규어가 있으면 "미니어처 피규어들"처럼 뭉뚱그리지 말고, "캐릭터 피규어 1개", "드래곤 모양 미니어처 1개"처럼 각각 무엇인지 구분해서 작성하세요.
-
-[출력 형식]
-
-# 사진 분석 결과
-
-## 확실히 보이는 사실
-### 음식/음료
-- ...
-
-### 장소/풍경
-- ...
-
-### 동물/사람
-- ...
-
-### 사물
-- ...
-
-## 여러 사진을 함께 봤을 때
-- 공통 소재:
-- 반복되는 분위기:
-- 장소/상황의 관련성:
-
-## 일기에 활용 가능한 관찰 요약
-- 여러 사진을 종합했을 때 일기 작성에 참고할 수 있는 객관적 관찰을 2~4개 작성하세요.
-- 단, 사용자의 감정, 이동 경로, 시간 순서, 사진에 없는 행동은 포함하지 마세요.
-
-## 일기 작성에 활용하기 좋은 소재
-- ...
-
-## 단정하면 안 되는 내용
-- 사용자의 감정
-- 사용자의 이동 경로
-- 사진 촬영 순서
-- 집/귀가 여부
-- 사진에 보이지 않는 일정이나 행동
+[출력 형식] (해당 없는 항목은 생략)
+- 음식/음료:
+- 장소/풍경:
+- 사람/동물:
+- 사물:
+- 특이사항:
 """.trimIndent()
                         )
                 )
-                images.forEach { image ->
-                    put(
-                        JSONObject()
-                            .put("type", "image")
-                            .put(
-                                "source",
-                                JSONObject()
-                                    .put("type", "base64")
-                                    .put("media_type", image.mediaType)
-                                    .put("data", image.base64)
-                            )
-                    )
-                }
+                put(
+                    JSONObject()
+                        .put("type", "image")
+                        .put(
+                            "source",
+                            JSONObject()
+                                .put("type", "base64")
+                                .put("media_type", image.mediaType)
+                                .put("data", image.base64)
+                        )
+                )
             }
 
             val body = JSONObject().apply {
                 put("model", "claude-sonnet-4-6")
-                put("max_tokens", 700)
+                put("max_tokens", 400)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -287,15 +244,9 @@ $blocksText
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string().orEmpty()
 
-                android.util.Log.e("AnthropicDataSource", "사진 분석 응답 코드 = ${response.code}")
-                android.util.Log.e("AnthropicDataSource", "사진 분석 응답 본문 = $responseBody")
-
-                if (responseBody.isBlank()) {
-                    return@withContext ""
-                }
+                if (responseBody.isBlank()) return@withContext ""
 
                 val json = JSONObject(responseBody)
-
                 if (!json.has("content")) {
                     android.util.Log.e("AnthropicDataSource", "사진 분석 응답에 content 없음 = $responseBody")
                     return@withContext ""

@@ -46,7 +46,7 @@ class PhotoDataSource(private val context: Context) {
 
             while (it.moveToNext()) {
                 val imageId = it.getLong(idIdx)
-                val takenAt = it.getLong(takenIdx)
+                val mediaStoreTakenAt = it.getLong(takenIdx)
 
                 val contentUri =
                     ContentUris.withAppendedId(
@@ -54,15 +54,18 @@ class PhotoDataSource(private val context: Context) {
                         imageId
                     )
 
-                val (lat, lon) =
-                    extractGps(contentUri.toString())
+                val exif = readExif(contentUri.toString())
+
+                // 오늘 여부는 위 MediaStore 쿼리로 이미 필터링됨.
+                // 시간 데이터 활용은 EXIF 촬영 시각을 우선하고, 없으면 MediaStore DATE_TAKEN으로 폴백.
+                val takenAt = exif.takenAt ?: mediaStoreTakenAt
 
                 photos.add(
                     PhotoMeta(
                         uri = contentUri.toString(),
                         takenAt = takenAt,
-                        latitude = lat,
-                        longitude = lon
+                        latitude = exif.latitude,
+                        longitude = exif.longitude
                     )
                 )
             }
@@ -71,26 +74,53 @@ class PhotoDataSource(private val context: Context) {
         photos
     }
 
-    // EXIF에서 위도/경도 파싱. GPS 정보 없는 사진은 0.0으로 반환
-    private fun extractGps(uri: String): Pair<Double, Double> {
+    /**
+     * 갤러리에서 수동 선택하는 등 MediaStore 조회를 거치지 않은 단일 URI의 메타데이터를 읽는다.
+     * takenAt은 EXIF 촬영 시각(없으면 0), 위도/경도는 EXIF GPS(없으면 0.0).
+     */
+    suspend fun readPhotoMeta(uri: String): PhotoMeta = withContext(Dispatchers.IO) {
+        val exif = readExif(uri)
+        PhotoMeta(
+            uri = uri,
+            takenAt = exif.takenAt ?: 0L,
+            latitude = exif.latitude,
+            longitude = exif.longitude
+        )
+    }
+
+    /** EXIF에서 읽어온 사진 메타데이터. 값이 없으면 takenAt=null, 좌표=0.0 */
+    private data class ExifData(
+        val takenAt: Long?,
+        val latitude: Double,
+        val longitude: Double
+    )
+
+    /**
+     * EXIF를 한 번 열어 촬영 시각과 위도/경도를 함께 읽는다.
+     * - takenAt: EXIF DateTimeOriginal(epoch millis). 스크린샷·다운로드 등 없으면 null
+     * - 위도/경도: GPS 정보 없으면 0.0
+     */
+    private fun readExif(uri: String): ExifData {
         return try {
-            val input =
-                context.contentResolver.openInputStream(
-                    uri.toUri()
-                ) ?: return 0.0 to 0.0
+            context.contentResolver.openInputStream(uri.toUri())?.use { input ->
+                val exif = ExifInterface(input)
 
-            val exif = ExifInterface(input)
+                val latLon = FloatArray(2)
+                val (lat, lon) =
+                    if (exif.getLatLong(latLon)) {
+                        latLon[0].toDouble() to latLon[1].toDouble()
+                    } else {
+                        0.0 to 0.0
+                    }
 
-            val latLon = FloatArray(2)
-
-            if (exif.getLatLong(latLon)) {
-                latLon[0].toDouble() to latLon[1].toDouble()
-            } else {
-                0.0 to 0.0
-            }
-
+                ExifData(
+                    takenAt = exif.dateTimeOriginal,
+                    latitude = lat,
+                    longitude = lon
+                )
+            } ?: ExifData(null, 0.0, 0.0)
         } catch (e: Exception) {
-            0.0 to 0.0
+            ExifData(null, 0.0, 0.0)
         }
     }
 }
