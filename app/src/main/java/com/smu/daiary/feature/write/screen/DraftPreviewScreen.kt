@@ -122,6 +122,7 @@ fun DraftPreviewScreen(
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
     val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
+    val photoAnalysisDebug by viewModel.photoAnalysisDebug.collectAsStateWithLifecycle()
     val selectedPhotos = photos.filter { it.isSelected }
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
@@ -252,6 +253,47 @@ fun DraftPreviewScreen(
                     lineHeight = 24.sp,
                     color = wc.TextPrimary
                 )
+            }
+
+            // [개발용] 일기 생성에 사용된 사진별 분석 내용 확인 (접이식)
+            if (photoAnalysisDebug.isNotBlank()) {
+                var showAnalysis by remember { mutableStateOf(false) }
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = wc.SurfaceBg,
+                    border = BorderStroke(0.5.dp, wc.Border)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showAnalysis = !showAnalysis },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "사진 분석 내용 (개발용)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = wc.TextMuted
+                            )
+                            Text(
+                                text = if (showAnalysis) "숨기기" else "보기",
+                                fontSize = 13.sp,
+                                color = wc.Purple
+                            )
+                        }
+                        if (showAnalysis) {
+                            Text(
+                                text = photoAnalysisDebug,
+                                modifier = Modifier.padding(top = 8.dp),
+                                fontSize = 13.sp,
+                                lineHeight = 20.sp,
+                                color = wc.TextPrimary
+                            )
+                        }
+                    }
+                }
             }
 
             val photos = draft?.photos.orEmpty()

@@ -153,6 +153,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
+    /** [개발용] 일기 생성에 사용된 사진별 분석 결과(photoSummary). UI에서 확인용 */
+    private val _photoAnalysisDebug = MutableStateFlow("")
+    val photoAnalysisDebug: StateFlow<String> = _photoAnalysisDebug.asStateFlow()
+
 
     // ─────────────────────────────────────────────────────────────
     // 이벤트
@@ -886,6 +890,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 .joinToString("\n\n")
 
+            _photoAnalysisDebug.value = photoSummary
             Log.d(TAG, "📸 사진별 분석 결과:\n$photoSummary")
 
 
@@ -1097,5 +1102,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _existingEntryId.value = null
+        _photoAnalysisDebug.value = ""
     }
 }
