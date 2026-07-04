@@ -1,4 +1,7 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
+
+import com.smu.daiary.feature.write.WriteViewModel
+import com.smu.daiary.feature.write.model.*
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -96,9 +99,8 @@ fun BlockSelectionScreen(
 
     val blocks by viewModel.blocks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoadingBlocks.collectAsStateWithLifecycle()
-    val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
-    val generateError by viewModel.generateError.collectAsStateWithLifecycle()
-    val draft by viewModel.draft.collectAsStateWithLifecycle()
+    val isGeneratingQuestions by viewModel.isGeneratingQuestions.collectAsStateWithLifecycle()
+    val contextQuestions by viewModel.contextQuestions.collectAsStateWithLifecycle()
 
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val calendarEvents by viewModel.calendarEvents.collectAsStateWithLifecycle()
@@ -119,17 +121,12 @@ fun BlockSelectionScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val isLateNight = remember { DiaryDateUtil.isLateNight() }
 
-    var hasNavigatedToPreview by remember { mutableStateOf(false) }
-    LaunchedEffect(draft) {
-        if (draft != null && !hasNavigatedToPreview) {
-            hasNavigatedToPreview = true
+    var hasNavigatedToQnA by remember { mutableStateOf(false) }
+    LaunchedEffect(contextQuestions) {
+        if (contextQuestions != null && !hasNavigatedToQnA) {
+            hasNavigatedToQnA = true
             onNext()
         }
-    }
-    LaunchedEffect(generateError) {
-        val error = generateError ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(error)
-        viewModel.clearGenerateError()
     }
 
     Scaffold(
@@ -166,8 +163,8 @@ fun BlockSelectionScreen(
         bottomBar = {
             Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                 Button(
-                    onClick = { viewModel.generateDraft() },
-                    enabled = !isLoading && !isGenerating,
+                    onClick = { viewModel.prepareGeneration() },
+                    enabled = !isLoading && !isGeneratingQuestions,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
@@ -179,7 +176,7 @@ fun BlockSelectionScreen(
                         disabledContainerColor = wc.Border
                     )
                 ) {
-                    if (isGenerating) {
+                    if (isGeneratingQuestions) {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.5.dp)
                     } else {
                         Text(text = stringResource(R.string.btn_select_done), fontSize = 16.sp, fontWeight = FontWeight.Medium)
@@ -228,7 +225,7 @@ fun BlockSelectionScreen(
                             val hasEvents = calendarEvents.isNotEmpty()
                             CategoryBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 isExpanded = calendarExpanded,
                                 displayText = if (!hasEvents) block.content
                                               else if (selectedCount == 0) "선택된 일정 없음"
@@ -249,7 +246,7 @@ fun BlockSelectionScreen(
                             val selectedCount = photos.count { it.isSelected }
                             CategoryBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 isExpanded = photoExpanded,
                                 displayText = if (selectedCount == 0) "선택된 사진 없음"
                                               else "사진 ${selectedCount}장 선택됨",
@@ -272,7 +269,7 @@ fun BlockSelectionScreen(
                             val hasPayments = payments.isNotEmpty()
                             CategoryBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 isExpanded = paymentExpanded,
                                 displayText = if (!hasPayments) block.content
                                               else if (selectedCount == 0) "선택된 결제 없음"
@@ -293,7 +290,7 @@ fun BlockSelectionScreen(
                             // WEATHER, HEALTH — 단일 블록, 체크박스 유지
                             SingleBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 onClick = { viewModel.toggleBlock(block.id) }
                             )
                         }

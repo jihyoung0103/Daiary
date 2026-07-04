@@ -35,6 +35,20 @@ class DailyDataRepository {
         dailyDataRef(userId).document(date).get().await().toObject<DailyData>()
     }
 
+    /**
+     * 기간(startDate ~ endDate, 포함) 내 dailyData 목록을 한 번만 조회합니다.
+     * date는 "YYYY-MM-DD" 문자열이므로 사전식 비교가 곧 날짜 비교와 동일합니다.
+     */
+    suspend fun getDailyDataInRange(userId: String, startDate: String, endDate: String): Result<List<DailyData>> = runCatching {
+        dailyDataRef(userId)
+            .whereGreaterThanOrEqualTo("date", startDate)
+            .whereLessThanOrEqualTo("date", endDate)
+            .get()
+            .await()
+            .documents
+            .mapNotNull { it.toObject<DailyData>() }
+    }
+
     /** dailyData 전체를 저장(덮어쓰기)합니다. */
     suspend fun saveDailyData(userId: String, data: DailyData): Result<Unit> = runCatching {
         Log.d(TAG, "📦 saveDailyData 시작 | userId=$userId, date=${data.date}")

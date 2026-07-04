@@ -9,13 +9,12 @@ import com.smu.daiary.data.model.WeatherData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import com.smu.daiary.BuildConfig
 import org.json.JSONObject
 import java.net.URL
 import java.time.LocalDate
 
-// OpenWeatherMap에서 발급받은 API 키를 여기에 입력하세요.
-// 발급: https://openweathermap.org/api → 무료 회원가입 후 My API Keys
-private const val API_KEY = "f5569a69e61d72b030f10a97a0bf0f4c"
+private val API_KEY get() = BuildConfig.OPENWEATHER_API_KEY
 private const val CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
 private const val FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 

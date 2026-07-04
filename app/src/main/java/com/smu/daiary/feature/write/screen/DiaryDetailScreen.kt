@@ -1,4 +1,6 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
+
+import com.smu.daiary.feature.write.model.*
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background

@@ -8,11 +8,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.data.repository.DailyDataRepository
+import com.smu.daiary.feature.write.model.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.smu.daiary.data.repository.DiaryRepository
 import com.smu.daiary.data.source.CalendarDataSource
 import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
-import com.smu.daiary.feature.write.PaymentSelectableItem
 import com.smu.daiary.R
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,6 +35,7 @@ import android.net.Uri
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
+import com.smu.daiary.data.source.EncodedImage
 
 
 private const val TAG = "WriteViewModel"
@@ -132,6 +135,14 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // UI State — AI 초안 생성
     // ─────────────────────────────────────────────────────────────
 
+    /** 질문 생성(prepareGeneration) 진행 중 여부 */
+    private val _isGeneratingQuestions = MutableStateFlow(false)
+    val isGeneratingQuestions: StateFlow<Boolean> = _isGeneratingQuestions.asStateFlow()
+
+    /** 생성된 맥락 질문 목록. null = 아직 생성 전, emptyList = 질문 없음 */
+    private val _contextQuestions = MutableStateFlow<List<ContextQuestion>?>(null)
+    val contextQuestions: StateFlow<List<ContextQuestion>?> = _contextQuestions.asStateFlow()
+
     /** Claude API 호출 진행 중 여부 */
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
@@ -139,6 +150,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** AI 초안 생성 실패 시 메시지. UI에서 스낵바로 표시 */
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
+
 
     // ─────────────────────────────────────────────────────────────
     // 이벤트
@@ -178,7 +190,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val date = DiaryDateUtil.diaryDate().toString()
             val blocks = mutableListOf<ContentBlock>()
 
-            Log.d(TAG, "📡 데이터 수집 시작 | userId=$userId, date=$date")
 
             // --- 날씨, 캘린더, 사진, 건강 병렬 수집 ---
             val weatherDeferred = async { runCatching { weatherDataSource.fetchWeather() } }
@@ -186,7 +197,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val photoDeferred = async { runCatching { photoDataSource.fetchTodayPhotos() } }
             val healthDeferred = async { runCatching { healthDataSource.fetchTodayHealth() } }
 
-            // 날씨
+            // 날씨 — 생성 시점 1회만 수집 (재시도 없음, 추후 백그라운드 정기 수집으로 이전 예정)
             weatherDeferred.await()
                 .onSuccess { weather ->
                     Log.d(TAG, "🌤️ 날씨 수집 완료: ${weather.description} ${weather.temperature}°C")
@@ -202,7 +213,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     ))
                 }
                 .onFailure {
-                    Log.w(TAG, "⚠️ 날씨 수집 실패 (권한 또는 네트워크 문제)", it)
+                    Log.w(TAG, "⚠️ 날씨 수집 실패", it)
                     blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable)))
                 }
 
@@ -219,13 +230,25 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         ))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+                        val diaryDate = DiaryDateUtil.diaryDate()
                         _calendarEvents.value = events.mapIndexed { i, event ->
+                            val zone = ZoneId.systemDefault()
+                            val eventDate = Instant.ofEpochMilli(event.startTime)
+                                .atZone(zone).toLocalDate()
+                            val dayLabel = when (eventDate) {
+                                diaryDate              -> "오늘"
+                                diaryDate.plusDays(1)  -> "내일"
+                                diaryDate.plusDays(2)  -> "모레"
+                                else -> eventDate.format(DateTimeFormatter.ofPattern("M/d"))
+                            }
                             val startStr = Instant.ofEpochMilli(event.startTime)
-                                .atZone(ZoneId.systemDefault()).format(timeFormatter)
+                                .atZone(zone).format(timeFormatter)
+                            val endStr = Instant.ofEpochMilli(event.endTime)
+                                .atZone(zone).format(timeFormatter)
                             val locationPart = if (event.location.isNotBlank()) " · ${event.location}" else ""
                             CalendarSelectableItem(
                                 id = i,
-                                displayText = "${event.title} $startStr$locationPart",
+                                displayText = "[$dayLabel] ${event.title} $startStr~$endStr$locationPart",
                                 startTime = event.startTime,
                                 isSelected = true
                             )
@@ -368,30 +391,71 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         else   -> canonical
     }
     /** 사진 URI를 Base64 문자열로 변환 — Claude Vision API 전달용 */
-    private fun uriToBase64(uriString: String): String? {
+    private fun encodeImage(uriString: String): EncodedImage? {
         return try {
             val uri = Uri.parse(uriString)
 
-            context.contentResolver
-                .openInputStream(uri)
-                ?.use { input ->
+            val mimeTypeFromResolver =
+                context.contentResolver.getType(uri)
 
-                    val bytes =
+            val bytes =
+                context.contentResolver
+                    .openInputStream(uri)
+                    ?.use { input ->
                         input.readBytes()
+                    } ?: return null
 
-                    Base64.encodeToString(
-                        bytes,
-                        Base64.NO_WRAP
-                    )
-                }
+            val mediaType =
+                detectImageMediaType(bytes, mimeTypeFromResolver)
+
+            val base64 =
+                Base64.encodeToString(
+                    bytes,
+                    Base64.NO_WRAP
+                )
+
+            EncodedImage(
+                base64 = base64,
+                mediaType = mediaType
+            )
 
         } catch (e: Exception) {
             Log.e(
                 TAG,
-                "이미지 Base64 변환 실패",
+                "이미지 인코딩 실패",
                 e
             )
             null
+        }
+    }
+
+    private fun detectImageMediaType(
+        bytes: ByteArray,
+        resolverMimeType: String?
+    ): String {
+        val normalized =
+            when (resolverMimeType?.lowercase()) {
+                "image/jpeg", "image/jpg" -> "image/jpeg"
+                "image/png" -> "image/png"
+                "image/webp" -> "image/webp"
+                else -> null
+            }
+
+        if (normalized != null) return normalized
+
+        return when {
+            bytes.size >= 3 &&
+                    bytes[0] == 0xFF.toByte() &&
+                    bytes[1] == 0xD8.toByte() &&
+                    bytes[2] == 0xFF.toByte() -> "image/jpeg"
+
+            bytes.size >= 4 &&
+                    bytes[0] == 0x89.toByte() &&
+                    bytes[1] == 0x50.toByte() &&
+                    bytes[2] == 0x4E.toByte() &&
+                    bytes[3] == 0x47.toByte() -> "image/png"
+
+            else -> "image/jpeg"
         }
     }
 
@@ -685,6 +749,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
 
+
     // ─────────────────────────────────────────────────────────────
     // AI 초안 생성
     // ─────────────────────────────────────────────────────────────
@@ -699,7 +764,39 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 4. 실패 시 fallbackTemplate으로 대체 초안 생성
      * 5. 완료 시 _draft에 결과 저장 → UI가 DraftPreviewScreen으로 자동 전환
      */
-    fun generateDraft() = viewModelScope.launch {
+    /**
+     * 블록 선택 완료 후 첫 번째 단계 — 선택된 블록을 분석해 맥락 질문을 생성.
+     * 완료되면 _contextQuestions에 결과를 세팅하고 UI가 ContextQnAScreen으로 이동.
+     * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
+     */
+    fun prepareGeneration() = viewModelScope.launch {
+        val selected = _blocks.value.filter { it.isSelected }
+        if (selected.isEmpty()) {
+            _contextQuestions.value = emptyList()
+            return@launch
+        }
+        _isGeneratingQuestions.value = true
+        _contextQuestions.value = null
+        try {
+            val questions = aiRepository.generateContextQuestions(selected)
+            _contextQuestions.value = questions
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 질문 생성 실패 — 질답 단계 스킵", e)
+            _contextQuestions.value = emptyList()
+        } finally {
+            _isGeneratingQuestions.value = false
+        }
+    }
+
+    /**
+     * ContextQnAScreen에서 사용자가 답변을 완료하거나 건너뛴 뒤 호출.
+     * 수집된 answers를 포함해 일기 초안 생성을 시작.
+     */
+    fun submitAnswers(answers: Map<String, String>) {
+        generateDraft(qaAnswers = answers)
+    }
+
+    fun generateDraft(qaAnswers: Map<String, String> = emptyMap()) = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         val today = DiaryDateUtil.diaryDate().toString()
 
@@ -732,19 +829,19 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val locale = if (savedLang == "English") "en" else "ko"
             android.util.Log.d(TAG, "🌐 저장된 언어: $savedLang → locale: $locale")
 
-            val selectedPhotoBase64 =
+            val selectedEncodedImages =
                 _photos.value
                     .filter { it.isSelected }
-                    .mapNotNull { uriToBase64(it.uri) }
+                    .mapNotNull { encodeImage(it.uri) }
 
             Log.d(TAG, "📸 선택된 사진 수: ${_photos.value.count { it.isSelected }}")
-            Log.d(TAG, "📸 base64 변환 성공 수: ${selectedPhotoBase64.size}")
+            Log.d(TAG, "📦 인코딩 성공 수: ${selectedEncodedImages.size}")
 
             val photoSummary = try {
-                aiRepository.analyzePhotos(selectedPhotoBase64)
+                aiRepository.analyzePhotos(selectedEncodedImages)
             } catch (e: Exception) {
                 Log.e(TAG, "❌ 사진 분석 실패", e)
-                "사진 ${selectedPhotoBase64.size}장이 선택됨"
+                "사진 ${selectedEncodedImages.size}장이 선택됨"
             }
 
             Log.d(TAG, "📸 사진 분석 결과: $photoSummary")
@@ -757,16 +854,26 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 .getString("mbti", "INFP") ?: "INFP"
 
+            val selectedDebugText = selected.joinToString("\n") {
+                "- [${it.type.label}] ${it.content}"
+            }
+
+            Log.d(TAG, "===== SELECTED BLOCKS =====")
+            Log.d(TAG, selectedDebugText)
+            Log.d(TAG, "===========================")
+
+
             val result =
                 aiRepository.generateDraft(
                     blocks = selected,
                     locale = locale,
                     mbti = mbti,
                     photoSummary = photoSummary,
-                    recentDiarySamples = if (locale == "en") "" else recentDiarySamples
+                    recentDiarySamples = recentDiarySamples,
+                    qaAnswers = qaAnswers
                 )
-            val content = result.getOrElse { fallbackTemplate(selected) }
 
+            val content = result.getOrElse { fallbackTemplate(selected) }
             if (result.isFailure) {
                 _generateError.value = if (locale == "en")
                     "AI generation failed. Using default template."
@@ -784,9 +891,35 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 aiContent = content,
                 photos = selectedPhotoUris
             )
+
             _isGenerating.value = false
         }
     }
+
+
+
+
+    private fun encodeImage(uri: Uri): EncodedImage? {
+        return try {
+            val mimeTypeFromResolver = context.contentResolver.getType(uri)
+
+            val bytes = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                inputStream.readBytes()
+            } ?: return null
+
+            val mediaType = detectImageMediaType(bytes, mimeTypeFromResolver)
+            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+
+            EncodedImage(
+                base64 = base64,
+                mediaType = mediaType
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
 
     /** AI 생성 실패 시 블록 내용을 단순 나열한 기본 초안 반환 */
     private fun fallbackTemplate(selected: List<ContentBlock>): String = buildString {
@@ -901,6 +1034,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** DraftPreviewScreen 재진입 시 이전 초안만 날리고 블록은 유지 */
     fun clearDraftOnly() {
         _draft.value = null
+        _contextQuestions.value = null
     }
 
     /**
@@ -939,6 +1073,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun resetDraft() {
         _draft.value = null
         _blocks.value = emptyList()
+        _contextQuestions.value = null
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _existingEntryId.value = null
