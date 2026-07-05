@@ -1,4 +1,6 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
+
+import com.smu.daiary.feature.write.model.*
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -190,7 +192,7 @@ fun DiaryDetailScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = formatDate(entry.date),
@@ -210,7 +212,7 @@ fun DiaryDetailScreen(
             }
 
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(28.dp),
                 color = wc.SurfaceBg,
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {

@@ -51,6 +51,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.DiaryEntry
+import com.smu.daiary.feature.retrospect.BannerStatus
+import com.smu.daiary.feature.retrospect.RetrospectBanner
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -133,7 +135,13 @@ fun HomeScreen(
     onStartDiary: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {},
-    onScheduleClick: (String) -> Unit = {}
+    onScheduleClick: (String) -> Unit = {},
+    weeklyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
+    monthlyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
+    weeklyBannerSubLabel: String = "",
+    monthlyBannerSubLabel: String = "",
+    onWeeklyBannerClick: () -> Unit = {},
+    onMonthlyBannerClick: () -> Unit = {}
 ) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
@@ -182,6 +190,26 @@ fun HomeScreen(
                             selectedDate = null
                         }
                     )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        RetrospectBanner(
+                            title = "이번 주 회고",
+                            subLabel = weeklyBannerSubLabel,
+                            status = weeklyBannerStatus,
+                            onClick = onWeeklyBannerClick
+                        )
+                        RetrospectBanner(
+                            title = "이번 달 회고",
+                            subLabel = monthlyBannerSubLabel,
+                            status = monthlyBannerStatus,
+                            onClick = onMonthlyBannerClick
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
                     RecentDiaryList(
                         diaries = diaries,
                         selectedDate = selectedDate,
@@ -283,7 +311,7 @@ private fun CalendarCard(
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(

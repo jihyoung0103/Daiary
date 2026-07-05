@@ -1,4 +1,7 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
+
+import com.smu.daiary.feature.write.WriteViewModel
+import com.smu.daiary.feature.write.model.*
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,15 +29,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Nightlight
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,10 +78,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.outlined.Nightlight
 import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.LocalDarkTheme
@@ -96,9 +99,8 @@ fun BlockSelectionScreen(
 
     val blocks by viewModel.blocks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoadingBlocks.collectAsStateWithLifecycle()
-    val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
-    val generateError by viewModel.generateError.collectAsStateWithLifecycle()
-    val draft by viewModel.draft.collectAsStateWithLifecycle()
+    val isGeneratingQuestions by viewModel.isGeneratingQuestions.collectAsStateWithLifecycle()
+    val contextQuestions by viewModel.contextQuestions.collectAsStateWithLifecycle()
 
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val calendarEvents by viewModel.calendarEvents.collectAsStateWithLifecycle()
@@ -119,17 +121,12 @@ fun BlockSelectionScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val isLateNight = remember { DiaryDateUtil.isLateNight() }
 
-    var hasNavigatedToPreview by remember { mutableStateOf(false) }
-    LaunchedEffect(draft) {
-        if (draft != null && !hasNavigatedToPreview) {
-            hasNavigatedToPreview = true
+    var hasNavigatedToQnA by remember { mutableStateOf(false) }
+    LaunchedEffect(contextQuestions) {
+        if (contextQuestions != null && !hasNavigatedToQnA) {
+            hasNavigatedToQnA = true
             onNext()
         }
-    }
-    LaunchedEffect(generateError) {
-        val error = generateError ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(error)
-        viewModel.clearGenerateError()
     }
 
     Scaffold(
@@ -166,20 +163,20 @@ fun BlockSelectionScreen(
         bottomBar = {
             Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                 Button(
-                    onClick = { viewModel.generateDraft() },
-                    enabled = !isLoading && !isGenerating,
+                    onClick = { viewModel.prepareGeneration() },
+                    enabled = !isLoading && !isGeneratingQuestions,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                         .padding(bottom = 8.dp)
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = wc.Purple,
                         disabledContainerColor = wc.Border
                     )
                 ) {
-                    if (isGenerating) {
+                    if (isGeneratingQuestions) {
                         CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Color.White, strokeWidth = 2.5.dp)
                     } else {
                         Text(text = stringResource(R.string.btn_select_done), fontSize = 16.sp, fontWeight = FontWeight.Medium)
@@ -228,7 +225,7 @@ fun BlockSelectionScreen(
                             val hasEvents = calendarEvents.isNotEmpty()
                             CategoryBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 isExpanded = calendarExpanded,
                                 displayText = if (!hasEvents) block.content
                                               else if (selectedCount == 0) "선택된 일정 없음"
@@ -249,7 +246,7 @@ fun BlockSelectionScreen(
                             val selectedCount = photos.count { it.isSelected }
                             CategoryBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 isExpanded = photoExpanded,
                                 displayText = if (selectedCount == 0) "선택된 사진 없음"
                                               else "사진 ${selectedCount}장 선택됨",
@@ -272,7 +269,7 @@ fun BlockSelectionScreen(
                             val hasPayments = payments.isNotEmpty()
                             CategoryBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 isExpanded = paymentExpanded,
                                 displayText = if (!hasPayments) block.content
                                               else if (selectedCount == 0) "선택된 결제 없음"
@@ -293,7 +290,7 @@ fun BlockSelectionScreen(
                             // WEATHER, HEALTH — 단일 블록, 체크박스 유지
                             SingleBlockItem(
                                 block = block,
-                                enabled = !isGenerating,
+                                enabled = !isGeneratingQuestions,
                                 onClick = { viewModel.toggleBlock(block.id) }
                             )
                         }
@@ -396,7 +393,7 @@ private fun SingleBlockItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = blockTypeIcon(block.type),
+                    imageVector = if (block.type == BlockType.WEATHER) weatherIconFor(block.content) else blockTypeIcon(block.type),
                     contentDescription = null,
                     tint = if (block.isSelected) Color.White else wc.Purple,
                     modifier = Modifier.size(20.dp)
@@ -636,6 +633,19 @@ private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
     BlockType.CALENDAR -> Icons.Outlined.CalendarMonth
     BlockType.HEALTH   -> Icons.Outlined.FitnessCenter
     BlockType.WEATHER  -> Icons.Outlined.WbSunny
+}
+
+/** 날씨 블록의 content(예: "맑음 22°C · 습도 60%")에서 날씨 종류를 읽어 아이콘 매핑. 매칭 실패 시 WbSunny로 fallback */
+private fun weatherIconFor(content: String): ImageVector {
+    val weatherIconMap = mapOf(
+        "맑음" to Icons.Outlined.WbSunny,
+        "흐림" to Icons.Outlined.Cloud,
+        "비" to Icons.Outlined.Umbrella,
+        "눈" to Icons.Outlined.AcUnit,
+        "바람" to Icons.Outlined.Air
+    )
+    return weatherIconMap.entries.firstOrNull { content.startsWith(it.key) }?.value
+        ?: Icons.Outlined.WbSunny
 }
 
 @Composable

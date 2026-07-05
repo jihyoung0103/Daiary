@@ -1,6 +1,13 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
+
+import com.smu.daiary.feature.write.WriteViewModel
+import com.smu.daiary.feature.write.model.*
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,7 +15,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +34,8 @@ import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
@@ -47,8 +55,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.Dialog
@@ -57,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -66,6 +77,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import android.util.Log
 import coil.compose.AsyncImage
 import com.smu.daiary.R
@@ -118,9 +132,18 @@ fun DraftPreviewScreen(
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
     val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
-    val selectedPhotos = photos.filter { it.isSelected }
+    val photoAnalysis by viewModel.photoAnalysis.collectAsStateWithLifecycle()
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
-    BackHandler { onBack() }
+    var selectedImageUri by remember { mutableStateOf<String?>(null) }
+
+
+    BackHandler {
+        if (selectedImageUri != null) {
+            selectedImageUri = null
+        } else {
+            onBack()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -170,8 +193,7 @@ fun DraftPreviewScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
-                windowInsets = WindowInsets(0)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
             )
         },
         bottomBar = {
@@ -182,7 +204,7 @@ fun DraftPreviewScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                         .padding(bottom = 8.dp)
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                 ) {
@@ -197,7 +219,7 @@ fun DraftPreviewScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             draft?.let {
                 Text(
@@ -226,8 +248,52 @@ fun DraftPreviewScreen(
                 }
             }
 
+            val photoAnalysisSnapshot = photoAnalysis
+            if (!photoAnalysisSnapshot.isNullOrBlank()) {
+                val materials = extractDiaryMaterials(photoAnalysisSnapshot)
+                if (materials != null) {
+                    var photoCardExpanded by remember { mutableStateOf(false) }
+                    val summaryText = materials.lines().filter { it.isNotBlank() }.take(3).joinToString("\n")
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = wc.SurfaceBg,
+                        border = BorderStroke(0.5.dp, wc.Border)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { photoCardExpanded = !photoCardExpanded },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.photo_analysis_card_title),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = wc.TextPrimary
+                                )
+                                Icon(
+                                    imageVector = if (photoCardExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = wc.TextMuted,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (photoCardExpanded) materials else summaryText,
+                                fontSize = 14.sp,
+                                lineHeight = 22.sp,
+                                color = wc.TextMuted
+                            )
+                        }
+                    }
+                }
+            }
+
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(28.dp),
                 color = wc.SurfaceBg,
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {
@@ -243,8 +309,6 @@ fun DraftPreviewScreen(
             }
 
             val photos = draft?.photos.orEmpty()
-            Log.d("PHOTO_DEBUG", "photos count = ${photos.size}")
-            Log.d("PHOTO_DEBUG", "photos = $photos")
             if (photos.isNotEmpty()) {
                 Text(
                     text = stringResource(R.string.attached_photos),
@@ -286,32 +350,51 @@ fun DraftPreviewScreen(
             onDismissRequest = { showPhotoDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Transparent)
+            var dialogVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { dialogVisible = true }
+
+            AnimatedVisibility(
+                visible = dialogVisible,
+                enter = fadeIn(animationSpec = tween(250)) + scaleIn(initialScale = 0.9f, animationSpec = tween(250))
             ) {
-                AsyncImage(
-                    model = selectedPhotoUri,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
-                IconButton(
-                    onClick = { showPhotoDialog = false },
+                Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp)
+                        .fillMaxSize()
+                        .background(Color.Transparent)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "닫기",
-                        tint = Color.White
+                    AsyncImage(
+                        model = selectedPhotoUri,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
                     )
+                    AnimatedVisibility(
+                        visible = dialogVisible,
+                        enter = fadeIn(animationSpec = tween(durationMillis = 250, delayMillis = 150)),
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        IconButton(
+                            onClick = { showPhotoDialog = false },
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "닫기",
+                                tint = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+private fun extractDiaryMaterials(text: String): String? {
+    val headerPattern = Regex("##\\s*일기 작성에 활용하기 좋은 소재")
+    val startIdx = headerPattern.find(text)?.range?.last?.plus(1) ?: return null
+    val nextHeaderIdx = text.indexOf("\n##", startIdx).let { if (it == -1) text.length else it }
+    return text.substring(startIdx, nextHeaderIdx).trim().ifBlank { null }
 }
 
 @Composable
@@ -375,7 +458,7 @@ private fun DraftPreviewScreenPreview() {
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp, vertical = 16.dp)
                             .padding(bottom = 8.dp)
-                            .height(52.dp),
+                            .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                     ) {
@@ -390,7 +473,7 @@ private fun DraftPreviewScreenPreview() {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(text = formatDate(sampleDraft.date), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
                 Row(
@@ -401,7 +484,7 @@ private fun DraftPreviewScreenPreview() {
                     MetaChip(icon = Icons.Outlined.SentimentVerySatisfied, label = "기쁨")
                 }
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(28.dp),
                     color = wc.SurfaceBg,
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
