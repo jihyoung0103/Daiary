@@ -141,6 +141,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
+    /** 사진 다중 분석 결과 요약 (analyzePhotos 호출 결과) */
+    private val _photoAnalysis = MutableStateFlow<String?>(null)
+    val photoAnalysis: StateFlow<String?> = _photoAnalysis.asStateFlow()
+
     /** AI가 생성한 후속 질문 목록 */
     private val _followUpQuestions = MutableStateFlow<List<String>>(emptyList())
     val followUpQuestions: StateFlow<List<String>> = _followUpQuestions.asStateFlow()
@@ -512,7 +516,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
     }
 
-    /** 사진 개별 선택 토글 — PhotoSelectionScreen의 체크박스와 연결 */
+    /** 사진 개별 선택 토글 — BlockSelectionScreen의 PhotoDetailSelector와 연결 */
     fun togglePhoto(uri: String) {
         _photos.update { list ->
             list.map { photo ->
@@ -756,6 +760,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     null
                 }
 
+            _photoAnalysis.value = photoSummary
+
             Log.d(TAG, "📸 선택된 사진 수: ${_photos.value.count { it.isSelected }}")
             Log.d(TAG, "📦 인코딩 성공 수: ${selectedEncodedImages.size}")
             Log.d(TAG, "📷 photoSummary 비어있나: ${photoSummary.isNullOrBlank()}")
@@ -900,6 +906,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             Log.d(TAG, "📸 사진 분석 결과: $photoSummary")
+            _photoAnalysis.value = if (selectedEncodedImages.isNotEmpty()) photoSummary else null
 
 
             val mbti = getApplication<Application>()
@@ -1107,6 +1114,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** DraftPreviewScreen 재진입 시 이전 초안만 날리고 블록은 유지 */
     fun clearDraftOnly() {
         _draft.value = null
+        _photoAnalysis.value = null
     }
 
     /**
@@ -1148,5 +1156,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _existingEntryId.value = null
+        _photoAnalysis.value = null
     }
 }

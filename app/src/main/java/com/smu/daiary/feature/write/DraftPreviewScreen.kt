@@ -28,6 +28,8 @@ import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
@@ -66,9 +68,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import android.util.Log
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -122,7 +124,7 @@ fun DraftPreviewScreen(
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
     val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
-    val selectedPhotos = photos.filter { it.isSelected }
+    val photoAnalysis by viewModel.photoAnalysis.collectAsStateWithLifecycle()
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
     BackHandler { onBack() }
 
@@ -192,13 +194,13 @@ fun DraftPreviewScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                         .padding(bottom = 8.dp)
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                 ) {
                     Text(
                         text = if (displayText.isBlank()) {
-                            "답변 반영해서 초안 생성"
+                            "초안 생성"
                         } else {
                             "수정하기"
                         },
@@ -215,7 +217,7 @@ fun DraftPreviewScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             draft?.let {
                 Text(
@@ -255,6 +257,50 @@ fun DraftPreviewScreen(
                 }
             }
 
+            val photoAnalysisSnapshot = photoAnalysis
+            if (!photoAnalysisSnapshot.isNullOrBlank()) {
+                val materials = extractDiaryMaterials(photoAnalysisSnapshot)
+                if (materials != null) {
+                    var photoCardExpanded by remember { mutableStateOf(false) }
+                    val summaryText = materials.lines().filter { it.isNotBlank() }.take(3).joinToString("\n")
+                    Surface(
+                        shape = RoundedCornerShape(28.dp),
+                        color = wc.SurfaceBg,
+                        border = BorderStroke(0.5.dp, wc.Border)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { photoCardExpanded = !photoCardExpanded },
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.photo_analysis_card_title),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = wc.TextPrimary
+                                )
+                                Icon(
+                                    imageVector = if (photoCardExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = wc.TextMuted,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = if (photoCardExpanded) materials else summaryText,
+                                fontSize = 14.sp,
+                                lineHeight = 22.sp,
+                                color = wc.TextMuted
+                            )
+                        }
+                    }
+                }
+            }
+
             if (displayText.isBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -277,6 +323,7 @@ fun DraftPreviewScreen(
                     )
                 } else {
                     followUpQuestions.forEachIndexed { index, question ->
+                        var localAnswer by remember(index) { mutableStateOf(followUpAnswers[index].orEmpty()) }
                         Column(
                             modifier = Modifier.fillMaxWidth(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -289,16 +336,24 @@ fun DraftPreviewScreen(
                             )
 
                             OutlinedTextField(
-                                value = followUpAnswers[index].orEmpty(),
+                                value = localAnswer,
                                 onValueChange = { answer ->
+                                    localAnswer = answer
                                     viewModel.updateFollowUpAnswer(index, answer)
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 placeholder = {
-                                    Text(text = "답변을 입력해 주세요")
+                                    Text(text = "답변을 입력해 주세요", color = wc.TextMuted)
                                 },
                                 minLines = 2,
-                                maxLines = 4
+                                maxLines = 4,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = wc.TextPrimary,
+                                    unfocusedTextColor = wc.TextPrimary,
+                                    focusedBorderColor = wc.Purple,
+                                    unfocusedBorderColor = wc.Border,
+                                    cursorColor = wc.Purple
+                                )
                             )
                         }
 
@@ -309,7 +364,7 @@ fun DraftPreviewScreen(
 
             if (displayText.isNotBlank()) {
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(28.dp),
                     color = wc.SurfaceBg,
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
@@ -325,10 +380,8 @@ fun DraftPreviewScreen(
                 }
             }
 
-                val photos = draft?.photos.orEmpty()
-                Log.d("PHOTO_DEBUG", "photos count = ${photos.size}")
-                Log.d("PHOTO_DEBUG", "photos = $photos")
-                if (photos.isNotEmpty()) {
+                val draftPhotos = draft?.photos.orEmpty()
+                if (draftPhotos.isNotEmpty()) {
                     Text(
                         text = stringResource(R.string.attached_photos),
                         fontSize = 12.sp,
@@ -339,7 +392,7 @@ fun DraftPreviewScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(photos) { photo ->
+                        items(draftPhotos) { photo ->
                             Box(
                                 modifier = Modifier
                                     .size(80.dp)
@@ -399,6 +452,13 @@ fun DraftPreviewScreen(
             }
         }
     }
+
+private fun extractDiaryMaterials(text: String): String? {
+    val headerPattern = Regex("##\\s*일기 작성에 활용하기 좋은 소재")
+    val startIdx = headerPattern.find(text)?.range?.last?.plus(1) ?: return null
+    val nextHeaderIdx = text.indexOf("\n##", startIdx).let { if (it == -1) text.length else it }
+    return text.substring(startIdx, nextHeaderIdx).trim().ifBlank { null }
+}
 
 @Composable
 private fun MetaChip(icon: ImageVector, label: String) {
@@ -462,7 +522,7 @@ private fun DraftPreviewScreenPreview() {
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp, vertical = 16.dp)
                             .padding(bottom = 8.dp)
-                            .height(52.dp),
+                            .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                     ) {
@@ -480,7 +540,7 @@ private fun DraftPreviewScreenPreview() {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(text = formatDate(sampleDraft.date), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
                 Row(
@@ -491,7 +551,7 @@ private fun DraftPreviewScreenPreview() {
                     MetaChip(icon = Icons.Outlined.SentimentVerySatisfied, label = "기쁨")
                 }
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(28.dp),
                     color = wc.SurfaceBg,
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {

@@ -281,7 +281,7 @@ private fun CalendarCard(
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(

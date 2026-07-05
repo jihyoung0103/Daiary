@@ -33,18 +33,12 @@
     <string name="loading_data">Loading weather, calendar,\nand photo data...</string>
     <string name="btn_select_done">Done</string>
 
-    <!-- PhotoSelectionScreen -->
-    <string name="screen_photo_selection">Select Photos</string>
-    <string name="btn_select_all">Select All</string>
-    <string name="btn_deselect_all">Deselect All</string>
-    <string name="btn_add_from_gallery">Add from Gallery</string>
-    <string name="photo_selection_count">Photos %1$d/%2$d</string>
-
     <!-- DraftPreviewScreen -->
     <string name="screen_preview">Preview</string>
     <string name="btn_save">Save</string>
     <string name="btn_edit">Edit</string>
     <string name="attached_photos">Attached Photos</string>
+    <string name="photo_analysis_card_title">Here\'s what I found in your photos</string>
     <string name="photo_load_error">Unable to load photo</string>
 
     <!-- DiaryEditScreen -->

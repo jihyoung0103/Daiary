@@ -270,7 +270,7 @@ fun DiaryEditScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 color = wc.SurfaceBg,
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(28.dp),
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {
                 Column(
@@ -533,7 +533,7 @@ private fun DiaryEditScreenPreview() {
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp),
                     color = wc.SurfaceBg,
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(28.dp),
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
                     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {

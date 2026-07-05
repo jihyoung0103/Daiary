@@ -190,7 +190,7 @@ fun DiaryDetailScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
                 text = formatDate(entry.date),
@@ -210,7 +210,7 @@ fun DiaryDetailScreen(
             }
 
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(28.dp),
                 color = wc.SurfaceBg,
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {

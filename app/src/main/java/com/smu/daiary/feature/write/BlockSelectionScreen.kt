@@ -71,10 +71,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.outlined.Nightlight
 import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.LocalDarkTheme
@@ -173,7 +169,7 @@ fun BlockSelectionScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                         .padding(bottom = 8.dp)
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = wc.Purple,
