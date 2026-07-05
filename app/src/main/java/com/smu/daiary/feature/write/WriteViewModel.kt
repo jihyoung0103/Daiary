@@ -770,6 +770,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
      */
     fun prepareGeneration() = viewModelScope.launch {
+        _photoAnalysis.value = null
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
             _contextQuestions.value = emptyList()
