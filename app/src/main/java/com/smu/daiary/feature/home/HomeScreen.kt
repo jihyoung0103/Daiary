@@ -196,14 +196,12 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         RetrospectBanner(
-                            icon = "✨",
                             title = "이번 주 회고",
                             subLabel = weeklyBannerSubLabel,
                             status = weeklyBannerStatus,
                             onClick = onWeeklyBannerClick
                         )
                         RetrospectBanner(
-                            icon = "📅",
                             title = "이번 달 회고",
                             subLabel = monthlyBannerSubLabel,
                             status = monthlyBannerStatus,

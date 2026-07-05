@@ -48,7 +48,6 @@ import com.smu.daiary.data.model.RetrospectReport
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.Ink
-import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.SageForest
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -82,12 +81,7 @@ fun RetrospectCardScreen(
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
 
-    val currentCard = pages[pagerState.currentPage]
-    val isDarkCard = currentCard == RetroCardType.OPENING ||
-        currentCard == RetroCardType.NARRATIVE ||
-        currentCard == RetroCardType.KEYWORDS ||
-        currentCard == RetroCardType.SUMMARY
-    val barColor = if (isDarkCard) Color.White else Ink
+    val barColor = Ink
 
     Column(modifier = modifier.fillMaxSize()) {
         // 상단바
@@ -145,9 +139,14 @@ fun RetrospectCardScreen(
                     RetroCardType.SUMMARY -> Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(RetroDeepGreen)
+                            .background(Dew)
                     ) {
-                        SummaryContent(report, modifier = Modifier.align(Alignment.Center))
+                        SummaryContent(
+                            report,
+                            modifier = Modifier.align(Alignment.Center),
+                            textColor = Ink,
+                            accentColor = SageForest
+                        )
                     }
                 }
             }
@@ -157,7 +156,7 @@ fun RetrospectCardScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(if (isDarkCard) RetroDeepGreen else backgroundFor(currentCard))
+                .background(Dew)
                 .padding(20.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -171,21 +170,14 @@ fun RetrospectCardScreen(
                 Button(
                     onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDarkCard) Color.White else RetroDeepGreen,
-                        contentColor = if (isDarkCard) RetroDeepGreen else Color.White
+                        containerColor = RetroDeepGreen,
+                        contentColor = Color.White
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("다음 →", fontWeight = FontWeight.Medium) }
             }
         }
     }
-}
-
-private fun backgroundFor(type: RetroCardType): Color = when (type) {
-    RetroCardType.OPENING, RetroCardType.NARRATIVE, RetroCardType.KEYWORDS, RetroCardType.SUMMARY -> RetroDeepGreen
-    RetroCardType.EMOTION, RetroCardType.MEMORABLE -> Dew
-    RetroCardType.ACTIVITY -> RetroMint
-    RetroCardType.SPENDING -> Ivory
 }
 
 @Composable
@@ -203,15 +195,15 @@ private fun CardContainer(background: Color, content: @Composable ColumnScope.()
 
 @Composable
 private fun OpeningCard(report: RetrospectReport) {
-    CardContainer(RetroDeepGreen) {
+    CardContainer(Dew) {
         Text("✨", fontSize = 40.sp)
         Spacer(Modifier.height(20.dp))
-        Text(report.periodLabel, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
-        Text("기록을 돌아봤어요", fontSize = 18.sp, color = Color.White, textAlign = TextAlign.Center)
+        Text(report.periodLabel, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Ink, textAlign = TextAlign.Center)
+        Text("기록을 돌아봤어요", fontSize = 18.sp, color = Ink, textAlign = TextAlign.Center)
         Spacer(Modifier.height(24.dp))
-        Text(periodRangeLabel(report), fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f))
+        Text(periodRangeLabel(report), fontSize = 13.sp, color = Ink.copy(alpha = 0.6f))
         Spacer(Modifier.height(4.dp))
-        Text("일기 ${report.diaryCount}편", fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f))
+        Text("일기 ${report.diaryCount}편", fontSize = 13.sp, color = Ink.copy(alpha = 0.6f))
     }
 }
 
@@ -291,23 +283,23 @@ private fun EmotionCard(report: RetrospectReport) {
 
 @Composable
 private fun NarrativeCard(report: RetrospectReport) {
-    CardContainer(RetroDeepGreen) {
+    CardContainer(Dew) {
         Text(
             text = "“${report.aiNarrative}”",
             fontSize = 20.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.White,
+            color = Ink,
             textAlign = TextAlign.Center,
             lineHeight = 30.sp
         )
         Spacer(Modifier.height(28.dp))
-        Text("── AI가 바라본 ${periodWord(report)} ──", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
+        Text("── AI가 바라본 ${periodWord(report)} ──", fontSize = 12.sp, color = Ink.copy(alpha = 0.6f))
     }
 }
 
 @Composable
 private fun ActivityCard(report: RetrospectReport) {
-    CardContainer(RetroMint) {
+    CardContainer(Dew) {
         Text("${periodWord(report)} 몸은 어땠나요", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Ink)
         Spacer(Modifier.height(28.dp))
         if (report.totalSteps > 0) {
@@ -328,7 +320,7 @@ private fun ActivityCard(report: RetrospectReport) {
 
 @Composable
 private fun SpendingCard(report: RetrospectReport) {
-    CardContainer(Ivory) {
+    CardContainer(Dew) {
         Text("${periodWord(report)} 지출", fontSize = 15.sp, color = Ink.copy(alpha = 0.6f))
         Text("${"%,d".format(report.totalSpending)} 원", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Ink)
         Spacer(Modifier.height(24.dp))
@@ -368,15 +360,15 @@ private fun SpendingCard(report: RetrospectReport) {
 
 @Composable
 private fun KeywordsCard(report: RetrospectReport) {
-    CardContainer(RetroDeepGreen) {
-        Text("${periodWord(report)}를 담은 키워드", fontSize = 16.sp, color = Color.White.copy(alpha = 0.8f))
+    CardContainer(Dew) {
+        Text("${periodWord(report)}를 담은 키워드", fontSize = 16.sp, color = Ink.copy(alpha = 0.6f))
         Spacer(Modifier.height(28.dp))
         report.keywords.chunked(2).forEachIndexed { rowIndex, rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 rowItems.forEachIndexed { i, keyword ->
                     val overallIndex = rowIndex * 2 + i
                     val size = (24 - overallIndex * 2).coerceAtLeast(14)
-                    Text("#$keyword", fontSize = size.sp, fontWeight = FontWeight.Bold, color = RetroMint)
+                    Text("#$keyword", fontSize = size.sp, fontWeight = FontWeight.Bold, color = SageForest)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -412,33 +404,38 @@ private fun memorableDateLabel(date: String): String {
 }
 
 @Composable
-fun SummaryContent(report: RetrospectReport, modifier: Modifier = Modifier) {
+fun SummaryContent(
+    report: RetrospectReport,
+    modifier: Modifier = Modifier,
+    textColor: Color = Color.White,
+    accentColor: Color = RetroMint
+) {
     Column(
         modifier = modifier.padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("${report.periodLabel} 요약", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("${report.periodLabel} 요약", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
         Spacer(Modifier.height(8.dp))
         val topEmotion = report.emotionDistribution.entries.maxByOrNull { it.value }
         if (topEmotion != null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(imageVector = emotionIcon(topEmotion.key), contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                Text("${topEmotion.key} ${topEmotion.value}일", fontSize = 15.sp, color = Color.White)
+                Icon(imageVector = emotionIcon(topEmotion.key), contentDescription = null, tint = textColor, modifier = Modifier.size(18.dp))
+                Text("${topEmotion.key} ${topEmotion.value}일", fontSize = 15.sp, color = textColor)
             }
         }
         if (report.totalSteps > 0) {
-            Text("👟 ${"%,d".format(report.totalSteps)} 보", fontSize = 15.sp, color = Color.White)
+            Text("👟 ${"%,d".format(report.totalSteps)} 보", fontSize = 15.sp, color = textColor)
         }
         if (report.totalSpending > 0) {
-            Text("💳 ${"%,d".format(report.totalSpending)} 원", fontSize = 15.sp, color = Color.White)
+            Text("💳 ${"%,d".format(report.totalSpending)} 원", fontSize = 15.sp, color = textColor)
         }
         if (report.memorableDate.isNotBlank()) {
-            Text("⭐ ${memorableDateLabel(report.memorableDate)}", fontSize = 15.sp, color = Color.White)
+            Text("⭐ ${memorableDateLabel(report.memorableDate)}", fontSize = 15.sp, color = textColor)
         }
         if (report.keywords.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            Text(report.keywords.joinToString(" ") { "#$it" }, fontSize = 13.sp, color = RetroMint, textAlign = TextAlign.Center)
+            Text(report.keywords.joinToString(" ") { "#$it" }, fontSize = 13.sp, color = accentColor, textAlign = TextAlign.Center)
         }
     }
 }

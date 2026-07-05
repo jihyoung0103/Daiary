@@ -32,7 +32,6 @@ import com.smu.daiary.ui.theme.TextPrimaryDark
  */
 @Composable
 fun RetrospectBanner(
-    icon: String,
     title: String,
     subLabel: String,
     status: BannerStatus,
@@ -66,7 +65,7 @@ fun RetrospectBanner(
         ) {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "$icon $title", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
+                    Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
                     if (status == BannerStatus.SAVED) {
                         Text(text = "  ✓ 저장됨", fontSize = 11.sp, color = textColor.copy(alpha = 0.85f))
                     }
