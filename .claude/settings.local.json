@@ -16,7 +16,8 @@
       "Bash(git push *)",
       "PowerShell(git commit *)",
       "PowerShell(git push *)",
-      "Bash(./gradlew.bat :app:compileDebugKotlin --console=plain)"
+      "Bash(./gradlew.bat :app:compileDebugKotlin --console=plain)",
+      "Bash(./gradlew.bat :app:assembleDebug --console=plain)"
     ]
   }
 }
