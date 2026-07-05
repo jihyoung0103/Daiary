@@ -40,6 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.RetrospectReport
 import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Ivory
+import com.smu.daiary.ui.theme.SageForest
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -77,7 +81,7 @@ fun RetrospectCardScreen(
         currentCard == RetroCardType.NARRATIVE ||
         currentCard == RetroCardType.KEYWORDS ||
         currentCard == RetroCardType.SUMMARY
-    val barColor = if (isDarkCard) Color.White else RetroDarkText
+    val barColor = if (isDarkCard) Color.White else Ink
 
     Column(modifier = modifier.fillMaxSize()) {
         // 상단바
@@ -154,7 +158,7 @@ fun RetrospectCardScreen(
             if (pagerState.currentPage == pages.lastIndex) {
                 Button(
                     onClick = onSave,
-                    colors = ButtonDefaults.buttonColors(containerColor = RetroMint, contentColor = RetroDarkText),
+                    colors = ButtonDefaults.buttonColors(containerColor = RetroMint, contentColor = Ink),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("저장하기", fontWeight = FontWeight.Medium) }
             } else {
@@ -173,9 +177,9 @@ fun RetrospectCardScreen(
 
 private fun backgroundFor(type: RetroCardType): Color = when (type) {
     RetroCardType.OPENING, RetroCardType.NARRATIVE, RetroCardType.KEYWORDS, RetroCardType.SUMMARY -> RetroDeepGreen
-    RetroCardType.EMOTION, RetroCardType.MEMORABLE -> RetroLightGreen
+    RetroCardType.EMOTION, RetroCardType.MEMORABLE -> Dew
     RetroCardType.ACTIVITY -> RetroMint
-    RetroCardType.SPENDING -> RetroCream
+    RetroCardType.SPENDING -> Ivory
 }
 
 @Composable
@@ -225,13 +229,13 @@ private fun emotionEmoji(emotion: String): String = when (emotion) {
 
 @Composable
 private fun EmotionCard(report: RetrospectReport) {
-    CardContainer(RetroLightGreen) {
-        Text("${periodWord(report)} 감정", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = RetroDarkText.copy(alpha = 0.6f))
+    CardContainer(Dew) {
+        Text("${periodWord(report)} 감정", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Ink.copy(alpha = 0.6f))
         Spacer(Modifier.height(20.dp))
         val maxCount = (report.emotionDistribution.values.maxOrNull() ?: 1).coerceAtLeast(1)
         val sorted = report.emotionDistribution.entries.sortedByDescending { it.value }
         if (sorted.isEmpty()) {
-            Text("이번 기간엔 감정 기록이 없어요", fontSize = 14.sp, color = RetroDarkText.copy(alpha = 0.6f))
+            Text("이번 기간엔 감정 기록이 없어요", fontSize = 14.sp, color = Ink.copy(alpha = 0.6f))
         } else {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -239,31 +243,31 @@ private fun EmotionCard(report: RetrospectReport) {
             ) {
                 sorted.forEach { (emotion, count) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${emotionEmoji(emotion)} $emotion", fontSize = 14.sp, color = RetroDarkText, modifier = Modifier.width(90.dp))
+                        Text("${emotionEmoji(emotion)} $emotion", fontSize = 14.sp, color = Ink, modifier = Modifier.width(90.dp))
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(14.dp)
                                 .clip(RoundedCornerShape(7.dp))
-                                .background(RetroDarkText.copy(alpha = 0.08f))
+                                .background(Ink.copy(alpha = 0.08f))
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .fillMaxWidth(count.toFloat() / maxCount)
                                     .clip(RoundedCornerShape(7.dp))
-                                    .background(SageForestColor)
+                                    .background(SageForest)
                             )
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text("${count}일", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
+                        Text("${count}일", fontSize = 12.sp, color = Ink.copy(alpha = 0.6f))
                     }
                 }
             }
             Spacer(Modifier.height(28.dp))
             val top = sorted.first()
-            Text("${periodWord(report)} 가장 많은 감정", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
-            Text("${emotionEmoji(top.key)} ${top.key}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("${periodWord(report)} 가장 많은 감정", fontSize = 12.sp, color = Ink.copy(alpha = 0.6f))
+            Text("${emotionEmoji(top.key)} ${top.key}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Ink)
         }
     }
 }
@@ -287,60 +291,60 @@ private fun NarrativeCard(report: RetrospectReport) {
 @Composable
 private fun ActivityCard(report: RetrospectReport) {
     CardContainer(RetroMint) {
-        Text("${periodWord(report)} 몸은 어땠나요", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = RetroDarkText)
+        Text("${periodWord(report)} 몸은 어땠나요", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Ink)
         Spacer(Modifier.height(28.dp))
         if (report.totalSteps > 0) {
-            Text("👟 총 걸음수", fontSize = 13.sp, color = RetroDarkText.copy(alpha = 0.7f))
-            Text("${"%,d".format(report.totalSteps)} 보", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("👟 총 걸음수", fontSize = 13.sp, color = Ink.copy(alpha = 0.7f))
+            Text("${"%,d".format(report.totalSteps)} 보", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
             Spacer(Modifier.height(20.dp))
         }
         if (report.avgSleepHours > 0f) {
-            Text("😴 평균 수면", fontSize = 13.sp, color = RetroDarkText.copy(alpha = 0.7f))
-            Text("${"%.1f".format(report.avgSleepHours)} 시간", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("😴 평균 수면", fontSize = 13.sp, color = Ink.copy(alpha = 0.7f))
+            Text("${"%.1f".format(report.avgSleepHours)} 시간", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
             Spacer(Modifier.height(20.dp))
         }
         if (report.bestActivityDay.isNotBlank()) {
-            Text("가장 활발했던 날: ${report.bestActivityDay}", fontSize = 13.sp, color = RetroDarkText.copy(alpha = 0.7f))
+            Text("가장 활발했던 날: ${report.bestActivityDay}", fontSize = 13.sp, color = Ink.copy(alpha = 0.7f))
         }
     }
 }
 
 @Composable
 private fun SpendingCard(report: RetrospectReport) {
-    CardContainer(RetroCream) {
-        Text("${periodWord(report)} 지출", fontSize = 15.sp, color = RetroDarkText.copy(alpha = 0.6f))
-        Text("${"%,d".format(report.totalSpending)} 원", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+    CardContainer(Ivory) {
+        Text("${periodWord(report)} 지출", fontSize = 15.sp, color = Ink.copy(alpha = 0.6f))
+        Text("${"%,d".format(report.totalSpending)} 원", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Ink)
         Spacer(Modifier.height(24.dp))
         val sorted = report.spendingByCategory.entries.sortedByDescending { it.value }
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             sorted.forEach { (category, amount) ->
                 val percent = if (report.totalSpending > 0) (amount * 100 / report.totalSpending) else 0
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(category, fontSize = 13.sp, color = RetroDarkText, modifier = Modifier.width(60.dp))
+                    Text(category, fontSize = 13.sp, color = Ink, modifier = Modifier.width(60.dp))
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(12.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(RetroDarkText.copy(alpha = 0.08f))
+                            .background(Ink.copy(alpha = 0.08f))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth((percent / 100f).coerceIn(0f, 1f))
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(SageForestColor)
+                                .background(SageForest)
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text("$percent%", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
+                    Text("$percent%", fontSize = 12.sp, color = Ink.copy(alpha = 0.6f))
                 }
             }
         }
         if (report.topMerchant.isNotBlank()) {
             Spacer(Modifier.height(24.dp))
-            Text("가장 자주 간 곳", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
-            Text(report.topMerchant, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("가장 자주 간 곳", fontSize = 12.sp, color = Ink.copy(alpha = 0.6f))
+            Text(report.topMerchant, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Ink)
         }
     }
 }
@@ -365,21 +369,21 @@ private fun KeywordsCard(report: RetrospectReport) {
 
 @Composable
 private fun MemorableCard(report: RetrospectReport, onViewDiary: (String) -> Unit) {
-    CardContainer(RetroLightGreen) {
-        Text("${periodWord(report)} 가장 기억에 남는 날", fontSize = 15.sp, color = RetroDarkText.copy(alpha = 0.6f))
+    CardContainer(Dew) {
+        Text("${periodWord(report)} 가장 기억에 남는 날", fontSize = 15.sp, color = Ink.copy(alpha = 0.6f))
         Spacer(Modifier.height(16.dp))
-        Text(memorableDateLabel(report.memorableDate), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+        Text(memorableDateLabel(report.memorableDate), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Ink)
         Spacer(Modifier.height(20.dp))
         Text(
             report.memorableReason,
             fontSize = 15.sp,
-            color = RetroDarkText,
+            color = Ink,
             textAlign = TextAlign.Center,
             lineHeight = 22.sp
         )
         Spacer(Modifier.height(24.dp))
         OutlinedButton(onClick = { onViewDiary(report.memorableDate) }) {
-            Text("그 날 일기 보기 →", color = RetroDarkText)
+            Text("그 날 일기 보기 →", color = Ink)
         }
     }
 }
@@ -449,11 +453,9 @@ fun RetrospectSummaryScreen(
         Box(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Button(
                 onClick = onViewFull,
-                colors = ButtonDefaults.buttonColors(containerColor = RetroMint, contentColor = RetroDarkText),
+                colors = ButtonDefaults.buttonColors(containerColor = RetroMint, contentColor = Ink),
                 modifier = Modifier.fillMaxWidth()
             ) { Text("전체 다시 보기", fontWeight = FontWeight.Medium) }
         }
     }
 }
-
-private val SageForestColor = Color(0xFF3D7A5C)

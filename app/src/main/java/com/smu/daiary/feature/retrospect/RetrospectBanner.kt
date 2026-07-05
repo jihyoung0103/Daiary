@@ -17,6 +17,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.SageForest
 
 /**
  * 홈(캘린더) 화면 캘린더 카드와 최근 기록 목록 사이에 들어가는 회고 배너.
@@ -33,12 +36,12 @@ fun RetrospectBanner(
 ) {
     val background = when (status) {
         BannerStatus.NOT_CREATED -> RetroBannerLight
-        BannerStatus.SAVED -> RetroBannerSaved
-        BannerStatus.INSUFFICIENT -> RetroBannerDisabled
+        BannerStatus.SAVED -> SageForest
+        BannerStatus.INSUFFICIENT -> Linen
     }
     val textColor = when (status) {
         BannerStatus.SAVED -> Color.White
-        else -> RetroDarkText
+        else -> Ink
     }
 
     Surface(
