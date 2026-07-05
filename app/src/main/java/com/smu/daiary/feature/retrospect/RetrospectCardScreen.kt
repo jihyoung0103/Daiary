@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
@@ -209,7 +210,7 @@ private fun OpeningCard(report: RetrospectReport) {
     val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
-        Text("✨", fontSize = 40.sp)
+        Icon(imageVector = Icons.Outlined.AutoAwesome, contentDescription = null, tint = textColor, modifier = Modifier.size(40.dp))
         Spacer(Modifier.height(20.dp))
         Text(report.periodLabel, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = textColor, textAlign = TextAlign.Center)
         Text("기록을 돌아봤어요", fontSize = 18.sp, color = textColor, textAlign = TextAlign.Center)
