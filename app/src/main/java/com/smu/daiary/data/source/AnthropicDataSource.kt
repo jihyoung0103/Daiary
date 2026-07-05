@@ -1,8 +1,9 @@
 package com.smu.daiary.data.source
 
 import com.smu.daiary.BuildConfig
-import com.smu.daiary.feature.write.BlockType
-import com.smu.daiary.feature.write.ContentBlock
+import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.feature.retrospect.RetrospectAiResult
+import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -28,24 +29,99 @@ class AnthropicDataSource {
 
     private val jsonMediaType = "application/json".toMediaType()
 
+    suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
+        withContext(Dispatchers.IO) {
+            if (blocks.isEmpty()) return@withContext emptyList()
+
+            val blocksText = blocks.joinToString("\n") { "- ID: ${it.id} | [${it.type.label}] ${it.content}" }
+
+            val prompt = """
+아래는 오늘 하루의 데이터 블럭이야.
+각 블럭에서 일기를 더 풍성하게 만들 수 있는 맥락이 빠져있다면,
+짧고 대답하기 쉬운 질문을 만들어줘.
+
+규칙:
+- 전체 질문 수는 최대 8개. 맥락이 충분하면 0개도 괜찮아.
+- 이미 데이터로 알 수 있는 것은 묻지 마
+- quickOptions는 3~4개, 10자 이내로 짧게
+- 마지막 선택지는 항상 "기타"
+- 대답하기 귀찮을 것 같은 질문은 하지 마
+
+데이터 블럭:
+$blocksText
+
+반드시 아래 JSON 형식으로만 응답해. 다른 텍스트는 포함하지 마:
+{
+  "questions": [
+    {
+      "blockId": "블럭 id",
+      "question": "질문 텍스트",
+      "quickOptions": ["선택지1", "선택지2", "기타"]
+    }
+  ]
+}
+            """.trimIndent()
+
+            val body = JSONObject().apply {
+                put("model", "claude-haiku-4-5-20251001")
+                put("max_tokens", 512)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
+
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
+
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: return@withContext emptyList()
+                val text = JSONObject(responseBody)
+                    .getJSONArray("content")
+                    .getJSONObject(0)
+                    .getString("text")
+                    .trim()
+                    .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+                val questionsArray = JSONObject(text).getJSONArray("questions")
+                (0 until questionsArray.length()).map { i ->
+                    val q = questionsArray.getJSONObject(i)
+                    val opts = q.getJSONArray("quickOptions")
+                    ContextQuestion(
+                        blockId      = q.getString("blockId"),
+                        question     = q.getString("question"),
+                        quickOptions = (0 until opts.length()).map { opts.getString(it) }
+                    )
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+
     suspend fun generateDiary(
         blocks: List<ContentBlock>,
         locale: String,
         mbti: String,
         photoSummary: String? = null,
-        followUpAnswers: Map<Int, String> = emptyMap(),
+        qaAnswers: Map<String, String> = emptyMap(),
         recentDiarySamples: String = ""
     ): String =
         withContext(Dispatchers.IO) {
             val blocksText = blocks.joinToString("\n") { "- [${it.type.label}] ${it.content}" }
 
             val followUpAnswerText =
-                followUpAnswers
+                qaAnswers
                     .filter { it.value.isNotBlank() }
                     .entries
-                    .sortedBy { it.key }
-                    .joinToString("\n\n") { (_, text) ->
-                        text
+                    .joinToString("\n\n") { (question, answer) ->
+                        "- $question: $answer"
                     }
 
             val photoText = photoSummary
@@ -133,6 +209,8 @@ class AnthropicDataSource {
 - 단, 공통점은 "반복적으로 보이는 시각 요소"만 작성하세요.
 - 사진 간 관계가 불확실하면 "동일 장소 가능성 있음", "관련성 불확실"처럼 표시하세요.
 - "그 후", "이후", "마지막으로", "집에 돌아와서" 같은 시간 연결 표현은 사용하지 마세요.
+- 서로 관련 없어 보이는 사물이나 장면은 같은 카테고리 안이라도 하나로 합치지 말고 각각 구분된 bullet로 작성하세요.
+- 예: 서로 다른 두 개의 피규어가 있으면 "미니어처 피규어들"처럼 뭉뚱그리지 말고, "캐릭터 피규어 1개", "드래곤 모양 미니어처 1개"처럼 각각 무엇인지 구분해서 작성하세요.
 
 [출력 형식]
 
@@ -232,216 +310,104 @@ class AnthropicDataSource {
             }
         }
 
-    suspend fun generateFollowUpQuestions(
-        blocks: List<ContentBlock>,
-        locale: String,
-        photoSummary: String? = null
-    ): List<String> = withContext(Dispatchers.IO) {
-        val blocksText = blocks.joinToString("\n") { "- [${it.type.label}] ${it.content}" }
-
-        val photoText = photoSummary
-            ?.takeIf { it.isNotBlank() }
-            ?.let {
-                if (locale == "en") {
-                    "\n\nPhoto analysis result:\n$it"
-                } else {
-                    "\n\n사진 분석 결과:\n$it"
-                }
+    /**
+     * 주간/월간 회고를 위한 AI 호출 — 내러티브 + 키워드 + 기억에 남는 하루를 1회 호출로 받는다.
+     * 실패 시 예외를 던지며, 호출부(AiRepository/ViewModel)에서 로컬 폴백으로 대체한다.
+     */
+    suspend fun generateRetrospect(
+        type: RetrospectType,
+        periodLabel: String,
+        diarySummaries: String,
+        emotionSummary: String,
+        healthSummary: String,
+        spendingSummary: String,
+        scheduleSummary: String
+    ): RetrospectAiResult =
+        withContext(Dispatchers.IO) {
+            val periodInstruction = if (type == RetrospectType.WEEKLY) {
+                "- 하루하루의 구체적 사건 언급 가능\n- 감정 흐름 변화 반영"
+            } else {
+                "- 한 달의 큰 흐름과 변화에 초점\n- 월초/월말 차이나 성장 반영\n- 세세한 하루 언급보다 전체 색채 표현"
             }
-            ?: ""
 
-        val prompt = if (locale == "en") {
-            """
-    Create 3 short follow-up questions to help the user write a more personal diary.
+            val prompt = """
+당신은 따뜻하고 공감 어린 시선을 가진 회고 작가입니다.
+아래 사용자의 $periodLabel 데이터를 바탕으로 회고를 작성하세요.
 
-    Important:
-    - You are NOT seeing the original photos directly.
-    - If photo information exists, it is already summarized in "Photo analysis result".
-    - Use only the text data below.
-    - Do not say that you cannot see the photos.
+[일기 목록 (날짜 · 감정 · 내용 일부)]
+$diarySummaries
 
-    [Daily data]
-    $blocksText
-    $photoText
+[감정 집계]
+$emotionSummary
 
-    [Question rules]
-    - Ask about emotions, memorable moments, reasons, or details that are missing from the data.
-    - If photo analysis exists, ask questions based on the places, actions, food, mood, or atmosphere mentioned there.
-    - Do not ask obvious questions already answered by the data.
-    - Keep each question short and easy to answer.
-    - Return only 3 questions.
-    - Do not number the questions.
-    """.trimIndent()
-        } else {
-            """
-사용자가 더 자연스럽고 개인적인 일기를 쓸 수 있도록 추가 질문을 만들어줘.
+[건강 집계]
+$healthSummary
 
-[역할]
-너의 목적은 정보를 조사하는 것이 아니라,
-사용자가 오늘 하루를 떠올리고 일기에 쓸 만한 내용을 부담 없이 보충하도록 돕는 것이다.
+[소비 집계]
+$spendingSummary
 
-[중요]
-- 너는 원본 사진을 직접 보고 있는 것이 아니다.
-- 사진 정보가 있다면 이미 "사진 분석 결과"에 텍스트로 요약되어 있다.
-- 반드시 아래 텍스트 데이터만 참고해서 질문을 만들어라.
-- 사진을 볼 수 없다는 말은 하지 마라.
-- 데이터에 없는 행동, 장소, 관계, 감정, 시간 흐름을 추측하지 마라.
+[주요 일정]
+$scheduleSummary
 
-[하루 데이터]
-$blocksText
-$photoText
+작성 규칙:
+- narrative: 2~3문장, 1인칭 공감형, 과거형으로 작성
+$periodInstruction
+- keywords: 명사형 3~5개, 해시태그(#) 없이
+- memorableDay: 위 일기 목록 중 하나의 날짜를 골라, 그 이유를 1~2문장으로 데이터 근거를 포함해서 작성
+- 이모지 사용 금지
+- JSON 외 텍스트 출력 금지
 
-[질문 개수 규칙]
-- 질문은 오늘 데이터의 양에 따라 1~3개만 만들 것.
-- 데이터가 적으면 1~2개만 만들 것.
-- 데이터가 충분하고 서로 다른 질문 목적을 만들 수 있을 때만 3개를 만들 것.
-- 억지로 질문 수를 채우기 위해 비슷한 질문을 반복하지 말 것.
-- 오늘 데이터가 날씨만 있으면 1~2개만 만들 것.
+반드시 아래 JSON 형식으로만 응답하세요:
+{
+  "narrative": "...",
+  "keywords": ["...", "..."],
+  "memorableDay": { "date": "YYYY-MM-DD", "reason": "..." }
+}
+            """.trimIndent()
 
-[질문 작성 규칙]
-- 질문 본문에 번호나 bullet을 포함하지 말 것.
-- 한 질문은 한 문장으로 작성할 것.
-- 각 질문은 줄바꿈으로만 구분할 것.
-- 사용자가 한두 문장으로 쉽게 답할 수 있게 만들 것.
-- 이미 데이터에 있는 내용을 그대로 다시 묻지 말 것.
-- 질문은 구체적이되, 사진 분석 결과나 하루 데이터에 없는 사실을 단정하지 말 것.
-- 여러 사진을 시간 순서나 하나의 사건으로 연결하지 말 것.
-- "그곳에서", "그 후", "집에 돌아와서", "함께한 사람"처럼 근거 없는 연결 표현을 피할 것.
-- "특별한", "좋았던", "편했던", "맛있었던", "즐거웠던"처럼 긍정 감정을 전제하는 표현을 사용하지 말 것.
-- "특별한 이유", "특별한 계기" 대신 "이유", "계기", "남기고 싶었던 이유"처럼 부담 없는 표현을 사용할 것.
-- "누군가와 함께", "데이트", "집", "반려묘", "친구", "가족"처럼 데이터에 없는 관계나 장소를 추측하지 말 것.
-- 질문은 중립적이고 자연스러운 한국어로 작성할 것.
-
-[질문 표현 금지 규칙]
-- 사용자에게 "어떤 데이터를 제공해주실 수 있나요?", "추가 데이터를 알려주세요", "더 많은 정보를 제공해주세요"처럼 데이터 제공을 요구하는 질문을 만들지 마세요.
-- "데이터", "정보", "분석 결과", "입력값" 같은 시스템/개발 용어를 질문 본문에 사용하지 마세요.
-- 질문은 앱 사용자가 일기 내용을 보충할 수 있는 자연스러운 말투로 작성하세요.
-- 선택된 데이터가 부족하더라도 "오늘 일기에 짧게 덧붙이고 싶은 일이 있나요?"처럼 일기 작성 맥락의 질문으로 바꾸세요.
-
-[질문 완성도 규칙]
-- 질문은 그 자체로 완결된 한 문장이어야 합니다.
-- "다음 중", "아래 중", "해당하는 것이 있다면", "하나라도 있다면"처럼 뒤에 선택지나 목록이 필요해지는 표현은 사용하지 마세요.
-- 사용자가 바로 답할 수 있도록 구체적인 질문으로 작성하세요.
-- 질문 안에 선택지 목록을 만들지 마세요.
-- 질문은 번호, bullet, 콜론, 괄호 설명 없이 한 문장으로만 작성하세요.
-
-[사진 관련 규칙]
-- 사진 분석 결과가 없으면 "사진", "선택한 사진", "사진 속", "사진에 보이는", "사진에는 담기지 않았지만" 같은 표현을 사용하지 말 것.
-- 사진 분석 결과가 있을 때만 사진 관련 질문을 만들 것.
-- 사진 개수를 직접 세거나 언급하지 말 것.
-- "사진 4장", "사진 8장", "모든 사진" 같은 표현 대신 필요하면 "선택한 사진들" 또는 "여러 사진"이라고 표현할 것.
-- 사진 속 장면들이 서로 다른 장소처럼 보여도, 사용자가 실제로 이동했거나 여러 장소를 거쳤다고 단정하지 말 것.
-- "여러 장소를 거친 것 같은데", "이동한 것 같은데", "다녀온 것 같은데"처럼 사용자의 동선을 추측하는 표현을 사용하지 말 것.
-- 대신 "사진들에 서로 다른 장면들이 보이는데", "선택한 사진들 중", "사진 속 여러 장면 중"처럼 중립적으로 질문할 것.
-- "오래 머물렀던", "걸었던", "산책했던", "보낸 시간"처럼 사용자의 행동을 전제하는 표현을 사용하지 말 것.
-
-[사진이 선택된 경우 질문 생성 규칙]
-- 사진이 1장 이상 선택된 경우, 최소 1개 질문은 반드시 사진과 직접 관련된 질문으로 작성하세요.
-- 사진 분석 결과가 부족하거나 확신할 수 없어도 "선택한 사진들 중 일기에 남기고 싶은 장면이 있나요?"처럼 사진 선택 사실을 반영해 질문하세요.
-- "오늘 하루에서 가장 기억에 남는 순간은 무엇인가요?"처럼 사진과 무관한 일반 질문만 만들지 마세요.
-- "어떤 데이터를 제공해주실 수 있나요?"처럼 데이터 제공을 요구하는 질문은 절대 만들지 마세요.
-- 사진 외의 내용을 묻는 질문은 두 번째 질문 이후에만 사용하세요.
-
-[질문 구성 우선순위]
-- 사진 분석 결과가 있으면 사진 속 구체적인 장면을 보충하는 질문을 우선할 것.
-- 사진 분석 결과가 있으면 사용자가 그 장면을 남긴 이유, 기억, 의미를 묻는 질문을 만들 수 있음.
-- 사진 분석 결과가 있으면 사진에는 없지만 일기에 추가하고 싶은 내용을 묻는 질문을 만들 수 있음.
-- 사진 분석 결과가 없으면 하루 데이터에서 부족한 맥락만 묻고, 사진 관련 표현은 사용하지 말 것.
-- 질문이 2개 이상일 경우 서로 다른 목적을 가져야 할 것.
-- "가장", "제일", "인상적", "남기고 싶었던"처럼 하나를 고르게 하는 질문은 최대 1개만 사용할 것.
-
-[날씨만 있는 경우]
-- 날씨만 있는 경우 사용자의 행동, 장소, 일정, 사진 여부를 전제하지 말 것.
-- 날씨만 있는 경우 날씨를 어떤 분위기나 방식으로 기록하고 싶은지 묻는 질문을 만들 것.
-- 날씨만 있는 경우 필요하면 "날씨 외에 짧게 남기고 싶은 일이 있나요?"처럼 추가 기록 여부를 물어볼 수 있음.
-- "영향을 미쳤나요"처럼 실제 영향을 전제하는 표현보다 "어떻게 남기고 싶나요", "어떤 식으로 기록하고 싶나요"처럼 기록 중심으로 질문할 것.
-
-[날씨와 사진이 함께 있는 경우]
-- 날씨 데이터와 사진 분석 결과가 함께 있으면 사진 질문만 반복하지 말 것.
-- 질문이 2개 이상이면, 최소 1개는 날씨나 하루 전체 분위기를 함께 기록할 수 있도록 묻는 질문으로 만들 것.
-- 단, 날씨가 사용자의 행동이나 감정에 영향을 줬다고 단정하지 말 것.
-- "날씨 때문에", "날씨 덕분에", "영향을 받았나요"처럼 인과관계를 전제하지 말 것.
-- 대신 "오늘 날씨도 함께 남긴다면 어떤 느낌으로 기록하고 싶나요?"처럼 기록 중심으로 물을 것.
-
-[좋은 질문 예시]
-오늘 날씨를 어떤 분위기로 남기고 싶으신가요?
-크림 파스타와 음료가 있는 장면에서 더 기록하고 싶은 부분이 있나요?
-선택한 사진들 중 남기고 싶었던 이유가 있는 장면이 있나요?
-사진에는 담기지 않았지만 오늘 일기에 함께 남기고 싶은 일이 있나요?
-오늘 날씨도 함께 남긴다면 어떤 느낌으로 기록하고 싶나요?
-선택한 사진들 중 일기에 남기고 싶은 장면이 있나요?
-사진 속 장면을 보며 떠오른 느낌이나 기억이 있나요?
-선택한 사진 속 물건들 중 일기에 남기고 싶은 장면이 있나요?
-사진에 보이는 책상 위 물건들은 오늘 어떤 의미로 남기고 싶나요?
-
-[나쁜 질문 예시]
-오늘 즐거웠던 순간은 무엇인가요?
-어떻게 진행하시겠습니까?
-집에 돌아와서 고양이를 봤을 때 기분이 어땠나요?
-친구와 함께 카페에 간 이유가 있었나요?
-파스타를 먹은 뒤 강변으로 이동한 이유가 있었나요?
-어떤 데이터를 제공해주실 수 있나요?
-오늘 하루에서 가장 기억에 남는 순간은 무엇인가요?
-혹시 다음 중 하나라도 있다면 알려주실 수 있을까요?
-
-[출력 형식]
-- 질문만 출력할 것.
-- 설명, 인사말, 안내문은 출력하지 말 것.
-- 번호, bullet, 따옴표 없이 질문 문장만 줄바꿈으로 출력할 것.
-""".trimIndent()
-        }
-
-        val body = JSONObject().apply {
-            put("model", "claude-haiku-4-5-20251001")
-            put("max_tokens", 400)
-            put(
-                "messages",
-                JSONArray().put(
-                    JSONObject().apply {
+            val body = JSONObject().apply {
+                put("model", "claude-haiku-4-5-20251001")
+                put("max_tokens", 512)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
                         put("role", "user")
                         put("content", prompt)
-                    }
-                )
-            )
-        }
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
 
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(body.toString().toRequestBody(jsonMediaType))
-            .build()
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
 
-        try {
             val response = client.newCall(request).execute()
-            val responseBody = response.body?.string() ?: return@withContext emptyList()
-
-            android.util.Log.d("AnthropicDataSource", "사진 분석 응답 코드: ${response.code}")
-            android.util.Log.d("AnthropicDataSource", "사진 분석 응답 본문: $responseBody")
+            val responseBody = response.body?.string() ?: throw Exception("빈 응답")
 
             if (!response.isSuccessful) {
-                return@withContext emptyList()
+                throw Exception("API 오류 (${response.code}): $responseBody")
             }
 
-            JSONObject(responseBody)
+            val text = JSONObject(responseBody)
                 .getJSONArray("content")
                 .getJSONObject(0)
                 .getString("text")
-                .lines()
-                .map {
-                    it.trim()
-                        .removePrefix("-")
-                        .replace(Regex("^\\d+[.)]\\s*"), "")
-                        .trim()
-                }
-                .filter { it.isNotBlank() }
-                .filterNot { it.startsWith("#") }
-                .filter { it.endsWith("?") }
-                .take(3)
-        } catch (e: Exception) {
-            emptyList()
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            val json = JSONObject(text)
+            val keywordsArray = json.getJSONArray("keywords")
+            val memorableDay = json.getJSONObject("memorableDay")
+
+            RetrospectAiResult(
+                narrative = json.getString("narrative"),
+                keywords = (0 until keywordsArray.length()).map { keywordsArray.getString(it) },
+                memorableDate = memorableDay.getString("date"),
+                memorableReason = memorableDay.getString("reason")
+            )
         }
-    }
 
     private fun buildPrompt(
         blocksText: String,
@@ -514,6 +480,9 @@ $mbtiStyle
 - 사진만으로 행동, 감정, 이동 경로를 단정하지 마세요.
 - 사진 여러 장을 하나의 이야기나 시간 순서로 연결하지 마세요.
 - 사진은 일기의 재료로만 활용하고 새로운 사실을 만들지 마세요.
+- 서로 관련 없는 사진이 여러 장이면, 모든 사진을 한 문장에 나열하듯 욱여넣지 마세요.
+- 서로 관련 없는 장면이나 사물마다 문장을 하나씩 배정해서 각각 구체적으로 쓰세요.
+- 사진에 등장하는 구체적인 이름이나 특징(예: 캐릭터 이름, 브랜드, 물건 종류)은 뭉뚱그리지 말고 사진 분석 결과에 있는 그대로 유지하세요.
 
 [분량]
 - 기본 범위: 5~8문장
@@ -521,6 +490,7 @@ $mbtiStyle
 - 오늘 데이터가 날씨만 있거나 매우 적으면 2~4문장으로 짧게 작성해도 됨
 - 데이터가 적을수록 짧고 담백하게 작성할 것
 - 억지로 문장을 늘리기 위해 새로운 행동, 감정, 계획, 사건을 만들지 말 것
+- 서로 관련 없는 사진이나 사건이 여러 개 있어서 5~8문장에 모두 담으면 한 문장에 여러 개를 나열해야 하는 경우, 기본 범위를 넘기더라도 각 장면에 문장을 하나씩 배정해 압축하지 말고 구체적으로 쓰세요.
 
 [작성 방식]
 
@@ -727,11 +697,7 @@ $followUpAnswerText
 □ 사진 속 사물을 근거로 새로운 행동이나 사건을 만들어내지 않았는가?
 
 □ "오늘도 별거 없는 하루였다.", "평범한 하루였다."처럼 반복적인 시작 문장을 사용하지 않았는가?
-
-
 """.trimIndent()
-
-        }
     }
 
     private fun getMbtiStylePrompt(mbti: String): String = when (mbti) {
@@ -753,4 +719,5 @@ $followUpAnswerText
         "ESFP" -> "밝고 생생한 감정을 표현한다. 순간의 즐거움과 분위기를 강조한다."
         else   -> "자연스럽고 담백한 일기체로 작성한다."
     }
+}
 

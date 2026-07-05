@@ -8,11 +8,13 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.data.repository.DailyDataRepository
+import com.smu.daiary.feature.write.model.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.smu.daiary.data.repository.DiaryRepository
 import com.smu.daiary.data.source.CalendarDataSource
 import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
-import com.smu.daiary.feature.write.PaymentSelectableItem
 import com.smu.daiary.R
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -133,6 +135,14 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // UI State — AI 초안 생성
     // ─────────────────────────────────────────────────────────────
 
+    /** 질문 생성(prepareGeneration) 진행 중 여부 */
+    private val _isGeneratingQuestions = MutableStateFlow(false)
+    val isGeneratingQuestions: StateFlow<Boolean> = _isGeneratingQuestions.asStateFlow()
+
+    /** 생성된 맥락 질문 목록. null = 아직 생성 전, emptyList = 질문 없음 */
+    private val _contextQuestions = MutableStateFlow<List<ContextQuestion>?>(null)
+    val contextQuestions: StateFlow<List<ContextQuestion>?> = _contextQuestions.asStateFlow()
+
     /** Claude API 호출 진행 중 여부 */
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
@@ -144,14 +154,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 사진 다중 분석 결과 요약 (analyzePhotos 호출 결과) */
     private val _photoAnalysis = MutableStateFlow<String?>(null)
     val photoAnalysis: StateFlow<String?> = _photoAnalysis.asStateFlow()
-
-    /** AI가 생성한 후속 질문 목록 */
-    private val _followUpQuestions = MutableStateFlow<List<String>>(emptyList())
-    val followUpQuestions: StateFlow<List<String>> = _followUpQuestions.asStateFlow()
-
-    /** 사용자가 후속 질문에 입력한 답변 */
-    private val _followUpAnswers = MutableStateFlow<Map<Int, String>>(emptyMap())
-    val followUpAnswers: StateFlow<Map<Int, String>> = _followUpAnswers.asStateFlow()
 
     // ─────────────────────────────────────────────────────────────
     // 이벤트
@@ -198,7 +200,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val photoDeferred = async { runCatching { photoDataSource.fetchTodayPhotos() } }
             val healthDeferred = async { runCatching { healthDataSource.fetchTodayHealth() } }
 
-            // 날씨
+            // 날씨 — 생성 시점 1회만 수집 (재시도 없음, 추후 백그라운드 정기 수집으로 이전 예정)
             weatherDeferred.await()
                 .onSuccess { weather ->
                     Log.d(TAG, "🌤️ 날씨 수집 완료: ${weather.description} ${weather.temperature}°C")
@@ -214,7 +216,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     ))
                 }
                 .onFailure {
-                    Log.w(TAG, "⚠️ 날씨 수집 실패 (권한 또는 네트워크 문제)", it)
+                    Log.w(TAG, "⚠️ 날씨 수집 실패", it)
                     blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable)))
                 }
 
@@ -231,13 +233,25 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         ))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+                        val diaryDate = DiaryDateUtil.diaryDate()
                         _calendarEvents.value = events.mapIndexed { i, event ->
+                            val zone = ZoneId.systemDefault()
+                            val eventDate = Instant.ofEpochMilli(event.startTime)
+                                .atZone(zone).toLocalDate()
+                            val dayLabel = when (eventDate) {
+                                diaryDate              -> "오늘"
+                                diaryDate.plusDays(1)  -> "내일"
+                                diaryDate.plusDays(2)  -> "모레"
+                                else -> eventDate.format(DateTimeFormatter.ofPattern("M/d"))
+                            }
                             val startStr = Instant.ofEpochMilli(event.startTime)
-                                .atZone(ZoneId.systemDefault()).format(timeFormatter)
+                                .atZone(zone).format(timeFormatter)
+                            val endStr = Instant.ofEpochMilli(event.endTime)
+                                .atZone(zone).format(timeFormatter)
                             val locationPart = if (event.location.isNotBlank()) " · ${event.location}" else ""
                             CalendarSelectableItem(
                                 id = i,
-                                displayText = "${event.title} $startStr$locationPart",
+                                displayText = "[$dayLabel] ${event.title} $startStr~$endStr$locationPart",
                                 startTime = event.startTime,
                                 isSelected = true
                             )
@@ -736,113 +750,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun generateFollowUpQuestions() = viewModelScope.launch {
-        _isGenerating.value = true
-        _generateError.value = null
-
-        try {
-            val prefs = context.getSharedPreferences("daiary_settings", android.content.Context.MODE_PRIVATE)
-            val savedLang = prefs.getString("language", "한국어") ?: "한국어"
-            val locale = if (savedLang == "English") "en" else "ko"
-
-            val selected =
-                _blocks.value.filter { it.isSelected }
-
-            val selectedEncodedImages =
-                _photos.value
-                    .filter { it.isSelected }
-                    .mapNotNull { encodeImage(Uri.parse(it.uri)) }
-
-            val photoSummary =
-                if (selectedEncodedImages.isNotEmpty()) {
-                    aiRepository.analyzePhotos(selectedEncodedImages)
-                } else {
-                    null
-                }
-
-            _photoAnalysis.value = photoSummary
-
-            Log.d(TAG, "📸 선택된 사진 수: ${_photos.value.count { it.isSelected }}")
-            Log.d(TAG, "📦 인코딩 성공 수: ${selectedEncodedImages.size}")
-            Log.d(TAG, "📷 photoSummary 비어있나: ${photoSummary.isNullOrBlank()}")
-
-            val questions =
-                aiRepository.generateFollowUpQuestions(
-                    blocks = selected,
-                    locale = locale,
-                    photoSummary = photoSummary
-                )
-
-            android.util.Log.d("WriteViewModel", "생성된 질문 목록: $questions")
-
-            val cleanedQuestions = questions
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-
-            val hasWeather = selected.any { it.type == BlockType.WEATHER }
-            val hasPhoto = selected.any { it.type == BlockType.PHOTO }
-
-            val isWeatherOnly =
-                selected.isNotEmpty() && selected.all { it.type == BlockType.WEATHER }
-
-            val weatherMoodQuestion =
-                "오늘 날씨도 함께 남긴다면 어떤 분위기로 기록하고 싶으신가요?"
-
-            val hasWeatherQuestion = cleanedQuestions.any { question ->
-                question.contains("날씨") ||
-                        question.contains("기온") ||
-                        question.contains("습도") ||
-                        question.contains("흐림") ||
-                        question.contains("맑음") ||
-                        question.contains("비") ||
-                        question.contains("눈")
-            }
-
-            val fixedQuestions =
-                when {
-                    isWeatherOnly ->
-                        listOf(
-                            "오늘 날씨를 어떤 분위기로 남기고 싶으신가요?",
-                            "날씨 외에 짧게 남기고 싶은 일이 있나요?"
-                        )
-
-                    hasWeather && hasPhoto && cleanedQuestions.isNotEmpty() && !hasWeatherQuestion -> {
-                        val baseQuestions = cleanedQuestions.take(2).toMutableList()
-                        baseQuestions.add(weatherMoodQuestion)
-                        baseQuestions.distinct().take(3)
-                    }
-
-                    cleanedQuestions.isNotEmpty() ->
-                        cleanedQuestions.take(3)
-
-                    hasWeather && hasPhoto ->
-                        listOf(
-                            "선택한 사진들 중 남기고 싶었던 이유가 있는 장면이 있나요?",
-                            weatherMoodQuestion
-                        )
-
-                    else ->
-                        listOf(
-                            "오늘 하루에서 가장 기억에 남는 순간은 무엇인가요?"
-                        )
-                }
-
-            android.util.Log.d("WriteViewModel", "보정된 질문 목록: $fixedQuestions")
-
-            _followUpQuestions.value = fixedQuestions
-            _followUpAnswers.value = emptyMap()
-
-        } catch (e: Exception) {
-            _generateError.value = "질문 생성에 실패했습니다."
-            _followUpQuestions.value = emptyList()
-        } finally {
-            _isGenerating.value = false
-        }
-    }
-
-
-
     // ─────────────────────────────────────────────────────────────
     // AI 초안 생성
     // ─────────────────────────────────────────────────────────────
@@ -857,7 +764,39 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 4. 실패 시 fallbackTemplate으로 대체 초안 생성
      * 5. 완료 시 _draft에 결과 저장 → UI가 DraftPreviewScreen으로 자동 전환
      */
-    fun generateDraft() = viewModelScope.launch {
+    /**
+     * 블록 선택 완료 후 첫 번째 단계 — 선택된 블록을 분석해 맥락 질문을 생성.
+     * 완료되면 _contextQuestions에 결과를 세팅하고 UI가 ContextQnAScreen으로 이동.
+     * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
+     */
+    fun prepareGeneration() = viewModelScope.launch {
+        val selected = _blocks.value.filter { it.isSelected }
+        if (selected.isEmpty()) {
+            _contextQuestions.value = emptyList()
+            return@launch
+        }
+        _isGeneratingQuestions.value = true
+        _contextQuestions.value = null
+        try {
+            val questions = aiRepository.generateContextQuestions(selected)
+            _contextQuestions.value = questions
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 질문 생성 실패 — 질답 단계 스킵", e)
+            _contextQuestions.value = emptyList()
+        } finally {
+            _isGeneratingQuestions.value = false
+        }
+    }
+
+    /**
+     * ContextQnAScreen에서 사용자가 답변을 완료하거나 건너뛴 뒤 호출.
+     * 수집된 answers를 포함해 일기 초안 생성을 시작.
+     */
+    fun submitAnswers(answers: Map<String, String>) {
+        generateDraft(qaAnswers = answers)
+    }
+
+    fun generateDraft(qaAnswers: Map<String, String> = emptyMap()) = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         val today = DiaryDateUtil.diaryDate().toString()
 
@@ -906,8 +845,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             Log.d(TAG, "📸 사진 분석 결과: $photoSummary")
-            _photoAnalysis.value = if (selectedEncodedImages.isNotEmpty()) photoSummary else null
-
+            _photoAnalysis.value = photoSummary
 
             val mbti = getApplication<Application>()
                 .getSharedPreferences(
@@ -924,18 +862,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, selectedDebugText)
             Log.d(TAG, "===========================")
 
-            val formattedFollowUpAnswers =
-                _followUpAnswers.value
-                    .filterValues { it.isNotBlank() }
-                    .mapValues { (index, answer) ->
-                        val question = _followUpQuestions.value.getOrNull(index) ?: ""
-
-                        if (question.isNotBlank()) {
-                            "Q${index + 1}. $question\nA${index + 1}. $answer"
-                        } else {
-                            "A${index + 1}. $answer"
-                        }
-                    }
 
             val result =
                 aiRepository.generateDraft(
@@ -943,8 +869,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     locale = locale,
                     mbti = mbti,
                     photoSummary = photoSummary,
-                    recentDiarySamples = if (locale == "en") "" else recentDiarySamples,
-                    followUpAnswers = formattedFollowUpAnswers
+                    recentDiarySamples = recentDiarySamples,
+                    qaAnswers = qaAnswers
                 )
 
             val content = result.getOrElse { fallbackTemplate(selected) }
@@ -972,12 +898,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
 
-    fun updateFollowUpAnswer(index: Int, answer: String) {
-        _followUpAnswers.value =
-            _followUpAnswers.value.toMutableMap().apply {
-                put(index, answer)
-            }
-    }
 
     private fun encodeImage(uri: Uri): EncodedImage? {
         return try {
@@ -1114,6 +1034,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** DraftPreviewScreen 재진입 시 이전 초안만 날리고 블록은 유지 */
     fun clearDraftOnly() {
         _draft.value = null
+        _contextQuestions.value = null
         _photoAnalysis.value = null
     }
 
@@ -1153,9 +1074,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun resetDraft() {
         _draft.value = null
         _blocks.value = emptyList()
+        _contextQuestions.value = null
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _existingEntryId.value = null
-        _photoAnalysis.value = null
     }
 }

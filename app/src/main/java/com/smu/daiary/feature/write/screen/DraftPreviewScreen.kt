@@ -1,4 +1,7 @@
-package com.smu.daiary.feature.write
+package com.smu.daiary.feature.write.screen
+
+import com.smu.daiary.feature.write.WriteViewModel
+import com.smu.daiary.feature.write.model.*
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -8,7 +11,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -51,6 +53,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.window.Dialog
@@ -59,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -71,6 +75,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import android.util.Log
 import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -116,8 +121,6 @@ fun DraftPreviewScreen(
     val wc = if (isDark) WriteColorsDark else WriteColors
 
     val draft by viewModel.draft.collectAsStateWithLifecycle()
-    val followUpQuestions by viewModel.followUpQuestions.collectAsStateWithLifecycle()
-    val followUpAnswers by viewModel.followUpAnswers.collectAsStateWithLifecycle()
     var showPhotoDialog by remember { mutableStateOf(false) }
     var selectedPhotoUri by remember { mutableStateOf("") }
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
@@ -126,7 +129,16 @@ fun DraftPreviewScreen(
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val photoAnalysis by viewModel.photoAnalysis.collectAsStateWithLifecycle()
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
-    BackHandler { onBack() }
+    var selectedImageUri by remember { mutableStateOf<String?>(null) }
+
+
+    BackHandler {
+        if (selectedImageUri != null) {
+            selectedImageUri = null
+        } else {
+            onBack()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -135,7 +147,7 @@ fun DraftPreviewScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (displayText.isBlank()) "추가 질문" else stringResource(R.string.screen_preview),
+                        text = stringResource(R.string.screen_preview),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
                         color = wc.TextPrimary
@@ -176,20 +188,13 @@ fun DraftPreviewScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
-                windowInsets = WindowInsets(0)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
             )
         },
         bottomBar = {
             Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                 Button(
-                    onClick = {
-                        if (displayText.isBlank()) {
-                            viewModel.generateDraft()
-                        } else {
-                            onEdit()
-                        }
-                    },
+                    onClick = onEdit,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
@@ -198,15 +203,7 @@ fun DraftPreviewScreen(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                 ) {
-                    Text(
-                        text = if (displayText.isBlank()) {
-                            "초안 생성"
-                        } else {
-                            "수정하기"
-                        },
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    Text(text = stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -233,25 +230,14 @@ fun DraftPreviewScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    val weatherKey = selectedWeather
-                    if (weatherKey != null) {
-                        val icon = weatherIconMap[weatherKey]
-                        if (icon != null) {
-                            MetaChip(
-                                icon = icon,
-                                label = localizedWeatherLabel(weatherKey)
-                            )
+                    selectedWeather?.let { key ->
+                        weatherIconMap[key]?.let { icon ->
+                            MetaChip(icon = icon, label = localizedWeatherLabel(key))
                         }
                     }
-
-                    val emotionKey = selectedEmotion
-                    if (emotionKey != null) {
-                        val icon = emotionIconMap[emotionKey]
-                        if (icon != null) {
-                            MetaChip(
-                                icon = icon,
-                                label = localizedEmotionLabel(emotionKey)
-                            )
+                    selectedEmotion?.let { key ->
+                        emotionIconMap[key]?.let { icon ->
+                            MetaChip(icon = icon, label = localizedEmotionLabel(key))
                         }
                     }
                 }
@@ -301,157 +287,91 @@ fun DraftPreviewScreen(
                 }
             }
 
-            if (displayText.isBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = wc.SurfaceBg,
+                border = BorderStroke(0.5.dp, wc.Border)
+            ) {
                 Text(
-                    text = "추가 질문",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
+                    text = displayText,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    fontSize = 15.sp,
+                    lineHeight = 24.sp,
                     color = wc.TextPrimary
                 )
-
-                if (followUpQuestions.isEmpty()) {
-                    Text(
-                        text = "추가 질문을 준비하는 중이에요.",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 12.dp),
-                        fontSize = 15.sp,
-                        lineHeight = 24.sp,
-                        color = wc.TextMuted
-                    )
-                } else {
-                    followUpQuestions.forEachIndexed { index, question ->
-                        var localAnswer by remember(index) { mutableStateOf(followUpAnswers[index].orEmpty()) }
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "Q${index + 1}. $question",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = wc.TextPrimary
-                            )
-
-                            OutlinedTextField(
-                                value = localAnswer,
-                                onValueChange = { answer ->
-                                    localAnswer = answer
-                                    viewModel.updateFollowUpAnswer(index, answer)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = {
-                                    Text(text = "답변을 입력해 주세요", color = wc.TextMuted)
-                                },
-                                minLines = 2,
-                                maxLines = 4,
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = wc.TextPrimary,
-                                    unfocusedTextColor = wc.TextPrimary,
-                                    focusedBorderColor = wc.Purple,
-                                    unfocusedBorderColor = wc.Border,
-                                    cursorColor = wc.Purple
-                                )
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                }
             }
 
-            if (displayText.isNotBlank()) {
-                Surface(
-                    shape = RoundedCornerShape(28.dp),
-                    color = wc.SurfaceBg,
-                    border = BorderStroke(0.5.dp, wc.Border)
-                ) {
-                    Text(
-                        text = displayText,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(20.dp),
-                        fontSize = 15.sp,
-                        lineHeight = 24.sp,
-                        color = wc.TextPrimary
-                    )
-                }
-            }
-
-                val draftPhotos = draft?.photos.orEmpty()
-                if (draftPhotos.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.attached_photos),
-                        fontSize = 12.sp,
-                        color = wc.TextMuted,
-                        fontWeight = FontWeight.Medium
-                    )
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        items(draftPhotos) { photo ->
-                            Box(
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(wc.PurpleLight)
-                                    .clickable {
-                                        selectedPhotoUri = photo
-                                        showPhotoDialog = true
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                AsyncImage(
-                                    model = photo,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (showPhotoDialog) {
-            Dialog(
-                onDismissRequest = { showPhotoDialog = false },
-                properties = DialogProperties(
-                    usePlatformDefaultWidth = false,
-                    decorFitsSystemWindows = false
+            val photos = draft?.photos.orEmpty()
+            if (photos.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.attached_photos),
+                    fontSize = 12.sp,
+                    color = wc.TextMuted,
+                    fontWeight = FontWeight.Medium
                 )
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Transparent)
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    AsyncImage(
-                        model = selectedPhotoUri,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                    IconButton(
-                        onClick = { showPhotoDialog = false },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(16.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "닫기",
-                            tint = Color.White
-                        )
+                    items(photos) { photo ->
+                        Box(
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(wc.PurpleLight)
+                                .clickable {
+                                    selectedPhotoUri = photo
+                                    showPhotoDialog = true
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = photo,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
         }
     }
+
+    if (showPhotoDialog) {
+        Dialog(
+            onDismissRequest = { showPhotoDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Transparent)
+            ) {
+                AsyncImage(
+                    model = selectedPhotoUri,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
+                IconButton(
+                    onClick = { showPhotoDialog = false },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "닫기",
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
 
 private fun extractDiaryMaterials(text: String): String? {
     val headerPattern = Regex("##\\s*일기 작성에 활용하기 좋은 소재")
@@ -516,8 +436,7 @@ private fun DraftPreviewScreenPreview() {
             bottomBar = {
                 Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
                     Button(
-                        onClick = {
-                        },
+                        onClick = {},
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp, vertical = 16.dp)
@@ -526,11 +445,8 @@ private fun DraftPreviewScreenPreview() {
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
                     ) {
-                        Text(
-                            text = stringResource(R.string.btn_edit),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )}
+                        Text(stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
                 }
             }
         ) { padding ->
