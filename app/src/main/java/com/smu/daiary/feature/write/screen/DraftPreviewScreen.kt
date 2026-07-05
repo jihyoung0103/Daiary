@@ -4,6 +4,10 @@ import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.model.*
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -51,6 +55,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableFloatStateOf
@@ -345,28 +350,40 @@ fun DraftPreviewScreen(
             onDismissRequest = { showPhotoDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Transparent)
+            var dialogVisible by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { dialogVisible = true }
+
+            AnimatedVisibility(
+                visible = dialogVisible,
+                enter = fadeIn(animationSpec = tween(250)) + scaleIn(initialScale = 0.9f, animationSpec = tween(250))
             ) {
-                AsyncImage(
-                    model = selectedPhotoUri,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
-                IconButton(
-                    onClick = { showPhotoDialog = false },
+                Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(16.dp)
+                        .fillMaxSize()
+                        .background(Color.Transparent)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "닫기",
-                        tint = Color.White
+                    AsyncImage(
+                        model = selectedPhotoUri,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
                     )
+                    AnimatedVisibility(
+                        visible = dialogVisible,
+                        enter = fadeIn(animationSpec = tween(durationMillis = 250, delayMillis = 150)),
+                        modifier = Modifier.align(Alignment.TopEnd)
+                    ) {
+                        IconButton(
+                            onClick = { showPhotoDialog = false },
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "닫기",
+                                tint = Color.White
+                            )
+                        }
+                    }
                 }
             }
         }
