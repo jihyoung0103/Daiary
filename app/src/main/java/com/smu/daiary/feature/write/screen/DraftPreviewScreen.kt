@@ -293,7 +293,7 @@ fun DraftPreviewScreen(
             }
 
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(28.dp),
                 color = wc.SurfaceBg,
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {
