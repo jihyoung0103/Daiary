@@ -13,17 +13,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Ink
-import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.LocalDarkTheme
-import com.smu.daiary.ui.theme.SageForest
-import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 
 /**
@@ -39,15 +35,8 @@ fun RetrospectBanner(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val background = when (status) {
-        BannerStatus.NOT_CREATED -> if (isDark) DewDark else RetroBannerLight
-        BannerStatus.SAVED -> if (isDark) SageForestDark else SageForest
-        BannerStatus.INSUFFICIENT -> if (isDark) BorderDark else Linen
-    }
-    val textColor = when (status) {
-        BannerStatus.SAVED -> Color.White
-        else -> if (isDark) TextPrimaryDark else Ink
-    }
+    val background = if (isDark) DewDark else Dew
+    val textColor = if (isDark) TextPrimaryDark else Ink
 
     Surface(
         modifier = modifier
