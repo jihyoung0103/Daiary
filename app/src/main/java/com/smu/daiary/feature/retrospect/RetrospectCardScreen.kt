@@ -443,7 +443,7 @@ fun SummaryContent(
     report: RetrospectReport,
     modifier: Modifier = Modifier,
     textColor: Color = Color.White,
-    accentColor: Color = RetroMint
+    accentColor: Color
 ) {
     Column(
         modifier = modifier.padding(horizontal = 28.dp),
