@@ -46,6 +46,7 @@ class AnthropicDataSource {
 - quickOptions는 3~4개, 10자 이내로 짧게
 - 마지막 선택지는 항상 "기타"
 - 대답하기 귀찮을 것 같은 질문은 하지 마
+- question은 항상 존댓말(예: "~했나요?", "~인가요?")로 작성해, 반말(예: "~했어?", "~야?") 금지
 
 데이터 블럭:
 $blocksText

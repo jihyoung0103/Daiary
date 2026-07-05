@@ -30,7 +30,7 @@
 
     <!-- BlockSelectionScreen -->
     <string name="screen_block_selection">Select Info</string>
-    <string name="loading_data">Loading weather, calendar,\nand photo data...</string>
+    <string name="loading_data">Loading information...</string>
     <string name="btn_select_done">Done</string>
 
     <!-- DraftPreviewScreen -->

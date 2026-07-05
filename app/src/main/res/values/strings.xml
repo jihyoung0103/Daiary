@@ -43,7 +43,7 @@
 
     <!-- BlockSelectionScreen -->
     <string name="screen_block_selection">정보 선택</string>
-    <string name="loading_data">날씨, 캘린더, 사진 데이터를\n불러오는 중입니다...</string>
+    <string name="loading_data">정보를 불러오는 중입니다...</string>
     <string name="btn_select_done">선택 완료</string>
 
     <!-- DraftPreviewScreen -->

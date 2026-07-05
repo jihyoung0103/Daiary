@@ -27,6 +27,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.SentimentDissatisfied
+import androidx.compose.material.icons.outlined.SentimentNeutral
+import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
+import androidx.compose.material.icons.outlined.SentimentVerySatisfied
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -34,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -218,13 +224,14 @@ private fun periodRangeLabel(report: RetrospectReport): String {
     else "${start.year}년 ${start.monthValue}월"
 }
 
-private fun emotionEmoji(emotion: String): String = when (emotion) {
-    "기쁨" -> "😊"
-    "평온" -> "😐"
-    "슬픔" -> "😢"
-    "화남" -> "😠"
-    "설렘" -> "🥰"
-    else -> "📝"
+/** DiaryEditScreen과 동일한 감정 아이콘 세트 사용 */
+private fun emotionIcon(emotion: String): ImageVector = when (emotion) {
+    "기쁨" -> Icons.Outlined.SentimentVerySatisfied
+    "평온" -> Icons.Outlined.SentimentNeutral
+    "슬픔" -> Icons.Outlined.SentimentDissatisfied
+    "화남" -> Icons.Outlined.SentimentVeryDissatisfied
+    "설렘" -> Icons.Outlined.FavoriteBorder
+    else -> Icons.Outlined.SentimentNeutral
 }
 
 @Composable
@@ -243,7 +250,14 @@ private fun EmotionCard(report: RetrospectReport) {
             ) {
                 sorted.forEach { (emotion, count) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${emotionEmoji(emotion)} $emotion", fontSize = 14.sp, color = Ink, modifier = Modifier.width(90.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.width(90.dp)
+                        ) {
+                            Icon(imageVector = emotionIcon(emotion), contentDescription = null, tint = Ink, modifier = Modifier.size(16.dp))
+                            Text(emotion, fontSize = 14.sp, color = Ink)
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -267,7 +281,10 @@ private fun EmotionCard(report: RetrospectReport) {
             Spacer(Modifier.height(28.dp))
             val top = sorted.first()
             Text("${periodWord(report)} 가장 많은 감정", fontSize = 12.sp, color = Ink.copy(alpha = 0.6f))
-            Text("${emotionEmoji(top.key)} ${top.key}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Ink)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(imageVector = emotionIcon(top.key), contentDescription = null, tint = Ink, modifier = Modifier.size(22.dp))
+                Text(top.key, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Ink)
+            }
         }
     }
 }
@@ -405,7 +422,10 @@ fun SummaryContent(report: RetrospectReport, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(8.dp))
         val topEmotion = report.emotionDistribution.entries.maxByOrNull { it.value }
         if (topEmotion != null) {
-            Text("${emotionEmoji(topEmotion.key)} ${topEmotion.key} ${topEmotion.value}일", fontSize = 15.sp, color = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(imageVector = emotionIcon(topEmotion.key), contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Text("${topEmotion.key} ${topEmotion.value}일", fontSize = 15.sp, color = Color.White)
+            }
         }
         if (report.totalSteps > 0) {
             Text("👟 ${"%,d".format(report.totalSteps)} 보", fontSize = 15.sp, color = Color.White)
@@ -420,8 +440,6 @@ fun SummaryContent(report: RetrospectReport, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(8.dp))
             Text(report.keywords.joinToString(" ") { "#$it" }, fontSize = 13.sp, color = RetroMint, textAlign = TextAlign.Center)
         }
-        Spacer(Modifier.height(16.dp))
-        Text("다음에도 기록할게요 :)", fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f))
     }
 }
 

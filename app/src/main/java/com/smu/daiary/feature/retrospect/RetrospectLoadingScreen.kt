@@ -56,7 +56,9 @@ fun RetrospectLoadingScreen(
                 .fillMaxWidth()
                 .height(6.dp),
             color = RetroMint,
-            trackColor = Color.White.copy(alpha = 0.2f)
+            trackColor = Color.White.copy(alpha = 0.2f),
+            gapSize = 0.dp,
+            drawStopIndicator = {}
         )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
         Text(
