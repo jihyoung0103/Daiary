@@ -12,11 +12,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Ivory
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
 
 @Composable
 fun RetrospectLoadingScreen(
@@ -24,6 +30,11 @@ fun RetrospectLoadingScreen(
     state: RetrospectState,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else Ivory
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accentColor = if (isDark) SageForestDark else SageForest
+
     val (progress, message) = when (state) {
         is RetrospectState.LoadingData -> 0.25f to "일기를 읽는 중..."
         is RetrospectState.Aggregating -> 0.5f to "기록을 정리하는 중..."
@@ -35,7 +46,7 @@ fun RetrospectLoadingScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(RetroDeepGreen)
+            .background(cardBg)
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -46,7 +57,7 @@ fun RetrospectLoadingScreen(
             text = "${periodLabel}를 돌아보는 중이에요",
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.White,
+            color = textColor,
             textAlign = TextAlign.Center
         )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(28.dp))
@@ -55,14 +66,16 @@ fun RetrospectLoadingScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(6.dp),
-            color = RetroMint,
-            trackColor = Color.White.copy(alpha = 0.2f)
+            color = accentColor,
+            trackColor = textColor.copy(alpha = 0.15f),
+            gapSize = 0.dp,
+            drawStopIndicator = {}
         )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = message,
             fontSize = 14.sp,
-            color = Color.White.copy(alpha = 0.8f)
+            color = textColor.copy(alpha = 0.8f)
         )
     }
 }

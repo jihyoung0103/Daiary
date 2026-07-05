@@ -27,6 +27,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.SentimentDissatisfied
+import androidx.compose.material.icons.outlined.SentimentNeutral
+import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
+import androidx.compose.material.icons.outlined.SentimentVerySatisfied
+import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -34,12 +41,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.RetrospectReport
 import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.White
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -68,16 +83,16 @@ fun RetrospectCardScreen(
     onViewDiary: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accentColor = if (isDark) SageForestDark else SageForest
+
     val pages = remember(report) { cardsFor(report) }
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
 
-    val currentCard = pages[pagerState.currentPage]
-    val isDarkCard = currentCard == RetroCardType.OPENING ||
-        currentCard == RetroCardType.NARRATIVE ||
-        currentCard == RetroCardType.KEYWORDS ||
-        currentCard == RetroCardType.SUMMARY
-    val barColor = if (isDarkCard) Color.White else RetroDarkText
+    val barColor = textColor
 
     Column(modifier = modifier.fillMaxSize()) {
         // 상단바
@@ -135,9 +150,14 @@ fun RetrospectCardScreen(
                     RetroCardType.SUMMARY -> Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(RetroDeepGreen)
+                            .background(cardBg)
                     ) {
-                        SummaryContent(report, modifier = Modifier.align(Alignment.Center))
+                        SummaryContent(
+                            report,
+                            modifier = Modifier.align(Alignment.Center),
+                            textColor = textColor,
+                            accentColor = accentColor
+                        )
                     }
                 }
             }
@@ -147,35 +167,28 @@ fun RetrospectCardScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(if (isDarkCard) RetroDeepGreen else backgroundFor(currentCard))
+                .background(cardBg)
                 .padding(20.dp),
             contentAlignment = Alignment.Center
         ) {
             if (pagerState.currentPage == pages.lastIndex) {
                 Button(
                     onClick = onSave,
-                    colors = ButtonDefaults.buttonColors(containerColor = RetroMint, contentColor = RetroDarkText),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("저장하기", fontWeight = FontWeight.Medium) }
             } else {
                 Button(
                     onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDarkCard) Color.White else RetroDeepGreen,
-                        contentColor = if (isDarkCard) RetroDeepGreen else Color.White
+                        containerColor = accentColor,
+                        contentColor = Color.White
                     ),
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("다음 →", fontWeight = FontWeight.Medium) }
             }
         }
     }
-}
-
-private fun backgroundFor(type: RetroCardType): Color = when (type) {
-    RetroCardType.OPENING, RetroCardType.NARRATIVE, RetroCardType.KEYWORDS, RetroCardType.SUMMARY -> RetroDeepGreen
-    RetroCardType.EMOTION, RetroCardType.MEMORABLE -> RetroLightGreen
-    RetroCardType.ACTIVITY -> RetroMint
-    RetroCardType.SPENDING -> RetroCream
 }
 
 @Composable
@@ -193,15 +206,18 @@ private fun CardContainer(background: Color, content: @Composable ColumnScope.()
 
 @Composable
 private fun OpeningCard(report: RetrospectReport) {
-    CardContainer(RetroDeepGreen) {
-        Text("✨", fontSize = 40.sp)
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    CardContainer(cardBg) {
+        Icon(imageVector = Icons.Outlined.AutoAwesome, contentDescription = null, tint = textColor, modifier = Modifier.size(40.dp))
         Spacer(Modifier.height(20.dp))
-        Text(report.periodLabel, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
-        Text("기록을 돌아봤어요", fontSize = 18.sp, color = Color.White, textAlign = TextAlign.Center)
+        Text(report.periodLabel, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = textColor, textAlign = TextAlign.Center)
+        Text("기록을 돌아봤어요", fontSize = 18.sp, color = textColor, textAlign = TextAlign.Center)
         Spacer(Modifier.height(24.dp))
-        Text(periodRangeLabel(report), fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f))
+        Text(periodRangeLabel(report), fontSize = 13.sp, color = textColor.copy(alpha = 0.6f))
         Spacer(Modifier.height(4.dp))
-        Text("일기 ${report.diaryCount}편", fontSize = 13.sp, color = Color.White.copy(alpha = 0.75f))
+        Text("일기 ${report.diaryCount}편", fontSize = 13.sp, color = textColor.copy(alpha = 0.6f))
     }
 }
 
@@ -214,24 +230,29 @@ private fun periodRangeLabel(report: RetrospectReport): String {
     else "${start.year}년 ${start.monthValue}월"
 }
 
-private fun emotionEmoji(emotion: String): String = when (emotion) {
-    "기쁨" -> "😊"
-    "평온" -> "😐"
-    "슬픔" -> "😢"
-    "화남" -> "😠"
-    "설렘" -> "🥰"
-    else -> "📝"
+/** DiaryEditScreen과 동일한 감정 아이콘 세트 사용 */
+private fun emotionIcon(emotion: String): ImageVector = when (emotion) {
+    "기쁨" -> Icons.Outlined.SentimentVerySatisfied
+    "평온" -> Icons.Outlined.SentimentNeutral
+    "슬픔" -> Icons.Outlined.SentimentDissatisfied
+    "화남" -> Icons.Outlined.SentimentVeryDissatisfied
+    "설렘" -> Icons.Outlined.FavoriteBorder
+    else -> Icons.Outlined.SentimentNeutral
 }
 
 @Composable
 private fun EmotionCard(report: RetrospectReport) {
-    CardContainer(RetroLightGreen) {
-        Text("${periodWord(report)} 감정", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = RetroDarkText.copy(alpha = 0.6f))
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accentColor = if (isDark) SageForestDark else SageForest
+    CardContainer(cardBg) {
+        Text("${periodWord(report)} 감정", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor.copy(alpha = 0.6f))
         Spacer(Modifier.height(20.dp))
         val maxCount = (report.emotionDistribution.values.maxOrNull() ?: 1).coerceAtLeast(1)
         val sorted = report.emotionDistribution.entries.sortedByDescending { it.value }
         if (sorted.isEmpty()) {
-            Text("이번 기간엔 감정 기록이 없어요", fontSize = 14.sp, color = RetroDarkText.copy(alpha = 0.6f))
+            Text("이번 기간엔 감정 기록이 없어요", fontSize = 14.sp, color = textColor.copy(alpha = 0.6f))
         } else {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -239,123 +260,147 @@ private fun EmotionCard(report: RetrospectReport) {
             ) {
                 sorted.forEach { (emotion, count) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${emotionEmoji(emotion)} $emotion", fontSize = 14.sp, color = RetroDarkText, modifier = Modifier.width(90.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.width(90.dp)
+                        ) {
+                            Icon(imageVector = emotionIcon(emotion), contentDescription = null, tint = textColor, modifier = Modifier.size(16.dp))
+                            Text(emotion, fontSize = 14.sp, color = textColor)
+                        }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(14.dp)
                                 .clip(RoundedCornerShape(7.dp))
-                                .background(RetroDarkText.copy(alpha = 0.08f))
+                                .background(textColor.copy(alpha = 0.08f))
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
                                     .fillMaxWidth(count.toFloat() / maxCount)
                                     .clip(RoundedCornerShape(7.dp))
-                                    .background(SageForestColor)
+                                    .background(accentColor)
                             )
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text("${count}일", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
+                        Text("${count}일", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
                     }
                 }
             }
             Spacer(Modifier.height(28.dp))
             val top = sorted.first()
-            Text("${periodWord(report)} 가장 많은 감정", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
-            Text("${emotionEmoji(top.key)} ${top.key}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("${periodWord(report)} 가장 많은 감정", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(imageVector = emotionIcon(top.key), contentDescription = null, tint = textColor, modifier = Modifier.size(22.dp))
+                Text(top.key, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
+            }
         }
     }
 }
 
 @Composable
 private fun NarrativeCard(report: RetrospectReport) {
-    CardContainer(RetroDeepGreen) {
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    CardContainer(cardBg) {
         Text(
             text = "“${report.aiNarrative}”",
             fontSize = 20.sp,
             fontWeight = FontWeight.Medium,
-            color = Color.White,
+            color = textColor,
             textAlign = TextAlign.Center,
             lineHeight = 30.sp
         )
         Spacer(Modifier.height(28.dp))
-        Text("── AI가 바라본 ${periodWord(report)} ──", fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
+        Text("── AI가 바라본 ${periodWord(report)} ──", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
     }
 }
 
 @Composable
 private fun ActivityCard(report: RetrospectReport) {
-    CardContainer(RetroMint) {
-        Text("${periodWord(report)} 몸은 어땠나요", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = RetroDarkText)
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    CardContainer(cardBg) {
+        Text("${periodWord(report)} 몸은 어땠나요", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor)
         Spacer(Modifier.height(28.dp))
         if (report.totalSteps > 0) {
-            Text("👟 총 걸음수", fontSize = 13.sp, color = RetroDarkText.copy(alpha = 0.7f))
-            Text("${"%,d".format(report.totalSteps)} 보", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("👟 총 걸음수", fontSize = 13.sp, color = textColor.copy(alpha = 0.7f))
+            Text("${"%,d".format(report.totalSteps)} 보", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
             Spacer(Modifier.height(20.dp))
         }
         if (report.avgSleepHours > 0f) {
-            Text("😴 평균 수면", fontSize = 13.sp, color = RetroDarkText.copy(alpha = 0.7f))
-            Text("${"%.1f".format(report.avgSleepHours)} 시간", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("😴 평균 수면", fontSize = 13.sp, color = textColor.copy(alpha = 0.7f))
+            Text("${"%.1f".format(report.avgSleepHours)} 시간", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
             Spacer(Modifier.height(20.dp))
         }
         if (report.bestActivityDay.isNotBlank()) {
-            Text("가장 활발했던 날: ${report.bestActivityDay}", fontSize = 13.sp, color = RetroDarkText.copy(alpha = 0.7f))
+            Text("가장 활발했던 날: ${report.bestActivityDay}", fontSize = 13.sp, color = textColor.copy(alpha = 0.7f))
         }
     }
 }
 
 @Composable
 private fun SpendingCard(report: RetrospectReport) {
-    CardContainer(RetroCream) {
-        Text("${periodWord(report)} 지출", fontSize = 15.sp, color = RetroDarkText.copy(alpha = 0.6f))
-        Text("${"%,d".format(report.totalSpending)} 원", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accentColor = if (isDark) SageForestDark else SageForest
+    CardContainer(cardBg) {
+        Text("${periodWord(report)} 지출", fontSize = 15.sp, color = textColor.copy(alpha = 0.6f))
+        Text("${"%,d".format(report.totalSpending)} 원", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = textColor)
         Spacer(Modifier.height(24.dp))
         val sorted = report.spendingByCategory.entries.sortedByDescending { it.value }
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             sorted.forEach { (category, amount) ->
                 val percent = if (report.totalSpending > 0) (amount * 100 / report.totalSpending) else 0
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(category, fontSize = 13.sp, color = RetroDarkText, modifier = Modifier.width(60.dp))
+                    Text(category, fontSize = 13.sp, color = textColor, modifier = Modifier.width(60.dp))
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(12.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(RetroDarkText.copy(alpha = 0.08f))
+                            .background(textColor.copy(alpha = 0.08f))
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth((percent / 100f).coerceIn(0f, 1f))
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(SageForestColor)
+                                .background(accentColor)
                         )
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text("$percent%", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
+                    Text("$percent%", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
                 }
             }
         }
         if (report.topMerchant.isNotBlank()) {
             Spacer(Modifier.height(24.dp))
-            Text("가장 자주 간 곳", fontSize = 12.sp, color = RetroDarkText.copy(alpha = 0.6f))
-            Text(report.topMerchant, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+            Text("가장 자주 간 곳", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
+            Text(report.topMerchant, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = textColor)
         }
     }
 }
 
 @Composable
 private fun KeywordsCard(report: RetrospectReport) {
-    CardContainer(RetroDeepGreen) {
-        Text("${periodWord(report)}를 담은 키워드", fontSize = 16.sp, color = Color.White.copy(alpha = 0.8f))
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accentColor = if (isDark) SageForestDark else SageForest
+    CardContainer(cardBg) {
+        Text("${periodWord(report)}를 담은 키워드", fontSize = 16.sp, color = textColor.copy(alpha = 0.6f))
         Spacer(Modifier.height(28.dp))
         report.keywords.chunked(2).forEachIndexed { rowIndex, rowItems ->
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 rowItems.forEachIndexed { i, keyword ->
                     val overallIndex = rowIndex * 2 + i
                     val size = (24 - overallIndex * 2).coerceAtLeast(14)
-                    Text("#$keyword", fontSize = size.sp, fontWeight = FontWeight.Bold, color = RetroMint)
+                    Text("#$keyword", fontSize = size.sp, fontWeight = FontWeight.Bold, color = accentColor)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -365,21 +410,24 @@ private fun KeywordsCard(report: RetrospectReport) {
 
 @Composable
 private fun MemorableCard(report: RetrospectReport, onViewDiary: (String) -> Unit) {
-    CardContainer(RetroLightGreen) {
-        Text("${periodWord(report)} 가장 기억에 남는 날", fontSize = 15.sp, color = RetroDarkText.copy(alpha = 0.6f))
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    CardContainer(cardBg) {
+        Text("${periodWord(report)} 가장 기억에 남는 날", fontSize = 15.sp, color = textColor.copy(alpha = 0.6f))
         Spacer(Modifier.height(16.dp))
-        Text(memorableDateLabel(report.memorableDate), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = RetroDarkText)
+        Text(memorableDateLabel(report.memorableDate), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor)
         Spacer(Modifier.height(20.dp))
         Text(
             report.memorableReason,
             fontSize = 15.sp,
-            color = RetroDarkText,
+            color = textColor,
             textAlign = TextAlign.Center,
             lineHeight = 22.sp
         )
         Spacer(Modifier.height(24.dp))
         OutlinedButton(onClick = { onViewDiary(report.memorableDate) }) {
-            Text("그 날 일기 보기 →", color = RetroDarkText)
+            Text("그 날 일기 보기 →", color = textColor)
         }
     }
 }
@@ -391,33 +439,42 @@ private fun memorableDateLabel(date: String): String {
 }
 
 @Composable
-fun SummaryContent(report: RetrospectReport, modifier: Modifier = Modifier) {
+fun SummaryContent(
+    report: RetrospectReport,
+    modifier: Modifier = Modifier,
+    textColor: Color = Color.White,
+    accentColor: Color
+) {
     Column(
         modifier = modifier.padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("${report.periodLabel} 요약", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text("${report.periodLabel} 요약", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
         Spacer(Modifier.height(8.dp))
         val topEmotion = report.emotionDistribution.entries.maxByOrNull { it.value }
         if (topEmotion != null) {
-            Text("${emotionEmoji(topEmotion.key)} ${topEmotion.key} ${topEmotion.value}일", fontSize = 15.sp, color = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(imageVector = emotionIcon(topEmotion.key), contentDescription = null, tint = textColor, modifier = Modifier.size(18.dp))
+                Text("${topEmotion.key} ${topEmotion.value}일", fontSize = 15.sp, color = textColor)
+            }
         }
         if (report.totalSteps > 0) {
-            Text("👟 ${"%,d".format(report.totalSteps)} 보", fontSize = 15.sp, color = Color.White)
+            Text("👟 ${"%,d".format(report.totalSteps)} 보", fontSize = 15.sp, color = textColor)
         }
         if (report.totalSpending > 0) {
-            Text("💳 ${"%,d".format(report.totalSpending)} 원", fontSize = 15.sp, color = Color.White)
+            Text("💳 ${"%,d".format(report.totalSpending)} 원", fontSize = 15.sp, color = textColor)
         }
         if (report.memorableDate.isNotBlank()) {
-            Text("⭐ ${memorableDateLabel(report.memorableDate)}", fontSize = 15.sp, color = Color.White)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(imageVector = Icons.Outlined.StarOutline, contentDescription = null, tint = textColor, modifier = Modifier.size(16.dp))
+                Text(memorableDateLabel(report.memorableDate), fontSize = 15.sp, color = textColor)
+            }
         }
         if (report.keywords.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
-            Text(report.keywords.joinToString(" ") { "#$it" }, fontSize = 13.sp, color = RetroMint, textAlign = TextAlign.Center)
+            Text(report.keywords.joinToString(" ") { "#$it" }, fontSize = 13.sp, color = accentColor, textAlign = TextAlign.Center)
         }
-        Spacer(Modifier.height(16.dp))
-        Text("다음에도 기록할게요 :)", fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f))
     }
 }
 
@@ -429,10 +486,15 @@ fun RetrospectSummaryScreen(
     onViewFull: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accentColor = if (isDark) SageForestDark else SageForest
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(RetroDeepGreen)
+            .background(cardBg)
     ) {
         Box(
             modifier = Modifier
@@ -441,19 +503,17 @@ fun RetrospectSummaryScreen(
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = Color.White)
+            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = textColor)
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            SummaryContent(report)
+            SummaryContent(report, textColor = textColor, accentColor = accentColor)
         }
         Box(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Button(
                 onClick = onViewFull,
-                colors = ButtonDefaults.buttonColors(containerColor = RetroMint, contentColor = RetroDarkText),
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White),
                 modifier = Modifier.fillMaxWidth()
             ) { Text("전체 다시 보기", fontWeight = FontWeight.Medium) }
         }
     }
 }
-
-private val SageForestColor = Color(0xFF3D7A5C)

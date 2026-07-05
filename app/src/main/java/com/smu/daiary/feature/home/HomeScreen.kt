@@ -196,14 +196,12 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         RetrospectBanner(
-                            icon = "✨",
                             title = "이번 주 회고",
                             subLabel = weeklyBannerSubLabel,
                             status = weeklyBannerStatus,
                             onClick = onWeeklyBannerClick
                         )
                         RetrospectBanner(
-                            icon = "📅",
                             title = "이번 달 회고",
                             subLabel = monthlyBannerSubLabel,
                             status = monthlyBannerStatus,
@@ -311,7 +309,7 @@ private fun CalendarCard(
     Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(20.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(

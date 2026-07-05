@@ -29,15 +29,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Nightlight
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -74,10 +78,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.outlined.Nightlight
 import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.LocalDarkTheme
@@ -169,7 +169,7 @@ fun BlockSelectionScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                         .padding(bottom = 8.dp)
-                        .height(52.dp),
+                        .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = wc.Purple,
@@ -393,7 +393,7 @@ private fun SingleBlockItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = blockTypeIcon(block.type),
+                    imageVector = if (block.type == BlockType.WEATHER) weatherIconFor(block.content) else blockTypeIcon(block.type),
                     contentDescription = null,
                     tint = if (block.isSelected) Color.White else wc.Purple,
                     modifier = Modifier.size(20.dp)
@@ -633,6 +633,19 @@ private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
     BlockType.CALENDAR -> Icons.Outlined.CalendarMonth
     BlockType.HEALTH   -> Icons.Outlined.FitnessCenter
     BlockType.WEATHER  -> Icons.Outlined.WbSunny
+}
+
+/** 날씨 블록의 content(예: "맑음 22°C · 습도 60%")에서 날씨 종류를 읽어 아이콘 매핑. 매칭 실패 시 WbSunny로 fallback */
+private fun weatherIconFor(content: String): ImageVector {
+    val weatherIconMap = mapOf(
+        "맑음" to Icons.Outlined.WbSunny,
+        "흐림" to Icons.Outlined.Cloud,
+        "비" to Icons.Outlined.Umbrella,
+        "눈" to Icons.Outlined.AcUnit,
+        "바람" to Icons.Outlined.Air
+    )
+    return weatherIconMap.entries.firstOrNull { content.startsWith(it.key) }?.value
+        ?: Icons.Outlined.WbSunny
 }
 
 @Composable

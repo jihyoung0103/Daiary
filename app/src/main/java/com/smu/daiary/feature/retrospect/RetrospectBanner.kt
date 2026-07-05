@@ -13,10 +13,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.DewDark
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.TextPrimaryDark
 
 /**
  * 홈(캘린더) 화면 캘린더 카드와 최근 기록 목록 사이에 들어가는 회고 배너.
@@ -24,22 +28,15 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun RetrospectBanner(
-    icon: String,
     title: String,
     subLabel: String,
     status: BannerStatus,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val background = when (status) {
-        BannerStatus.NOT_CREATED -> RetroBannerLight
-        BannerStatus.SAVED -> RetroBannerSaved
-        BannerStatus.INSUFFICIENT -> RetroBannerDisabled
-    }
-    val textColor = when (status) {
-        BannerStatus.SAVED -> Color.White
-        else -> RetroDarkText
-    }
+    val isDark = LocalDarkTheme.current
+    val background = if (isDark) DewDark else Dew
+    val textColor = if (isDark) TextPrimaryDark else Ink
 
     Surface(
         modifier = modifier
@@ -57,7 +54,7 @@ fun RetrospectBanner(
         ) {
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = "$icon $title", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
+                    Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
                     if (status == BannerStatus.SAVED) {
                         Text(text = "  ✓ 저장됨", fontSize = 11.sp, color = textColor.copy(alpha = 0.85f))
                     }

@@ -151,6 +151,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
+    /** 사진 다중 분석 결과 요약 (analyzePhotos 호출 결과) */
+    private val _photoAnalysis = MutableStateFlow<String?>(null)
+    val photoAnalysis: StateFlow<String?> = _photoAnalysis.asStateFlow()
 
     // ─────────────────────────────────────────────────────────────
     // 이벤트
@@ -527,7 +530,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
     }
 
-    /** 사진 개별 선택 토글 — PhotoSelectionScreen의 체크박스와 연결 */
+    /** 사진 개별 선택 토글 — BlockSelectionScreen의 PhotoDetailSelector와 연결 */
     fun togglePhoto(uri: String) {
         _photos.update { list ->
             list.map { photo ->
@@ -747,9 +750,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-
-
-
     // ─────────────────────────────────────────────────────────────
     // AI 초안 생성
     // ─────────────────────────────────────────────────────────────
@@ -770,6 +770,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
      */
     fun prepareGeneration() = viewModelScope.launch {
+        _photoAnalysis.value = null
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
             _contextQuestions.value = emptyList()
@@ -845,7 +846,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             Log.d(TAG, "📸 사진 분석 결과: $photoSummary")
-
+            _photoAnalysis.value = photoSummary
 
             val mbti = getApplication<Application>()
                 .getSharedPreferences(
@@ -1035,6 +1036,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun clearDraftOnly() {
         _draft.value = null
         _contextQuestions.value = null
+        _photoAnalysis.value = null
     }
 
     /**
