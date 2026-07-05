@@ -118,8 +118,9 @@ fun SettingsScreen(onConfirm: () -> Unit = {}) {
                         )
                     ){
                         Column(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                            modifier = Modifier.fillMaxSize().padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                                 Text(
