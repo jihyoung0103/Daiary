@@ -32,6 +32,7 @@ import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -431,7 +432,10 @@ fun SummaryContent(
             Text("💳 ${"%,d".format(report.totalSpending)} 원", fontSize = 15.sp, color = textColor)
         }
         if (report.memorableDate.isNotBlank()) {
-            Text("⭐ ${memorableDateLabel(report.memorableDate)}", fontSize = 15.sp, color = textColor)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(imageVector = Icons.Outlined.Star, contentDescription = null, tint = textColor, modifier = Modifier.size(16.dp))
+                Text(memorableDateLabel(report.memorableDate), fontSize = 15.sp, color = textColor)
+            }
         }
         if (report.keywords.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
@@ -451,7 +455,7 @@ fun RetrospectSummaryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(RetroDeepGreen)
+            .background(Dew)
     ) {
         Box(
             modifier = Modifier
@@ -460,10 +464,10 @@ fun RetrospectSummaryScreen(
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = Color.White)
+            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = Ink)
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            SummaryContent(report)
+            SummaryContent(report, textColor = Ink, accentColor = SageForest)
         }
         Box(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Button(
