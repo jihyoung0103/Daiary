@@ -47,13 +47,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.RetrospectReport
 import com.smu.daiary.data.model.RetrospectType
-import com.smu.daiary.ui.theme.Dew
-import com.smu.daiary.ui.theme.DewDark
+import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.White
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -83,7 +83,7 @@ fun RetrospectCardScreen(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
 
@@ -206,7 +206,7 @@ private fun CardContainer(background: Color, content: @Composable ColumnScope.()
 @Composable
 private fun OpeningCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Text("✨", fontSize = 40.sp)
@@ -242,7 +242,7 @@ private fun emotionIcon(emotion: String): ImageVector = when (emotion) {
 @Composable
 private fun EmotionCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
     CardContainer(cardBg) {
@@ -301,7 +301,7 @@ private fun EmotionCard(report: RetrospectReport) {
 @Composable
 private fun NarrativeCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Text(
@@ -320,7 +320,7 @@ private fun NarrativeCard(report: RetrospectReport) {
 @Composable
 private fun ActivityCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Text("${periodWord(report)} 몸은 어땠나요", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor)
@@ -344,7 +344,7 @@ private fun ActivityCard(report: RetrospectReport) {
 @Composable
 private fun SpendingCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
     CardContainer(cardBg) {
@@ -388,7 +388,7 @@ private fun SpendingCard(report: RetrospectReport) {
 @Composable
 private fun KeywordsCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
     CardContainer(cardBg) {
@@ -410,7 +410,7 @@ private fun KeywordsCard(report: RetrospectReport) {
 @Composable
 private fun MemorableCard(report: RetrospectReport, onViewDiary: (String) -> Unit) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Text("${periodWord(report)} 가장 기억에 남는 날", fontSize = 15.sp, color = textColor.copy(alpha = 0.6f))
@@ -486,7 +486,7 @@ fun RetrospectSummaryScreen(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) DewDark else Dew
+    val cardBg = if (isDark) BackgroundDark else White
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
 
