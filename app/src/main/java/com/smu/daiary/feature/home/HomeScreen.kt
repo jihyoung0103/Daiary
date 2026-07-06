@@ -258,24 +258,27 @@ private fun StatusBarPill() {
 private fun TopBarSection(yearMonth: YearMonth) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .padding(top = 16.dp)
+            .height(64.dp)
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = stringResource(R.string.year_label, yearMonth.year),
-            fontSize = 12.sp,
-            color = mc.textMuted,
-            modifier = Modifier.padding(bottom = 2.dp)
-        )
-        Text(
-            text = stringResource(R.string.month_record_title, yearMonth.monthValue),
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Medium,
-            color = mc.textPrimary
-        )
+        Column {
+            Text(
+                text = stringResource(R.string.year_label, yearMonth.year),
+                fontSize = 12.sp,
+                color = mc.textMuted,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+            Text(
+                text = stringResource(R.string.month_record_title, yearMonth.monthValue),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
+                color = mc.textPrimary
+            )
+        }
     }
 }
 

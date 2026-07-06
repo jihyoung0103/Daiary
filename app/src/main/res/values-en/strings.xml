@@ -184,6 +184,8 @@
     <string name="schedule_badge_today">Today</string>
     <string name="schedule_badge_tomorrow">Tomorrow</string>
     <string name="schedule_badge_days_later">In %1$d days</string>
+    <string name="schedule_subtitle_upcoming">Upcoming Events</string>
+    <string name="schedule_subtitle_past">Past Events</string>
 
     <!-- Push notifications -->
     <string name="notification_title">Good job today 🌿</string>

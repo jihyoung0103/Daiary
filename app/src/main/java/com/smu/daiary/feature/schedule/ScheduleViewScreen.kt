@@ -149,13 +149,20 @@ fun ScheduleViewScreen(
         "${d.year}년 ${d.monthValue}월 ${d.dayOfMonth}일"
     }.getOrDefault(date)
 
-    val badgeText = runCatching { LocalDate.parse(date) }.getOrNull()?.let { parsedDate ->
-        when (val daysFromToday = ChronoUnit.DAYS.between(LocalDate.now(), parsedDate)) {
-            0L -> stringResource(R.string.schedule_badge_today)
-            1L -> stringResource(R.string.schedule_badge_tomorrow)
-            else -> if (daysFromToday >= 2L) stringResource(R.string.schedule_badge_days_later, daysFromToday.toInt()) else null
-        }
+    val parsedDate = runCatching { LocalDate.parse(date) }.getOrNull()
+    val daysFromToday = parsedDate?.let { ChronoUnit.DAYS.between(LocalDate.now(), it) }
+
+    val badgeText = when (daysFromToday) {
+        null -> null
+        0L -> stringResource(R.string.schedule_badge_today)
+        1L -> stringResource(R.string.schedule_badge_tomorrow)
+        else -> if (daysFromToday >= 2L) stringResource(R.string.schedule_badge_days_later, daysFromToday.toInt()) else null
     }
+
+    val subtitleText = if (daysFromToday != null && daysFromToday < 0L)
+        stringResource(R.string.schedule_subtitle_past)
+    else
+        stringResource(R.string.schedule_subtitle_upcoming)
 
     Scaffold(
         containerColor = sc.bg,
@@ -183,7 +190,7 @@ fun ScheduleViewScreen(
                             }
                         }
                         Text(
-                            text = "예정된 일정",
+                            text = subtitleText,
                             fontSize = 12.sp,
                             color = sc.textMuted
                         )
@@ -198,7 +205,7 @@ fun ScheduleViewScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = sc.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = sc.bg)
             )
         }
     ) { padding ->

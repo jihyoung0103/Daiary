@@ -197,6 +197,8 @@
     <string name="schedule_badge_today">오늘</string>
     <string name="schedule_badge_tomorrow">내일</string>
     <string name="schedule_badge_days_later">%1$d일 후</string>
+    <string name="schedule_subtitle_upcoming">예정된 일정</string>
+    <string name="schedule_subtitle_past">지난 일정</string>
 
     <!-- 푸시 알림 -->
     <string name="notification_title">오늘도 수고했어요 🌿</string>

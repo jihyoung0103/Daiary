@@ -637,19 +637,29 @@ private fun DateBanner(wc: WriteColorScheme, date: LocalDate, isLateNight: Boole
                    else "자정이 넘었지만 오전 4시까지는 어제 일기로 저장돼요"
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         color = wc.PurpleLight,
-        border = BorderStroke(1.dp, wc.Purple),
+        border = BorderStroke(1.5.dp, wc.Purple),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Icon(imageVector = Icons.Outlined.Nightlight, contentDescription = null, tint = wc.Purple, modifier = Modifier.size(18.dp))
-            Column {
-                Text(text = "$dateText 일기를 작성하고 있어요", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
+            Box(
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(wc.Purple),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Nightlight,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "$dateText 일기를 작성하고 있어요", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
                 Text(text = subtitle, fontSize = 11.sp, color = wc.Purple.copy(alpha = 0.7f))
             }
         }
