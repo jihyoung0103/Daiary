@@ -3,6 +3,7 @@ package com.smu.daiary.feature.home
 import com.smu.daiary.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -426,10 +427,14 @@ private fun CalendarDayCell(
             .clip(RoundedCornerShape(8.dp))
             .background(
                 when {
-                    isToday    -> mc.accentPurple
-                    isSelected -> mc.calCard
+                    isSelected -> mc.accentPurple
                     else       -> Color.Transparent
                 }
+            )
+            .then(
+                if (isToday && !isSelected)
+                    Modifier.border(1.dp, mc.accentPurple, RoundedCornerShape(8.dp))
+                else Modifier
             )
             .clickable(enabled = day != null, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -445,8 +450,8 @@ private fun CalendarDayCell(
                 lineHeight = 12.sp,
                 fontWeight = if (isToday || isSelected) FontWeight.Medium else FontWeight.Normal,
                 color = when {
-                    isToday    -> mc.calCard
-                    isSelected -> mc.accentPurple
+                    isSelected -> mc.calCard
+                    isToday    -> mc.accentPurple
                     else       -> mc.textPrimary
                 }
             )
@@ -456,7 +461,7 @@ private fun CalendarDayCell(
                     modifier = Modifier
                         .size(4.dp)
                         .clip(CircleShape)
-                        .background(if (isToday) mc.calCard else diaryMoodColor)
+                        .background(if (isSelected) mc.calCard else diaryMoodColor)
                 )
             }
         }
