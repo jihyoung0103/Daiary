@@ -536,18 +536,6 @@ private fun RecentDiaryList(
             letterSpacing = 0.05.sp,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        if (selectedDate != null) {
-            Row(modifier = Modifier.padding(bottom = 12.dp)) {
-                if (items.isEmpty() && !selectedDate.isAfter(LocalDate.now())) {
-                    TextButton(onClick = { onWriteDiary(selectedDate.toString()) }) {
-                        Text(text = "일기 쓰기", fontSize = 13.sp, color = mc.accentPurple)
-                    }
-                }
-                TextButton(onClick = { onScheduleClick(selectedDate.toString()) }) {
-                    Text(text = "일정 보기", fontSize = 13.sp, color = mc.accentPurple)
-                }
-            }
-        }
         if (isLoading && selectedDate == null) {
             Box(
                 modifier = Modifier
@@ -631,6 +619,18 @@ private fun RecentDiaryList(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items.forEach { item ->
                     DiaryRow(item = item, onClick = { onDiaryClick(item.entry) })
+                }
+            }
+        }
+        if (selectedDate != null) {
+            Row(modifier = Modifier.padding(top = 12.dp)) {
+                if (items.isEmpty() && !selectedDate.isAfter(LocalDate.now())) {
+                    TextButton(onClick = { onWriteDiary(selectedDate.toString()) }) {
+                        Text(text = "일기 쓰기", fontSize = 13.sp, color = mc.accentPurple)
+                    }
+                }
+                TextButton(onClick = { onScheduleClick(selectedDate.toString()) }) {
+                    Text(text = "일정 보기", fontSize = 13.sp, color = mc.accentPurple)
                 }
             }
         }
