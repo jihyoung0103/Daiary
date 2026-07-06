@@ -136,6 +136,7 @@ fun HomeScreen(
     onProfileClick: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {},
     onScheduleClick: (String) -> Unit = {},
+    onWriteDiary: (String) -> Unit = {},
     weeklyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     monthlyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     weeklyBannerSubLabel: String = "",
@@ -217,7 +218,8 @@ fun HomeScreen(
                         error = error,
                         onRetry = onRetry,
                         onDiaryClick = onDiaryClick,
-                        onScheduleClick = onScheduleClick
+                        onScheduleClick = onScheduleClick,
+                        onWriteDiary = onWriteDiary
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -476,7 +478,8 @@ private fun RecentDiaryList(
     error: String? = null,
     onRetry: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {},
-    onScheduleClick: (String) -> Unit = {}
+    onScheduleClick: (String) -> Unit = {},
+    onWriteDiary: (String) -> Unit = {}
 ) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
@@ -573,15 +576,15 @@ private fun RecentDiaryList(
                     color = mc.textMuted,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
-                TextButton(
-                    onClick = { onScheduleClick(selectedDate.toString()) },
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    Text(
-                        text = "일정 보기",
-                        fontSize = 13.sp,
-                        color = mc.accentPurple
-                    )
+                Row {
+                    if (!selectedDate.isAfter(LocalDate.now())) {
+                        TextButton(onClick = { onWriteDiary(selectedDate.toString()) }) {
+                            Text(text = "일기 쓰기", fontSize = 13.sp, color = mc.accentPurple)
+                        }
+                    }
+                    TextButton(onClick = { onScheduleClick(selectedDate.toString()) }) {
+                        Text(text = "일정 보기", fontSize = 13.sp, color = mc.accentPurple)
+                    }
                 }
             } else {
                 Box(

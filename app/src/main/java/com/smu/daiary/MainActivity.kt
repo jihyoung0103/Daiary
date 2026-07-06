@@ -56,6 +56,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import com.smu.daiary.data.source.HealthDataSource
 import com.smu.daiary.data.model.DiaryEntry
+import java.time.LocalDate
 import com.smu.daiary.feature.auth.AuthState
 import com.smu.daiary.feature.auth.AuthViewModel
 import com.smu.daiary.feature.auth.LoginScreen
@@ -322,7 +323,7 @@ class MainActivity : ComponentActivity() {
                                         error = homeError,
                                         onRetry = { homeViewModel.loadDiaries(userId) },
                                         onStartDiary = {
-                                            // 권한 요청 → 결과 콜백에서 loadBlocks + navigate 실행
+                                            writeViewModel.setTargetDate(null)
                                             permissionLauncher.launch(requiredPermissions)
                                         },
                                         onProfileClick = { navController.navigate("profile") },
@@ -332,6 +333,10 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onScheduleClick = { date ->
                                             navController.navigate("schedule_view/$date")
+                                        },
+                                        onWriteDiary = { dateStr ->
+                                            writeViewModel.setTargetDate(LocalDate.parse(dateStr))
+                                            permissionLauncher.launch(requiredPermissions)
                                         },
                                         weeklyBannerStatus = weeklyBannerStatus,
                                         monthlyBannerStatus = monthlyBannerStatus,

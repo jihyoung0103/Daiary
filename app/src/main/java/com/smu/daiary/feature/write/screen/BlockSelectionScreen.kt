@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.FitnessCenter
@@ -82,6 +83,7 @@ import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.util.DiaryDateUtil
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -104,10 +106,12 @@ fun BlockSelectionScreen(
 
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val calendarEvents by viewModel.calendarEvents.collectAsStateWithLifecycle()
+    val upcomingEvents by viewModel.upcomingEvents.collectAsStateWithLifecycle()
     val payments by viewModel.payments.collectAsStateWithLifecycle()
 
     // 카테고리 블록 펼침 상태
     var calendarExpanded by remember { mutableStateOf(false) }
+    var upcomingExpanded by remember { mutableStateOf(false) }
     var photoExpanded by remember { mutableStateOf(false) }
     var paymentExpanded by remember { mutableStateOf(false) }
 
@@ -120,6 +124,7 @@ fun BlockSelectionScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val isLateNight = remember { DiaryDateUtil.isLateNight() }
+    val writingDate by viewModel.writingDate.collectAsStateWithLifecycle()
 
     var hasNavigatedToQnA by remember { mutableStateOf(false) }
     LaunchedEffect(contextQuestions) {
@@ -196,7 +201,7 @@ fun BlockSelectionScreen(
         } else if (blocks.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (isLateNight) LateNightBanner(wc)
+                    DateBanner(wc = wc, date = writingDate, isLateNight = isLateNight)
                     Text(text = stringResource(R.string.block_empty_message), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = wc.TextPrimary, textAlign = TextAlign.Center)
                     TextButton(onClick = onRetry) {
                         Text(text = stringResource(R.string.btn_retry), color = wc.Purple, fontWeight = FontWeight.Medium, fontSize = 14.sp)
@@ -214,7 +219,7 @@ fun BlockSelectionScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 item {
-                    if (isLateNight) LateNightBanner(wc)
+                    DateBanner(wc = wc, date = writingDate, isLateNight = isLateNight)
                 }
 
                 items(blocks) { block ->
@@ -238,6 +243,28 @@ fun BlockSelectionScreen(
                                 CalendarDetailSelector(
                                     events = calendarEvents,
                                     onToggle = { id -> viewModel.toggleCalendarEvent(id) }
+                                )
+                            }
+                        }
+
+                        BlockType.CALENDAR_UPCOMING -> {
+                            val selectedCount = upcomingEvents.count { it.isSelected }
+                            val hasEvents = upcomingEvents.isNotEmpty()
+                            CategoryBlockItem(
+                                block = block,
+                                enabled = !isGeneratingQuestions,
+                                isExpanded = upcomingExpanded,
+                                displayText = if (!hasEvents) block.content
+                                              else if (selectedCount == 0) "선택된 일정 없음"
+                                              else "향후 일정 ${selectedCount}개 선택됨",
+                                isExpandable = hasEvents,
+                                onClick = { if (hasEvents) upcomingExpanded = !upcomingExpanded }
+                            )
+                            if (upcomingExpanded && hasEvents) {
+                                Spacer(Modifier.height(4.dp))
+                                CalendarDetailSelector(
+                                    events = upcomingEvents,
+                                    onToggle = { id -> viewModel.toggleUpcomingEvent(id) }
                                 )
                             }
                         }
@@ -599,10 +626,16 @@ private fun PaymentDetailSelector(
 // ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun LateNightBanner(wc: WriteColorScheme) {
-    val diaryDate = remember { DiaryDateUtil.diaryDate() }
+private fun DateBanner(wc: WriteColorScheme, date: LocalDate, isLateNight: Boolean) {
+    val today = remember { DiaryDateUtil.diaryDate() }
+    val isPastDate = date.isBefore(today)
+    if (!isPastDate && !isLateNight) return
+
     val formatter = DateTimeFormatter.ofPattern("M월 d일", Locale.KOREAN)
-    val dateText = diaryDate.format(formatter)
+    val dateText = date.format(formatter)
+    val subtitle = if (isPastDate) "${dateText}의 일기를 작성하고 있어요"
+                   else "자정이 넘었지만 오전 4시까지는 어제 일기로 저장돼요"
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = wc.PurpleLight,
@@ -617,7 +650,7 @@ private fun LateNightBanner(wc: WriteColorScheme) {
             Icon(imageVector = Icons.Outlined.Nightlight, contentDescription = null, tint = wc.Purple, modifier = Modifier.size(18.dp))
             Column {
                 Text(text = "$dateText 일기를 작성하고 있어요", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
-                Text(text = "자정이 넘었지만 오전 4시까지는 어제 일기로 저장돼요", fontSize = 11.sp, color = wc.Purple.copy(alpha = 0.7f))
+                Text(text = subtitle, fontSize = 11.sp, color = wc.Purple.copy(alpha = 0.7f))
             }
         }
     }
@@ -628,11 +661,12 @@ private fun LateNightBanner(wc: WriteColorScheme) {
 // ─────────────────────────────────────────────────────────────
 
 private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
-    BlockType.PAYMENT  -> Icons.Outlined.CreditCard
-    BlockType.PHOTO    -> Icons.Outlined.PhotoCamera
-    BlockType.CALENDAR -> Icons.Outlined.CalendarMonth
-    BlockType.HEALTH   -> Icons.Outlined.FitnessCenter
-    BlockType.WEATHER  -> Icons.Outlined.WbSunny
+    BlockType.PAYMENT           -> Icons.Outlined.CreditCard
+    BlockType.PHOTO             -> Icons.Outlined.PhotoCamera
+    BlockType.CALENDAR          -> Icons.Outlined.CalendarMonth
+    BlockType.CALENDAR_UPCOMING -> Icons.Outlined.DateRange
+    BlockType.HEALTH            -> Icons.Outlined.FitnessCenter
+    BlockType.WEATHER           -> Icons.Outlined.WbSunny
 }
 
 /** 날씨 블록의 content(예: "맑음 22°C · 습도 60%")에서 날씨 종류를 읽어 아이콘 매핑. 매칭 실패 시 WbSunny로 fallback */
@@ -650,9 +684,10 @@ private fun weatherIconFor(content: String): ImageVector {
 
 @Composable
 private fun blockTypeLabel(type: BlockType): String = when (type) {
-    BlockType.PAYMENT  -> stringResource(R.string.block_type_payment)
-    BlockType.PHOTO    -> stringResource(R.string.block_type_photo)
-    BlockType.CALENDAR -> stringResource(R.string.block_type_calendar)
-    BlockType.HEALTH   -> stringResource(R.string.block_type_health)
-    BlockType.WEATHER  -> stringResource(R.string.block_type_weather)
+    BlockType.PAYMENT           -> stringResource(R.string.block_type_payment)
+    BlockType.PHOTO             -> stringResource(R.string.block_type_photo)
+    BlockType.CALENDAR          -> stringResource(R.string.block_type_calendar)
+    BlockType.CALENDAR_UPCOMING -> "향후 일정"
+    BlockType.HEALTH            -> stringResource(R.string.block_type_health)
+    BlockType.WEATHER           -> stringResource(R.string.block_type_weather)
 }
