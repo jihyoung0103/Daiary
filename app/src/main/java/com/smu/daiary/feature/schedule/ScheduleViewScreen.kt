@@ -4,6 +4,11 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -40,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,6 +101,8 @@ private val ScheduleColorsDark = ScheduleColorScheme(
     border = BorderDark
 )
 
+private enum class ScheduleViewState { LOADING, NO_PERMISSION, EMPTY, CONTENT }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScheduleViewScreen(
@@ -105,6 +113,11 @@ fun ScheduleViewScreen(
     val isDark = LocalDarkTheme.current
     val sc = if (isDark) ScheduleColorsDark else ScheduleColorsLight
     val calendarDataSource = remember { CalendarDataSource(context) }
+    val density = LocalDensity.current
+    val slideOffsetPx = with(density) { 8.dp.roundToPx() }
+
+    var contentVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { contentVisible = true }
 
     var events by remember { mutableStateOf<List<CalendarEvent>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
@@ -161,7 +174,12 @@ fun ScheduleViewScreen(
                                 color = sc.textPrimary
                             )
                             if (badgeText != null) {
-                                DateBadge(text = badgeText, sc = sc)
+                                AnimatedVisibility(
+                                    visible = contentVisible,
+                                    enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { slideOffsetPx }
+                                ) {
+                                    DateBadge(text = badgeText, sc = sc)
+                                }
                             }
                         }
                         Text(
@@ -184,52 +202,72 @@ fun ScheduleViewScreen(
             )
         }
     ) { padding ->
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = sc.accent)
-                }
-            }
+        val viewState = when {
+            isLoading -> ScheduleViewState.LOADING
+            !permissionGranted -> ScheduleViewState.NO_PERMISSION
+            events.isEmpty() -> ScheduleViewState.EMPTY
+            else -> ScheduleViewState.CONTENT
+        }
 
-            !permissionGranted -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "캘린더 권한이 필요합니다",
-                        fontSize = 14.sp,
-                        color = sc.textMuted
-                    )
+        Crossfade(
+            targetState = viewState,
+            animationSpec = tween(200),
+            label = "scheduleContent"
+        ) { state ->
+            when (state) {
+                ScheduleViewState.LOADING -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = sc.accent)
+                    }
                 }
-            }
 
-            events.isEmpty() -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(padding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "이 날에 예정된 일정이 없습니다",
-                        fontSize = 14.sp,
-                        color = sc.textMuted
-                    )
+                ScheduleViewState.NO_PERMISSION -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "캘린더 권한이 필요합니다",
+                            fontSize = 14.sp,
+                            color = sc.textMuted
+                        )
+                    }
                 }
-            }
 
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 24.dp, vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(events) { event ->
-                        EventItem(event = event, isDark = isDark, sc = sc)
+                ScheduleViewState.EMPTY -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(padding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "이 날에 예정된 일정이 없습니다",
+                            fontSize = 14.sp,
+                            color = sc.textMuted
+                        )
+                    }
+                }
+
+                ScheduleViewState.CONTENT -> {
+                    var listVisible by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { listVisible = true }
+                    AnimatedVisibility(
+                        visible = listVisible,
+                        enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { slideOffsetPx }
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(padding)
+                                .padding(horizontal = 24.dp, vertical = 20.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(events) { event ->
+                                EventItem(event = event, isDark = isDark, sc = sc)
+                            }
+                        }
                     }
                 }
             }
