@@ -46,19 +46,51 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.smu.daiary.data.model.CalendarEvent
 import com.smu.daiary.data.source.CalendarDataSource
+import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.Dew
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Ivory
+import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.Stone
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.TextSecondaryDark
+import com.smu.daiary.ui.theme.White
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private object ScheduleColors {
-    val Bg = Color(0xFFFFFDF9)
-    val Surface = Color(0xFFE8F5E9)
-    val TextPrimary = Color(0xFF2C2C2A)
-    val TextMuted = Color(0xFF888780)
-    val Accent = Color(0xFF2E4739)
-    val Border = Color(0xFFD3D1C7)
-}
+private data class ScheduleColorScheme(
+    val bg: Color,
+    val surface: Color,
+    val textPrimary: Color,
+    val textMuted: Color,
+    val accent: Color,
+    val border: Color
+)
+
+private val ScheduleColorsLight = ScheduleColorScheme(
+    bg = Ivory,
+    surface = Dew,
+    textPrimary = Ink,
+    textMuted = Stone,
+    accent = SageForest,
+    border = Linen
+)
+
+private val ScheduleColorsDark = ScheduleColorScheme(
+    bg = BackgroundDark,
+    surface = SurfaceDark,
+    textPrimary = TextPrimaryDark,
+    textMuted = TextSecondaryDark,
+    accent = SageForestDark,
+    border = BorderDark
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,6 +99,8 @@ fun ScheduleViewScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val isDark = LocalDarkTheme.current
+    val sc = if (isDark) ScheduleColorsDark else ScheduleColorsLight
     val calendarDataSource = remember { CalendarDataSource(context) }
 
     var events by remember { mutableStateOf<List<CalendarEvent>>(emptyList()) }
@@ -100,7 +134,7 @@ fun ScheduleViewScreen(
     }.getOrDefault(date)
 
     Scaffold(
-        containerColor = ScheduleColors.Bg,
+        containerColor = sc.bg,
         topBar = {
             TopAppBar(
                 title = {
@@ -109,12 +143,12 @@ fun ScheduleViewScreen(
                             text = displayDate,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
-                            color = ScheduleColors.TextPrimary
+                            color = sc.textPrimary
                         )
                         Text(
                             text = "예정된 일정",
                             fontSize = 12.sp,
-                            color = ScheduleColors.TextMuted
+                            color = sc.textMuted
                         )
                     }
                 },
@@ -123,11 +157,11 @@ fun ScheduleViewScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = "뒤로",
-                            tint = ScheduleColors.TextPrimary
+                            tint = sc.textPrimary
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = ScheduleColors.Surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = sc.surface)
             )
         }
     ) { padding ->
@@ -137,7 +171,7 @@ fun ScheduleViewScreen(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = ScheduleColors.Accent)
+                    CircularProgressIndicator(color = sc.accent)
                 }
             }
 
@@ -149,7 +183,7 @@ fun ScheduleViewScreen(
                     Text(
                         text = "캘린더 권한이 필요합니다",
                         fontSize = 14.sp,
-                        color = ScheduleColors.TextMuted
+                        color = sc.textMuted
                     )
                 }
             }
@@ -162,7 +196,7 @@ fun ScheduleViewScreen(
                     Text(
                         text = "이 날에 예정된 일정이 없습니다",
                         fontSize = 14.sp,
-                        color = ScheduleColors.TextMuted
+                        color = sc.textMuted
                     )
                 }
             }
@@ -176,7 +210,7 @@ fun ScheduleViewScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(events) { event ->
-                        EventItem(event = event)
+                        EventItem(event = event, isDark = isDark, sc = sc)
                     }
                 }
             }
@@ -185,18 +219,19 @@ fun ScheduleViewScreen(
 }
 
 @Composable
-private fun EventItem(event: CalendarEvent) {
+private fun EventItem(event: CalendarEvent, isDark: Boolean, sc: ScheduleColorScheme) {
     val fmt = DateTimeFormatter.ofPattern("HH:mm")
     val zone = ZoneId.systemDefault()
     val startStr = Instant.ofEpochMilli(event.startTime).atZone(zone).format(fmt)
     val endStr = Instant.ofEpochMilli(event.endTime).atZone(zone).format(fmt)
+    val cardBg = if (isDark) SurfaceDark else White
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(0.5.dp, ScheduleColors.Border, RoundedCornerShape(16.dp))
+            .background(cardBg)
+            .border(0.5.dp, sc.border, RoundedCornerShape(16.dp))
             .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -205,13 +240,13 @@ private fun EventItem(event: CalendarEvent) {
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(ScheduleColors.Surface),
+                .background(sc.surface),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Outlined.EventNote,
                 contentDescription = null,
-                tint = ScheduleColors.Accent,
+                tint = sc.accent,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -220,18 +255,18 @@ private fun EventItem(event: CalendarEvent) {
                 text = event.title,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
-                color = ScheduleColors.TextPrimary
+                color = sc.textPrimary
             )
             Text(
                 text = "$startStr ~ $endStr",
                 fontSize = 12.sp,
-                color = ScheduleColors.TextMuted
+                color = sc.textMuted
             )
             if (event.location.isNotBlank()) {
                 Text(
                     text = event.location,
                     fontSize = 12.sp,
-                    color = ScheduleColors.TextMuted
+                    color = sc.textMuted
                 )
             }
         }
