@@ -159,6 +159,7 @@
     <string name="block_type_payment">Payment</string>
     <string name="block_type_photo">Photo</string>
     <string name="block_type_calendar">Schedule</string>
+    <string name="block_type_calendar_upcoming">Upcoming Events</string>
     <string name="block_type_health">Health</string>
     <string name="block_type_weather">Weather</string>
 

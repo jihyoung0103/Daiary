@@ -172,6 +172,7 @@
     <string name="block_type_payment">결제 내역</string>
     <string name="block_type_photo">사진</string>
     <string name="block_type_calendar">일정</string>
+    <string name="block_type_calendar_upcoming">향후 일정</string>
     <string name="block_type_health">건강</string>
     <string name="block_type_weather">날씨</string>
 

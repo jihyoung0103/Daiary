@@ -687,7 +687,7 @@ private fun blockTypeLabel(type: BlockType): String = when (type) {
     BlockType.PAYMENT           -> stringResource(R.string.block_type_payment)
     BlockType.PHOTO             -> stringResource(R.string.block_type_photo)
     BlockType.CALENDAR          -> stringResource(R.string.block_type_calendar)
-    BlockType.CALENDAR_UPCOMING -> "향후 일정"
+    BlockType.CALENDAR_UPCOMING -> stringResource(R.string.block_type_calendar_upcoming)
     BlockType.HEALTH            -> stringResource(R.string.block_type_health)
     BlockType.WEATHER           -> stringResource(R.string.block_type_weather)
 }
