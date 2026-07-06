@@ -193,6 +193,11 @@
     <string name="block_photo_selection_content">오늘 찍은 사진 %1$d장 · 선택 %2$d장</string>
     <string name="block_empty_message">수집된 데이터가 없습니다</string>
 
+    <!-- 일정 상세화면: 날짜 배지 -->
+    <string name="schedule_badge_today">오늘</string>
+    <string name="schedule_badge_tomorrow">내일</string>
+    <string name="schedule_badge_days_later">%1$d일 후</string>
+
     <!-- 푸시 알림 -->
     <string name="notification_title">오늘도 수고했어요 🌿</string>
     <string name="notification_body">오늘의 이야기를 일기로 남겨보세요</string>

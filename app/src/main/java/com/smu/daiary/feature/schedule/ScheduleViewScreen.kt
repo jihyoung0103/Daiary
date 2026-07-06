@@ -43,7 +43,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
+import com.smu.daiary.R
 import com.smu.daiary.data.model.CalendarEvent
 import com.smu.daiary.data.source.CalendarDataSource
 import com.smu.daiary.ui.theme.BackgroundDark
@@ -64,6 +66,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 
 private data class ScheduleColorScheme(
     val bg: Color,
@@ -133,18 +136,34 @@ fun ScheduleViewScreen(
         "${d.year}년 ${d.monthValue}월 ${d.dayOfMonth}일"
     }.getOrDefault(date)
 
+    val badgeText = runCatching { LocalDate.parse(date) }.getOrNull()?.let { parsedDate ->
+        when (val daysFromToday = ChronoUnit.DAYS.between(LocalDate.now(), parsedDate)) {
+            0L -> stringResource(R.string.schedule_badge_today)
+            1L -> stringResource(R.string.schedule_badge_tomorrow)
+            else -> if (daysFromToday >= 2L) stringResource(R.string.schedule_badge_days_later, daysFromToday.toInt()) else null
+        }
+    }
+
     Scaffold(
         containerColor = sc.bg,
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text(
-                            text = displayDate,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = sc.textPrimary
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = displayDate,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = sc.textPrimary
+                            )
+                            if (badgeText != null) {
+                                DateBadge(text = badgeText, sc = sc)
+                            }
+                        }
                         Text(
                             text = "예정된 일정",
                             fontSize = 12.sp,
@@ -215,6 +234,23 @@ fun ScheduleViewScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DateBadge(text: String, sc: ScheduleColorScheme) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(sc.surface)
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = sc.accent
+        )
     }
 }
 

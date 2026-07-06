@@ -180,6 +180,11 @@
     <string name="block_photo_selection_content">%1$d photos today · %2$d selected</string>
     <string name="block_empty_message">No data collected</string>
 
+    <!-- Schedule detail screen: date badge -->
+    <string name="schedule_badge_today">Today</string>
+    <string name="schedule_badge_tomorrow">Tomorrow</string>
+    <string name="schedule_badge_days_later">In %1$d days</string>
+
     <!-- Push notifications -->
     <string name="notification_title">Good job today 🌿</string>
     <string name="notification_body">Write today\'s story in your diary</string>
