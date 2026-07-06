@@ -21,31 +21,43 @@ class CalendarDataSource(private val context: Context) {
         return start to end
     }
 
+    suspend fun fetchEventsForDate(date: LocalDate): List<CalendarEvent> = withContext(Dispatchers.IO) {
+        val zone = ZoneId.systemDefault()
+        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        queryEvents(start, end)
+    }
+
     suspend fun fetchUpcomingEvents(): List<CalendarEvent> = withContext(Dispatchers.IO) {
         val (start, end) = upcomingRange()
+        queryEvents(start, end)
+    }
+
+    private suspend fun queryEvents(start: Long, end: Long): List<CalendarEvent> = withContext(Dispatchers.IO) {
         val events = mutableListOf<CalendarEvent>()
 
-        val uri = CalendarContract.Events.CONTENT_URI
+        // Instances URI를 쓰면 반복 일정이 전개되고 all-day 이벤트도 올바르게 조회됨
+        val uri = CalendarContract.Instances.CONTENT_URI.buildUpon()
+            .appendPath(start.toString())
+            .appendPath(end.toString())
+            .build()
+
         val projection = arrayOf(
-            CalendarContract.Events.TITLE,
-            CalendarContract.Events.DTSTART,
-            CalendarContract.Events.DTEND,
-            CalendarContract.Events.EVENT_LOCATION
+            CalendarContract.Instances.TITLE,
+            CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.END,
+            CalendarContract.Instances.EVENT_LOCATION
         )
-        // 오늘 시작/종료 범위에 걸치는 일정 쿼리
-        val selection = "(${CalendarContract.Events.DTSTART} >= ?) AND " +
-                "(${CalendarContract.Events.DTSTART} <= ?)"
-        val selectionArgs = arrayOf(start.toString(), end.toString())
 
         val cursor = context.contentResolver.query(
-            uri, projection, selection, selectionArgs, CalendarContract.Events.DTSTART + " ASC"
+            uri, projection, null, null, CalendarContract.Instances.BEGIN + " ASC"
         )
 
         cursor?.use {
-            val titleIdx = it.getColumnIndex(CalendarContract.Events.TITLE)
-            val startIdx = it.getColumnIndex(CalendarContract.Events.DTSTART)
-            val endIdx = it.getColumnIndex(CalendarContract.Events.DTEND)
-            val locationIdx = it.getColumnIndex(CalendarContract.Events.EVENT_LOCATION)
+            val titleIdx    = it.getColumnIndex(CalendarContract.Instances.TITLE)
+            val startIdx    = it.getColumnIndex(CalendarContract.Instances.BEGIN)
+            val endIdx      = it.getColumnIndex(CalendarContract.Instances.END)
+            val locationIdx = it.getColumnIndex(CalendarContract.Instances.EVENT_LOCATION)
 
             while (it.moveToNext()) {
                 events.add(
@@ -58,7 +70,6 @@ class CalendarDataSource(private val context: Context) {
                 )
             }
         }
-
         events
     }
 }

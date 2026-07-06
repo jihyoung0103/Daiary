@@ -12,6 +12,7 @@ import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.smu.daiary.data.repository.DiaryRepository
+import com.smu.daiary.data.model.CalendarEvent
 import com.smu.daiary.data.source.CalendarDataSource
 import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
@@ -99,6 +100,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _calendarEvents = MutableStateFlow<List<CalendarSelectableItem>>(emptyList())
     val calendarEvents = _calendarEvents.asStateFlow()
 
+    /** 내일/모레 향후 일정 목록 — 개별 선택/해제 가능 */
+    private val _upcomingEvents = MutableStateFlow<List<CalendarSelectableItem>>(emptyList())
+    val upcomingEvents = _upcomingEvents.asStateFlow()
+
     /** 오늘 결제 내역 목록 — 개별 선택/해제 가능 */
     private val _payments = MutableStateFlow<List<PaymentSelectableItem>>(emptyList())
     val payments = _payments.asStateFlow()
@@ -170,6 +175,17 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 편집 모드일 때 수정 대상 일기의 Firestore ID. null이면 신규 작성 */
     private val _existingEntryId = MutableStateFlow<String?>(null)
 
+    /** 과거 날짜 일기 작성 시 대상 날짜. null이면 오늘(DiaryDateUtil.diaryDate()) 기준 */
+    private var targetDate: LocalDate? = null
+
+    private val _writingDate = MutableStateFlow<LocalDate>(DiaryDateUtil.diaryDate())
+    val writingDate: StateFlow<LocalDate> = _writingDate.asStateFlow()
+
+    fun setTargetDate(date: LocalDate?) {
+        targetDate = date
+        _writingDate.value = date ?: DiaryDateUtil.diaryDate()
+    }
+
     /** AI 프롬프트에 문체 참고용으로 넘길 최근 일기 샘플 (최대 2개) */
     private var recentDiarySamples: String = ""
 
@@ -186,17 +202,25 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             _blocks.value = emptyList()
             _photos.value = emptyList()
             _calendarEvents.value = emptyList()
+            _upcomingEvents.value = emptyList()
             _payments.value = emptyList()
 
 
-            // 오전 4시 이전이면 전날 기준으로 데이터 수집
-            val date = DiaryDateUtil.diaryDate().toString()
+            // 과거 날짜 지정 시 그 날짜, 아니면 오늘(오전 4시 이전이면 전날) 기준
+            val target = targetDate
+            val date = (target ?: DiaryDateUtil.diaryDate()).toString()
             val blocks = mutableListOf<ContentBlock>()
 
 
             // --- 날씨, 캘린더, 사진, 건강 병렬 수집 ---
             val weatherDeferred = async { runCatching { weatherDataSource.fetchWeather() } }
-            val calendarDeferred = async { runCatching { calendarDataSource.fetchUpcomingEvents() } }
+            // 과거 날짜면 해당 날짜 일정만 조회, 오늘이면 3일치(오늘/내일/모레) 조회
+            val calendarDeferred = async {
+                runCatching {
+                    if (target != null) calendarDataSource.fetchEventsForDate(target)
+                    else calendarDataSource.fetchUpcomingEvents()
+                }
+            }
             val photoDeferred = async { runCatching { photoDataSource.fetchTodayPhotos() } }
             val healthDeferred = async { runCatching { healthDataSource.fetchTodayHealth() } }
 
@@ -233,34 +257,59 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         ))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-                        val diaryDate = DiaryDateUtil.diaryDate()
-                        _calendarEvents.value = events.mapIndexed { i, event ->
-                            val zone = ZoneId.systemDefault()
-                            val eventDate = Instant.ofEpochMilli(event.startTime)
-                                .atZone(zone).toLocalDate()
+                        val diaryDate = target ?: DiaryDateUtil.diaryDate()
+                        val zone = ZoneId.systemDefault()
+
+                        fun toSelectableItem(event: CalendarEvent, id: Int): CalendarSelectableItem {
+                            val eventDate = Instant.ofEpochMilli(event.startTime).atZone(zone).toLocalDate()
                             val dayLabel = when (eventDate) {
-                                diaryDate              -> "오늘"
-                                diaryDate.plusDays(1)  -> "내일"
-                                diaryDate.plusDays(2)  -> "모레"
+                                diaryDate             -> "오늘"
+                                diaryDate.plusDays(1) -> "내일"
+                                diaryDate.plusDays(2) -> "모레"
                                 else -> eventDate.format(DateTimeFormatter.ofPattern("M/d"))
                             }
-                            val startStr = Instant.ofEpochMilli(event.startTime)
-                                .atZone(zone).format(timeFormatter)
-                            val endStr = Instant.ofEpochMilli(event.endTime)
-                                .atZone(zone).format(timeFormatter)
+                            val startStr = Instant.ofEpochMilli(event.startTime).atZone(zone).format(timeFormatter)
+                            val endStr = Instant.ofEpochMilli(event.endTime).atZone(zone).format(timeFormatter)
                             val locationPart = if (event.location.isNotBlank()) " · ${event.location}" else ""
-                            CalendarSelectableItem(
-                                id = i,
+                            return CalendarSelectableItem(
+                                id = id,
                                 displayText = "[$dayLabel] ${event.title} $startStr~$endStr$locationPart",
                                 startTime = event.startTime,
                                 isSelected = true
                             )
                         }
-                        blocks.add(ContentBlock(
-                            id = "calendar_summary", type = BlockType.CALENDAR,
-                            content = buildCalendarSummary(_calendarEvents.value),
-                            isSelected = true
-                        ))
+
+                        // 과거 날짜: 전체가 해당 날짜 일정 / 오늘: 날짜별 분리
+                        val todayEvents = if (target != null) events
+                            else events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() == diaryDate }
+                        val futureEvents = if (target != null) emptyList()
+                            else events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() > diaryDate }
+
+                        // 오늘 일정 블록
+                        if (todayEvents.isNotEmpty()) {
+                            _calendarEvents.value = todayEvents.mapIndexed { i, event -> toSelectableItem(event, i) }
+                            blocks.add(ContentBlock(
+                                id = "calendar_summary", type = BlockType.CALENDAR,
+                                content = buildCalendarSummary(_calendarEvents.value),
+                                isSelected = true
+                            ))
+                        } else {
+                            blocks.add(ContentBlock(
+                                id = "calendar_summary", type = BlockType.CALENDAR,
+                                content = localizedContext().getString(R.string.block_calendar_empty),
+                                isSelected = false
+                            ))
+                        }
+
+                        // 향후 일정 블록 (오늘 일기 작성 시에만)
+                        if (futureEvents.isNotEmpty()) {
+                            _upcomingEvents.value = futureEvents.mapIndexed { i, event -> toSelectableItem(event, i) }
+                            blocks.add(ContentBlock(
+                                id = "calendar_upcoming", type = BlockType.CALENDAR_UPCOMING,
+                                content = buildUpcomingCalendarSummary(_upcomingEvents.value),
+                                isSelected = true
+                            ))
+                        }
                     }
                 }
                 .onFailure {
@@ -568,6 +617,35 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         syncPhotoBlockSelection()
     }
 
+    /** 향후 일정 개별 선택 토글 → 완료 후 향후 일정 블록 요약 텍스트 자동 갱신 */
+    fun toggleUpcomingEvent(id: Int) {
+        _upcomingEvents.update { list ->
+            list.map { if (it.id == id) it.copy(isSelected = !it.isSelected) else it }
+        }
+        syncUpcomingBlockSelection()
+    }
+
+    private fun syncUpcomingBlockSelection() {
+        val selected = _upcomingEvents.value.filter { it.isSelected }
+        _blocks.update { list ->
+            list.map { block ->
+                if (block.type == BlockType.CALENDAR_UPCOMING) {
+                    block.copy(
+                        content = buildUpcomingCalendarSummary(_upcomingEvents.value),
+                        isSelected = selected.isNotEmpty()
+                    )
+                } else block
+            }
+        }
+    }
+
+    private fun buildUpcomingCalendarSummary(events: List<CalendarSelectableItem>): String {
+        val selected = events.filter { it.isSelected }
+        if (selected.isEmpty()) return "선택된 향후 일정이 없습니다"
+        val lines = selected.joinToString("\n") { "- ${it.displayText}" }
+        return "향후 일정 ${selected.size}개\n$lines"
+    }
+
     /** 캘린더 일정 개별 선택 토글 → 완료 후 캘린더 블록 요약 텍스트 자동 갱신 */
     fun toggleCalendarEvent(id: Int) {
         _calendarEvents.update { list ->
@@ -799,7 +877,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
     fun generateDraft(qaAnswers: Map<String, String> = emptyMap()) = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
-        val today = DiaryDateUtil.diaryDate().toString()
+        val today = (targetDate ?: DiaryDateUtil.diaryDate()).toString()
 
         if (selected.isEmpty()) {
             _draft.value = DiaryDraft(
@@ -930,8 +1008,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             when (block.type) {
                 BlockType.PAYMENT  -> appendLine(localizedContext().getString(R.string.draft_block_payment, block.content))
                 BlockType.PHOTO    -> appendLine(localizedContext().getString(R.string.draft_block_photo, block.content))
-                BlockType.CALENDAR -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
-                BlockType.HEALTH   -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
+                BlockType.CALENDAR          -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
+                BlockType.CALENDAR_UPCOMING -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
+                BlockType.HEALTH            -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
                 BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
             }
         }
@@ -1073,8 +1152,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 일기 작성 완료 또는 취소 시 모든 상태 초기화 */
     fun resetDraft() {
+        targetDate = null
         _draft.value = null
         _blocks.value = emptyList()
+        _calendarEvents.value = emptyList()
+        _upcomingEvents.value = emptyList()
         _contextQuestions.value = null
         _selectedWeather.value = null
         _selectedEmotion.value = null

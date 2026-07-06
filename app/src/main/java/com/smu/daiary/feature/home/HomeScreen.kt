@@ -3,6 +3,7 @@ package com.smu.daiary.feature.home
 import com.smu.daiary.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -135,6 +136,8 @@ fun HomeScreen(
     onStartDiary: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {},
+    onScheduleClick: (String) -> Unit = {},
+    onWriteDiary: (String) -> Unit = {},
     weeklyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     monthlyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     weeklyBannerSubLabel: String = "",
@@ -215,7 +218,9 @@ fun HomeScreen(
                         isLoading = isLoading,
                         error = error,
                         onRetry = onRetry,
-                        onDiaryClick = onDiaryClick
+                        onDiaryClick = onDiaryClick,
+                        onScheduleClick = onScheduleClick,
+                        onWriteDiary = onWriteDiary
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -254,24 +259,27 @@ private fun StatusBarPill() {
 private fun TopBarSection(yearMonth: YearMonth) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .padding(top = 16.dp)
+            .height(64.dp)
+            .padding(horizontal = 24.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
-        Text(
-            text = stringResource(R.string.year_label, yearMonth.year),
-            fontSize = 12.sp,
-            color = mc.textMuted,
-            modifier = Modifier.padding(bottom = 2.dp)
-        )
-        Text(
-            text = stringResource(R.string.month_record_title, yearMonth.monthValue),
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Medium,
-            color = mc.textPrimary
-        )
+        Column {
+            Text(
+                text = stringResource(R.string.year_label, yearMonth.year),
+                fontSize = 12.sp,
+                color = mc.textMuted,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+            Text(
+                text = stringResource(R.string.month_record_title, yearMonth.monthValue),
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
+                color = mc.textPrimary
+            )
+        }
     }
 }
 
@@ -419,10 +427,14 @@ private fun CalendarDayCell(
             .clip(RoundedCornerShape(8.dp))
             .background(
                 when {
-                    isToday    -> mc.accentPurple
-                    isSelected -> mc.calCard
+                    isSelected -> mc.accentPurple
                     else       -> Color.Transparent
                 }
+            )
+            .then(
+                if (isToday && !isSelected)
+                    Modifier.border(1.dp, mc.accentPurple, RoundedCornerShape(8.dp))
+                else Modifier
             )
             .clickable(enabled = day != null, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -438,8 +450,8 @@ private fun CalendarDayCell(
                 lineHeight = 12.sp,
                 fontWeight = if (isToday || isSelected) FontWeight.Medium else FontWeight.Normal,
                 color = when {
-                    isToday    -> mc.calCard
-                    isSelected -> mc.accentPurple
+                    isSelected -> mc.calCard
+                    isToday    -> mc.accentPurple
                     else       -> mc.textPrimary
                 }
             )
@@ -449,7 +461,7 @@ private fun CalendarDayCell(
                     modifier = Modifier
                         .size(4.dp)
                         .clip(CircleShape)
-                        .background(if (isToday) mc.calCard else diaryMoodColor)
+                        .background(if (isSelected) mc.calCard else diaryMoodColor)
                 )
             }
         }
@@ -473,7 +485,9 @@ private fun RecentDiaryList(
     isLoading: Boolean = false,
     error: String? = null,
     onRetry: () -> Unit = {},
-    onDiaryClick: (DiaryEntry) -> Unit = {}
+    onDiaryClick: (DiaryEntry) -> Unit = {},
+    onScheduleClick: (String) -> Unit = {},
+    onWriteDiary: (String) -> Unit = {}
 ) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
@@ -605,6 +619,18 @@ private fun RecentDiaryList(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items.forEach { item ->
                     DiaryRow(item = item, onClick = { onDiaryClick(item.entry) })
+                }
+            }
+        }
+        if (selectedDate != null) {
+            Row(modifier = Modifier.padding(top = 12.dp)) {
+                if (items.isEmpty() && !selectedDate.isAfter(LocalDate.now())) {
+                    TextButton(onClick = { onWriteDiary(selectedDate.toString()) }) {
+                        Text(text = "일기 쓰기", fontSize = 13.sp, color = mc.accentPurple)
+                    }
+                }
+                TextButton(onClick = { onScheduleClick(selectedDate.toString()) }) {
+                    Text(text = "일정 보기", fontSize = 13.sp, color = mc.accentPurple)
                 }
             }
         }

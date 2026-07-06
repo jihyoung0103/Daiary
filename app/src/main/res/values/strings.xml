@@ -172,6 +172,7 @@
     <string name="block_type_payment">결제 내역</string>
     <string name="block_type_photo">사진</string>
     <string name="block_type_calendar">일정</string>
+    <string name="block_type_calendar_upcoming">향후 일정</string>
     <string name="block_type_health">건강</string>
     <string name="block_type_weather">날씨</string>
 
@@ -191,6 +192,13 @@
     <string name="block_photo_count">오늘 찍은 사진 %1$d장</string>
     <string name="block_photo_selection_content">오늘 찍은 사진 %1$d장 · 선택 %2$d장</string>
     <string name="block_empty_message">수집된 데이터가 없습니다</string>
+
+    <!-- 일정 상세화면: 날짜 배지 -->
+    <string name="schedule_badge_today">오늘</string>
+    <string name="schedule_badge_tomorrow">내일</string>
+    <string name="schedule_badge_days_later">%1$d일 후</string>
+    <string name="schedule_subtitle_upcoming">예정된 일정</string>
+    <string name="schedule_subtitle_past">지난 일정</string>
 
     <!-- 푸시 알림 -->
     <string name="notification_title">오늘도 수고했어요 🌿</string>

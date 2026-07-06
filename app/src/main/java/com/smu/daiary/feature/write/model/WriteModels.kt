@@ -3,7 +3,8 @@ package com.smu.daiary.feature.write.model
 enum class BlockType(val label: String) {
     PAYMENT("결제 내역"),
     PHOTO("사진"),
-    CALENDAR("일정"),
+    CALENDAR("오늘 일정"),
+    CALENDAR_UPCOMING("향후 일정"),
     HEALTH("건강"),
     WEATHER("날씨")
 }

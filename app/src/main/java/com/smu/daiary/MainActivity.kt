@@ -56,6 +56,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import com.smu.daiary.data.source.HealthDataSource
 import com.smu.daiary.data.model.DiaryEntry
+import java.time.LocalDate
 import com.smu.daiary.feature.auth.AuthState
 import com.smu.daiary.feature.auth.AuthViewModel
 import com.smu.daiary.feature.auth.LoginScreen
@@ -68,6 +69,7 @@ import com.smu.daiary.feature.home.HomeViewModel
 import com.smu.daiary.feature.settings.SettingsScreen
 import com.smu.daiary.feature.notification.createNotificationChannel
 import com.smu.daiary.feature.settings.SettingsScreen
+import com.smu.daiary.feature.schedule.ScheduleViewScreen
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.screen.BlockSelectionScreen
 import com.smu.daiary.feature.write.screen.ContextQnAScreen
@@ -321,13 +323,20 @@ class MainActivity : ComponentActivity() {
                                         error = homeError,
                                         onRetry = { homeViewModel.loadDiaries(userId) },
                                         onStartDiary = {
-                                            // 권한 요청 → 결과 콜백에서 loadBlocks + navigate 실행
+                                            writeViewModel.setTargetDate(null)
                                             permissionLauncher.launch(requiredPermissions)
                                         },
                                         onProfileClick = { navController.navigate("profile") },
                                         onDiaryClick = { entry ->
                                             selectedDiary = entry
                                             navController.navigate("diary_detail")
+                                        },
+                                        onScheduleClick = { date ->
+                                            navController.navigate("schedule_view/$date")
+                                        },
+                                        onWriteDiary = { dateStr ->
+                                            writeViewModel.setTargetDate(LocalDate.parse(dateStr))
+                                            permissionLauncher.launch(requiredPermissions)
                                         },
                                         weeklyBannerStatus = weeklyBannerStatus,
                                         monthlyBannerStatus = monthlyBannerStatus,
@@ -572,6 +581,14 @@ class MainActivity : ComponentActivity() {
                                 composable("settings") {
                                     SettingsScreen(
                                         onConfirm = { navController.popBackStack() }
+                                    )
+                                }
+                                // "schedule_view/{date}": 날짜별 캘린더 일정 화면
+                                composable("schedule_view/{date}") { backStackEntry ->
+                                    val date = backStackEntry.arguments?.getString("date") ?: ""
+                                    ScheduleViewScreen(
+                                        date = date,
+                                        onBack = { navController.popBackStack() }
                                     )
                                 }
                             }
