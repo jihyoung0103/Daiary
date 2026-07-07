@@ -175,6 +175,8 @@
     <string name="block_type_calendar_upcoming">향후 일정</string>
     <string name="block_type_health">건강</string>
     <string name="block_type_weather">날씨</string>
+    <string name="block_type_weather_tomorrow">내일 날씨</string>
+    <string name="block_type_photo_location">촬영 장소</string>
 
     <!-- WriteViewModel: 일기 초안 템플릿 -->
     <string name="diary_entry_title">%1$d년 %2$d월 %3$d일 일기</string>
@@ -184,8 +186,11 @@
     <string name="draft_block_calendar">• %1$s이 있었다.</string>
     <string name="draft_block_health">• 오늘의 건강: %1$s</string>
     <string name="draft_block_weather">• 날씨는 %1$s이었다.</string>
+    <string name="draft_block_weather_tomorrow">• 내일 날씨는 %1$s일 예정이다.</string>
+    <string name="draft_block_photo_location">• %1$s에서 사진을 남겼다.</string>
     <string name="draft_outro">오늘도 수고했다.</string>
-    <string name="block_weather_content">%1$s %2$d°C · 습도 %3$d%%</string>
+    <string name="block_weather_content">%1$s · %2$s %3$d°C · 습도 %4$d%%</string>
+    <string name="block_weather_tomorrow_content">%1$s %2$d°C · 습도 %3$d%%</string>
     <string name="block_weather_unavailable">날씨 정보를 가져올 수 없습니다</string>
     <string name="block_calendar_empty">오늘 등록된 일정이 없습니다</string>
     <string name="block_calendar_unavailable">캘린더 정보를 가져올 수 없습니다</string>
@@ -199,6 +204,9 @@
     <string name="schedule_badge_days_later">%1$d일 후</string>
     <string name="schedule_subtitle_upcoming">예정된 일정</string>
     <string name="schedule_subtitle_past">지난 일정</string>
+    <string name="schedule_empty_today">오늘 예정된 일정이 없습니다</string>
+    <string name="schedule_empty_past">이 날 예정된 일정이 없었습니다</string>
+    <string name="schedule_empty_upcoming">이 날에 예정된 일정이 없습니다</string>
 
     <!-- 푸시 알림 -->
     <string name="notification_title">오늘도 수고했어요 🌿</string>
@@ -273,4 +281,13 @@
     <string name="terms_s5_body">• 천재지변·기술적 결함으로 인한 서비스 중단에 대해 책임지지 않습니다.\n• 이용자 귀책 사유로 발생한 데이터 손실에 대해 책임지지 않습니다.\n• 본 앱은 학술 목적 졸업 프로젝트입니다.</string>
     <string name="terms_s6_title">제6조 (약관 변경)</string>
     <string name="terms_s6_body">약관 변경 시 앱 내 공지를 통해 7일 이전에 안내합니다. 변경 후 계속 이용 시 변경 약관에 동의한 것으로 간주합니다.</string>
+
+    <!-- 회고 카드: 내러티브 카드 하단 문구 -->
+    <string name="retrospect_narrative_footer">── %1$s의 이야기 ──</string>
+
+    <!-- 회고 카드: 일정 카드 -->
+    <string name="retrospect_schedule_title">%1$s 일정은 어땠나요</string>
+    <string name="retrospect_schedule_count_label">📅 총 일정</string>
+    <string name="retrospect_schedule_count_value">%1$d건</string>
+    <string name="retrospect_schedule_busiest_day">가장 바빴던 날: %1$s</string>
 </resources>

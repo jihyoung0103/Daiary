@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -165,11 +166,16 @@ fun ScheduleViewScreen(
     else
         stringResource(R.string.schedule_subtitle_upcoming)
 
+    val emptyText = when {
+        daysFromToday == 0L -> stringResource(R.string.schedule_empty_today)
+        daysFromToday != null && daysFromToday < 0L -> stringResource(R.string.schedule_empty_past)
+        else -> stringResource(R.string.schedule_empty_upcoming)
+    }
+
     Scaffold(
         containerColor = sc.bg,
         topBar = {
             TopAppBar(
-                modifier = Modifier.height(72.dp),
                 title = {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(
@@ -207,7 +213,8 @@ fun ScheduleViewScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = sc.bg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = sc.bg),
+                windowInsets = WindowInsets(0)
             )
         }
     ) { padding ->
@@ -252,7 +259,7 @@ fun ScheduleViewScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "이 날에 예정된 일정이 없습니다",
+                            text = emptyText,
                             fontSize = 14.sp,
                             color = sc.textMuted
                         )

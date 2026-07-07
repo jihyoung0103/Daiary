@@ -64,6 +64,8 @@ import com.google.firebase.storage.FirebaseStorage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.Error
+import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
@@ -74,6 +76,7 @@ import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.TextSecondaryDark
+import com.smu.daiary.ui.theme.White
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -93,6 +96,7 @@ fun ProfileEditScreen(
     val borderColor = if (isDark) BorderDark else Linen
     val accentColor = if (isDark) SageForestDark else SageForest
     val avatarBg = if (isDark) SurfaceDark else Ivory
+    val fieldBg = if (isDark) SurfaceDark else White
 
     val isGoogleUser = currentUser?.providerData?.any { it.providerId == "google.com" } ?: false
 
@@ -207,7 +211,10 @@ fun ProfileEditScreen(
         disabledBorderColor = borderColor,
         disabledLabelColor = textMuted,
         disabledLeadingIconColor = textMuted,
-        disabledTrailingIconColor = textMuted
+        disabledTrailingIconColor = textMuted,
+        focusedContainerColor = fieldBg,
+        unfocusedContainerColor = fieldBg,
+        disabledContainerColor = fieldBg
     )
 
     Scaffold(
@@ -342,7 +349,8 @@ fun ProfileEditScreen(
                         label = stringResource(R.string.label_current_password),
                         visible = currentPasswordVisible,
                         onToggleVisible = { currentPasswordVisible = !currentPasswordVisible },
-                        colors = fieldColors
+                        colors = fieldColors,
+                        iconTint = textMuted
                     )
                     PasswordField(
                         value = newPassword,
@@ -350,7 +358,8 @@ fun ProfileEditScreen(
                         label = stringResource(R.string.label_new_password),
                         visible = newPasswordVisible,
                         onToggleVisible = { newPasswordVisible = !newPasswordVisible },
-                        colors = fieldColors
+                        colors = fieldColors,
+                        iconTint = textMuted
                     )
                     PasswordField(
                         value = confirmPassword,
@@ -358,7 +367,8 @@ fun ProfileEditScreen(
                         label = stringResource(R.string.label_confirm_password),
                         visible = confirmPasswordVisible,
                         onToggleVisible = { confirmPasswordVisible = !confirmPasswordVisible },
-                        colors = fieldColors
+                        colors = fieldColors,
+                        iconTint = textMuted
                     )
                 }
 
@@ -366,7 +376,7 @@ fun ProfileEditScreen(
                 errorMessage?.let { msg ->
                     Text(
                         text = msg,
-                        color = Color(0xFFD32F2F),
+                        color = if (isDark) ErrorDark else Error,
                         fontSize = 13.sp,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -398,6 +408,7 @@ private fun PasswordField(
     visible: Boolean,
     onToggleVisible: () -> Unit,
     colors: androidx.compose.material3.TextFieldColors,
+    iconTint: Color,
     modifier: Modifier = Modifier
 ) {
     OutlinedTextField(
@@ -412,7 +423,7 @@ private fun PasswordField(
                     imageVector = if (visible) Icons.Outlined.VisibilityOff
                                   else Icons.Outlined.Visibility,
                     contentDescription = null,
-                    tint = Stone
+                    tint = iconTint
                 )
             }
         },

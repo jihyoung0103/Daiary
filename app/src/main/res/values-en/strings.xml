@@ -162,6 +162,8 @@
     <string name="block_type_calendar_upcoming">Upcoming Events</string>
     <string name="block_type_health">Health</string>
     <string name="block_type_weather">Weather</string>
+    <string name="block_type_weather_tomorrow">Tomorrow\'s Weather</string>
+    <string name="block_type_photo_location">Photo Location</string>
 
     <!-- WriteViewModel: Draft templates -->
     <string name="diary_entry_title">%2$d/%3$d/%1$d Diary</string>
@@ -171,8 +173,11 @@
     <string name="draft_block_calendar">• Had %1$s.</string>
     <string name="draft_block_health">• Today\'s health: %1$s</string>
     <string name="draft_block_weather">• The weather was %1$s.</string>
+    <string name="draft_block_weather_tomorrow">• Tomorrow\'s weather will be %1$s.</string>
+    <string name="draft_block_photo_location">• Took a photo at %1$s.</string>
     <string name="draft_outro">Good job today.</string>
-    <string name="block_weather_content">%1$s %2$d°C · Humidity %3$d%%</string>
+    <string name="block_weather_content">%1$s · %2$s %3$d°C · Humidity %4$d%%</string>
+    <string name="block_weather_tomorrow_content">%1$s %2$d°C · Humidity %3$d%%</string>
     <string name="block_weather_unavailable">Weather info unavailable</string>
     <string name="block_calendar_empty">No events today</string>
     <string name="block_calendar_unavailable">Calendar info unavailable</string>
@@ -186,6 +191,9 @@
     <string name="schedule_badge_days_later">In %1$d days</string>
     <string name="schedule_subtitle_upcoming">Upcoming Events</string>
     <string name="schedule_subtitle_past">Past Events</string>
+    <string name="schedule_empty_today">No events scheduled for today</string>
+    <string name="schedule_empty_past">There were no events on this day</string>
+    <string name="schedule_empty_upcoming">No events scheduled for this day</string>
 
     <!-- Push notifications -->
     <string name="notification_title">Good job today 🌿</string>
@@ -260,4 +268,13 @@
     <string name="terms_s5_body">• We are not liable for service interruptions due to natural disasters or technical failures.\n• We are not responsible for data loss caused by user actions.\n• This app is an academic graduation project.</string>
     <string name="terms_s6_title">Article 6 (Changes to Terms)</string>
     <string name="terms_s6_body">Changes to these Terms will be announced in-app at least 7 days in advance. Continued use after changes indicates acceptance of the updated Terms.</string>
+
+    <!-- Retrospect card: narrative card footer -->
+    <string name="retrospect_narrative_footer">── The Story of %1$s ──</string>
+
+    <!-- Retrospect card: schedule card -->
+    <string name="retrospect_schedule_title">How was %1$s\'s schedule?</string>
+    <string name="retrospect_schedule_count_label">📅 Total Events</string>
+    <string name="retrospect_schedule_count_value">%1$d events</string>
+    <string name="retrospect_schedule_busiest_day">Busiest day: %1$s</string>
 </resources>

@@ -32,3 +32,7 @@ val MoodSad    = Color(0xFF94B8FF)   // 파란색
 // Base
 val White = Color(0xFFFFFFFF)
 val Black = Color(0xFF000000)
+
+// Error / 경고
+val Error = Color(0xFFD32F2F)
+val ErrorDark = Color(0xFFC85C56)

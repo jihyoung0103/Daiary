@@ -42,10 +42,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.R
 import com.smu.daiary.data.model.RetrospectReport
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.ui.theme.BackgroundDark
@@ -58,7 +60,7 @@ import com.smu.daiary.ui.theme.White
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-private enum class RetroCardType { OPENING, EMOTION, NARRATIVE, ACTIVITY, SPENDING, KEYWORDS, MEMORABLE, SUMMARY }
+private enum class RetroCardType { OPENING, EMOTION, NARRATIVE, ACTIVITY, SPENDING, SCHEDULE, KEYWORDS, MEMORABLE, SUMMARY }
 
 private fun cardsFor(report: RetrospectReport): List<RetroCardType> = buildList {
     add(RetroCardType.OPENING)
@@ -66,6 +68,7 @@ private fun cardsFor(report: RetrospectReport): List<RetroCardType> = buildList 
     add(RetroCardType.NARRATIVE)
     if (report.totalSteps > 0 || report.avgSleepHours > 0f) add(RetroCardType.ACTIVITY)
     if (report.totalSpending > 0) add(RetroCardType.SPENDING)
+    if (report.scheduleCount > 0) add(RetroCardType.SCHEDULE)
     add(RetroCardType.KEYWORDS)
     if (report.memorableDate.isNotBlank()) add(RetroCardType.MEMORABLE)
     add(RetroCardType.SUMMARY)
@@ -145,6 +148,7 @@ fun RetrospectCardScreen(
                     RetroCardType.NARRATIVE -> NarrativeCard(report)
                     RetroCardType.ACTIVITY -> ActivityCard(report)
                     RetroCardType.SPENDING -> SpendingCard(report)
+                    RetroCardType.SCHEDULE -> ScheduleCard(report)
                     RetroCardType.KEYWORDS -> KeywordsCard(report)
                     RetroCardType.MEMORABLE -> MemorableCard(report, onViewDiary)
                     RetroCardType.SUMMARY -> Box(
@@ -314,7 +318,11 @@ private fun NarrativeCard(report: RetrospectReport) {
             lineHeight = 30.sp
         )
         Spacer(Modifier.height(28.dp))
-        Text("── AI가 바라본 ${periodWord(report)} ──", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
+        Text(
+            stringResource(R.string.retrospect_narrative_footer, periodWord(report)),
+            fontSize = 12.sp,
+            color = textColor.copy(alpha = 0.6f)
+        )
     }
 }
 
@@ -387,6 +395,44 @@ private fun SpendingCard(report: RetrospectReport) {
 }
 
 @Composable
+private fun ScheduleCard(report: RetrospectReport) {
+    val isDark = LocalDarkTheme.current
+    val cardBg = if (isDark) BackgroundDark else White
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accentColor = if (isDark) SageForestDark else SageForest
+    CardContainer(cardBg) {
+        Text(
+            stringResource(R.string.retrospect_schedule_title, periodWord(report)),
+            fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor
+        )
+        Spacer(Modifier.height(28.dp))
+        Text(stringResource(R.string.retrospect_schedule_count_label), fontSize = 13.sp, color = textColor.copy(alpha = 0.7f))
+        Text(
+            stringResource(R.string.retrospect_schedule_count_value, report.scheduleCount),
+            fontSize = 24.sp, fontWeight = FontWeight.Bold, color = textColor
+        )
+        if (report.busiestScheduleDay.isNotBlank()) {
+            Spacer(Modifier.height(20.dp))
+            Text(
+                stringResource(R.string.retrospect_schedule_busiest_day, report.busiestScheduleDay),
+                fontSize = 13.sp, color = textColor.copy(alpha = 0.7f)
+            )
+        }
+        if (report.topScheduleTitles.isNotEmpty()) {
+            Spacer(Modifier.height(20.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                report.topScheduleTitles.forEach { title ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("• ", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = accentColor)
+                        Text(title, fontSize = 14.sp, color = textColor.copy(alpha = 0.85f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun KeywordsCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
     val cardBg = if (isDark) BackgroundDark else White
@@ -442,7 +488,7 @@ private fun memorableDateLabel(date: String): String {
 fun SummaryContent(
     report: RetrospectReport,
     modifier: Modifier = Modifier,
-    textColor: Color = Color.White,
+    textColor: Color,
     accentColor: Color
 ) {
     Column(

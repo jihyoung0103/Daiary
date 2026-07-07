@@ -77,6 +77,11 @@ import com.smu.daiary.feature.write.screen.DiaryDetailScreen
 import com.smu.daiary.feature.write.screen.DiaryEditScreen
 import com.smu.daiary.feature.write.screen.DraftPreviewScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.White
 import java.util.Locale
 
 // 메인 함수 :ComponentActivity()는 ComponentActivity를 상속받는 의미
@@ -156,6 +161,11 @@ class MainActivity : ComponentActivity() {
                             val scope = rememberCoroutineScope()
                             val saveFailedMessage = stringResource(R.string.profile_save_error)
 
+                            // 다이얼로그 공통 색상 (Daiary 토큰)
+                            val isDark = LocalDarkTheme.current
+                            val dialogBg = if (isDark) SurfaceDark else White
+                            val dialogText = if (isDark) TextPrimaryDark else Ink
+
                             val retrospectViewModel: RetrospectViewModel = viewModel()
                             val weeklyBannerStatus by retrospectViewModel.weeklyBannerStatus.collectAsStateWithLifecycle()
                             val monthlyBannerStatus by retrospectViewModel.monthlyBannerStatus.collectAsStateWithLifecycle()
@@ -212,8 +222,8 @@ class MainActivity : ComponentActivity() {
                                         prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
                                         showPaymentListenerOnboarding = false
                                     },
-                                    title = { Text(text = "결제 알림 자동 수집") },
-                                    text = { Text(text = "오늘 쓴 결제 내역을 일기에 자동으로 담을 수 있어요.\n설정에서 Daiary 알림 접근을 허용하면 결제 기록이 블록으로 추가됩니다.") },
+                                    title = { Text(text = "결제 알림 자동 수집", color = dialogText) },
+                                    text = { Text(text = "오늘 쓴 결제 내역을 일기에 자동으로 담을 수 있어요.\n설정에서 Daiary 알림 접근을 허용하면 결제 기록이 블록으로 추가됩니다.", color = dialogText) },
                                     confirmButton = {
                                         TextButton(onClick = {
                                             prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
@@ -230,7 +240,8 @@ class MainActivity : ComponentActivity() {
                                         }) {
                                             Text("나중에")
                                         }
-                                    }
+                                    },
+                                    containerColor = dialogBg
                                 )
                             }
 
@@ -287,8 +298,8 @@ class MainActivity : ComponentActivity() {
                             if (showHealthConnectFallback) {
                                 AlertDialog(
                                     onDismissRequest = { showHealthConnectFallback = false },
-                                    title = { Text("건강 데이터 권한 설정") },
-                                    text = { Text("Health Connect 앱에서 Daiary의 걸음 수, 수면 데이터 접근 권한을 허용해주세요.") },
+                                    title = { Text("건강 데이터 권한 설정", color = dialogText) },
+                                    text = { Text("Health Connect 앱에서 Daiary의 걸음 수, 수면 데이터 접근 권한을 허용해주세요.", color = dialogText) },
                                     confirmButton = {
                                         TextButton(onClick = {
                                             showHealthConnectFallback = false
@@ -304,7 +315,8 @@ class MainActivity : ComponentActivity() {
                                         TextButton(onClick = { showHealthConnectFallback = false }) {
                                             Text("나중에")
                                         }
-                                    }
+                                    },
+                                    containerColor = dialogBg
                                 )
                             }
 
@@ -580,6 +592,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 composable("settings") {
                                     SettingsScreen(
+                                        onBack = { navController.popBackStack() },
                                         onConfirm = { navController.popBackStack() }
                                     )
                                 }

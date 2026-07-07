@@ -113,7 +113,7 @@ private val MainCalendarColors = MainCalendarColorScheme(
 )
 
 private val MainCalendarColorsDark = MainCalendarColorScheme(
-    backgroundOuter = Color(0xFF1E3D2F),
+    backgroundOuter = BackgroundDark,
     surfacePhone    = BackgroundDark,
     textPrimary     = TextPrimaryDark,
     textMuted       = TextSecondaryDark,

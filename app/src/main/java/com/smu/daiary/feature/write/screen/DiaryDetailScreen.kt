@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -66,7 +67,13 @@ import coil.compose.AsyncImagePainter
 import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.Error
+import com.smu.daiary.ui.theme.ErrorDark
+import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 import androidx.compose.ui.window.Dialog
 
@@ -107,6 +114,9 @@ fun DiaryDetailScreen(
 ) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
+    val dialogBg = if (isDark) SurfaceDark else White
+    val dialogText = if (isDark) TextPrimaryDark else Ink
+    val errorColor = if (isDark) ErrorDark else Error
 
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
@@ -117,21 +127,22 @@ fun DiaryDetailScreen(
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text(stringResource(R.string.dialog_delete_diary_title)) },
-            text = { Text(stringResource(R.string.dialog_delete_diary_message)) },
+            title = { Text(stringResource(R.string.dialog_delete_diary_title), color = dialogText) },
+            text = { Text(stringResource(R.string.dialog_delete_diary_message), color = dialogText) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
                     onDelete()
                 }) {
-                    Text(stringResource(R.string.btn_delete), color = Color(0xFFD32F2F))
+                    Text(stringResource(R.string.btn_delete), color = errorColor)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text(stringResource(R.string.cancel))
                 }
-            }
+            },
+            containerColor = dialogBg
         )
     }
 
@@ -165,7 +176,7 @@ fun DiaryDetailScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.btn_delete),
-                            color = Color(0xFFD32F2F),
+                            color = errorColor,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -182,7 +193,8 @@ fun DiaryDetailScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
+                windowInsets = WindowInsets(0)
             )
         }
     ) { padding ->
@@ -340,7 +352,7 @@ fun DiaryDetailScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(dialogBg)
                         .padding(12.dp)
                 ) {
                     AsyncImage(
