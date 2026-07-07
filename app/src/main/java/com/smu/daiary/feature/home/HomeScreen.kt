@@ -198,6 +198,33 @@ fun HomeScreen(
                             .padding(horizontal = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        val today = LocalDate.now()
+                        val diaryBannerDate = selectedDate ?: today
+                        val existingDiary = diaries.firstOrNull { it.date == diaryBannerDate.toString() }
+                        val diaryBannerState = when {
+                            existingDiary != null -> DiaryBannerState.HAS_DIARY
+                            diaryBannerDate.isAfter(today) -> DiaryBannerState.FUTURE
+                            else -> DiaryBannerState.WRITABLE
+                        }
+                        DiaryBanner(
+                            title = if (diaryBannerDate == today) "오늘의 일기"
+                            else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
+                            subLabel = when (diaryBannerState) {
+                                DiaryBannerState.HAS_DIARY ->
+                                    existingDiary?.content?.replace("\n", " ")?.trim()
+                                        ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
+                                DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
+                                DiaryBannerState.FUTURE -> "아직 오지 않은 날이에요"
+                            },
+                            state = diaryBannerState,
+                            onClick = {
+                                when (diaryBannerState) {
+                                    DiaryBannerState.HAS_DIARY -> existingDiary?.let { onDiaryClick(it) }
+                                    DiaryBannerState.WRITABLE -> onWriteDiary(diaryBannerDate.toString())
+                                    DiaryBannerState.FUTURE -> {}
+                                }
+                            }
+                        )
                         RetrospectBanner(
                             title = "이번 주 회고",
                             subLabel = weeklyBannerSubLabel,
@@ -536,6 +563,18 @@ private fun RecentDiaryList(
             letterSpacing = 0.05.sp,
             modifier = Modifier.padding(bottom = 12.dp)
         )
+        if (selectedDate != null) {
+            Row(modifier = Modifier.padding(bottom = 12.dp)) {
+                if (items.isEmpty() && !selectedDate.isAfter(LocalDate.now())) {
+                    TextButton(onClick = { onWriteDiary(selectedDate.toString()) }) {
+                        Text(text = "일기 쓰기", fontSize = 13.sp, color = mc.accentPurple)
+                    }
+                }
+                TextButton(onClick = { onScheduleClick(selectedDate.toString()) }) {
+                    Text(text = "일정 보기", fontSize = 13.sp, color = mc.accentPurple)
+                }
+            }
+        }
         if (isLoading && selectedDate == null) {
             Box(
                 modifier = Modifier
@@ -584,6 +623,12 @@ private fun RecentDiaryList(
                     color = mc.textMuted,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
+                Row {
+                    // 일기 작성/조회는 상단 DiaryBanner가 담당하므로 여기선 일정 보기만 남긴다.
+                    TextButton(onClick = { onScheduleClick(selectedDate.toString()) }) {
+                        Text(text = "일정 보기", fontSize = 13.sp, color = mc.accentPurple)
+                    }
+                }
             } else {
                 Box(
                     modifier = Modifier
