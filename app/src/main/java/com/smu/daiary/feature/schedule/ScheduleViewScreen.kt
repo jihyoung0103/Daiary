@@ -176,6 +176,7 @@ fun ScheduleViewScreen(
         containerColor = sc.bg,
         topBar = {
             TopAppBar(
+                modifier = Modifier.height(72.dp),
                 title = {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(
