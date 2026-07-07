@@ -1115,20 +1115,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 ?: diaryRepository.getDiaryByDate(userId, d.date).getOrNull()?.id
 
             // 선택한 사진을 Firebase Storage에 업로드하고 다운로드 URL로 치환한다.
-            // (기존 https URL은 재업로드 없이 그대로 유지) 실패 시 저장을 중단해
-            // 로컬 URI가 조용히 저장되던 문제를 막는다.
+            // (기존 https URL은 재업로드 없이 그대로 유지)
+            // 업로드 실패가 일기 저장 자체를 막지 않도록 사진별로 개별 처리한다 —
+            // 성공한 사진만 저장하고, 실패한 사진은 로그만 남기고 건너뛴다.
             val selectedLocalUris = _photos.value
                 .filter { it.isSelected }
                 .map { it.uri }
-            val uploadedPhotoUrls = try {
-                selectedLocalUris.map { uri ->
-                    photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ 사진 업로드 실패 — 저장 중단", e)
-                _isSaving.value = false
-                onComplete(false)
-                return@launch
+            val uploadedPhotoUrls = selectedLocalUris.mapNotNull { uri ->
+                runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri) }
+                    .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): $uri", it) }
+                    .getOrNull()
             }
 
             val entry = DiaryEntry(
