@@ -233,6 +233,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         id = "weather", type = BlockType.WEATHER,
                         content = localizedContext().getString(
                             R.string.block_weather_content,
+                            weather.city,
                             localizedWeatherDescription(weather.description),
                             weather.temperature.toInt(),
                             weather.humidity

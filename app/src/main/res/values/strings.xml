@@ -185,7 +185,7 @@
     <string name="draft_block_health">• 오늘의 건강: %1$s</string>
     <string name="draft_block_weather">• 날씨는 %1$s이었다.</string>
     <string name="draft_outro">오늘도 수고했다.</string>
-    <string name="block_weather_content">%1$s %2$d°C · 습도 %3$d%%</string>
+    <string name="block_weather_content">%1$s · %2$s %3$d°C · 습도 %4$d%%</string>
     <string name="block_weather_unavailable">날씨 정보를 가져올 수 없습니다</string>
     <string name="block_calendar_empty">오늘 등록된 일정이 없습니다</string>
     <string name="block_calendar_unavailable">캘린더 정보를 가져올 수 없습니다</string>
