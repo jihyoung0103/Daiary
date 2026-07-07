@@ -74,6 +74,7 @@ import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.TextSecondaryDark
+import com.smu.daiary.ui.theme.White
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -93,6 +94,7 @@ fun ProfileEditScreen(
     val borderColor = if (isDark) BorderDark else Linen
     val accentColor = if (isDark) SageForestDark else SageForest
     val avatarBg = if (isDark) SurfaceDark else Ivory
+    val fieldBg = if (isDark) SurfaceDark else White
 
     val isGoogleUser = currentUser?.providerData?.any { it.providerId == "google.com" } ?: false
 
@@ -207,7 +209,10 @@ fun ProfileEditScreen(
         disabledBorderColor = borderColor,
         disabledLabelColor = textMuted,
         disabledLeadingIconColor = textMuted,
-        disabledTrailingIconColor = textMuted
+        disabledTrailingIconColor = textMuted,
+        focusedContainerColor = fieldBg,
+        unfocusedContainerColor = fieldBg,
+        disabledContainerColor = fieldBg
     )
 
     Scaffold(
