@@ -276,4 +276,7 @@
     <string name="terms_s5_body">• 천재지변·기술적 결함으로 인한 서비스 중단에 대해 책임지지 않습니다.\n• 이용자 귀책 사유로 발생한 데이터 손실에 대해 책임지지 않습니다.\n• 본 앱은 학술 목적 졸업 프로젝트입니다.</string>
     <string name="terms_s6_title">제6조 (약관 변경)</string>
     <string name="terms_s6_body">약관 변경 시 앱 내 공지를 통해 7일 이전에 안내합니다. 변경 후 계속 이용 시 변경 약관에 동의한 것으로 간주합니다.</string>
+
+    <!-- 회고 카드: 내러티브 카드 하단 문구 -->
+    <string name="retrospect_narrative_footer">── %1$s의 이야기 ──</string>
 </resources>

@@ -263,4 +263,7 @@
     <string name="terms_s5_body">• We are not liable for service interruptions due to natural disasters or technical failures.\n• We are not responsible for data loss caused by user actions.\n• This app is an academic graduation project.</string>
     <string name="terms_s6_title">Article 6 (Changes to Terms)</string>
     <string name="terms_s6_body">Changes to these Terms will be announced in-app at least 7 days in advance. Continued use after changes indicates acceptance of the updated Terms.</string>
+
+    <!-- Retrospect card: narrative card footer -->
+    <string name="retrospect_narrative_footer">── The Story of %1$s ──</string>
 </resources>

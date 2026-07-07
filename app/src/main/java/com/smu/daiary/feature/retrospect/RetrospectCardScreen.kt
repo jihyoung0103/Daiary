@@ -42,10 +42,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.R
 import com.smu.daiary.data.model.RetrospectReport
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.ui.theme.BackgroundDark
@@ -314,7 +316,11 @@ private fun NarrativeCard(report: RetrospectReport) {
             lineHeight = 30.sp
         )
         Spacer(Modifier.height(28.dp))
-        Text("── AI가 바라본 ${periodWord(report)} ──", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
+        Text(
+            stringResource(R.string.retrospect_narrative_footer, periodWord(report)),
+            fontSize = 12.sp,
+            color = textColor.copy(alpha = 0.6f)
+        )
     }
 }
 
@@ -442,7 +448,7 @@ private fun memorableDateLabel(date: String): String {
 fun SummaryContent(
     report: RetrospectReport,
     modifier: Modifier = Modifier,
-    textColor: Color = Color.White,
+    textColor: Color,
     accentColor: Color
 ) {
     Column(
