@@ -82,6 +82,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val aiRepository = com.smu.daiary.data.repository.AiRepository()
     private val weatherDataSource = WeatherDataSource(context)
     private val photoDataSource = PhotoDataSource(context)
+    private val photoStorageDataSource = com.smu.daiary.data.source.PhotoStorageDataSource(context)
     private val calendarDataSource = CalendarDataSource(context)
     private val healthDataSource = com.smu.daiary.data.source.HealthDataSource(context)
     // ─────────────────────────────────────────────────────────────
@@ -1060,11 +1061,27 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 localizedContext().getString(R.string.emotion_angry) -> "sad"
                 else -> "neutral"
             }
+            // 편집 진입 id가 없어도, 같은 날짜에 이미 저장된 일기가 있으면 그 문서를 덮어써서
+            // 하루 1개만 유지한다. (FAB·블록 플로우 등 어느 경로로 들어와도 중복 방지)
             val existingId = _existingEntryId.value
+                ?: diaryRepository.getDiaryByDate(userId, d.date).getOrNull()?.id
 
-            val selectedPhotoUris = _photos.value
+            // 선택한 사진을 Firebase Storage에 업로드하고 다운로드 URL로 치환한다.
+            // (기존 https URL은 재업로드 없이 그대로 유지) 실패 시 저장을 중단해
+            // 로컬 URI가 조용히 저장되던 문제를 막는다.
+            val selectedLocalUris = _photos.value
                 .filter { it.isSelected }
                 .map { it.uri }
+            val uploadedPhotoUrls = try {
+                selectedLocalUris.map { uri ->
+                    photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ 사진 업로드 실패 — 저장 중단", e)
+                _isSaving.value = false
+                onComplete(false)
+                return@launch
+            }
 
             val entry = DiaryEntry(
                 id = existingId ?: "",
@@ -1074,7 +1091,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 mood = mood,
                 emotion = _selectedEmotion.value ?: "",
                 weather = _selectedWeather.value ?: "",
-                photos = selectedPhotoUris
+                photos = uploadedPhotoUrls
             )
             val result = if (existingId != null) {
                 diaryRepository.updateDiary(userId, entry)
