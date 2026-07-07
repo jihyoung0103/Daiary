@@ -80,7 +80,11 @@ import coil.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 
 private data class Weather(val label: String, val icon: ImageVector)
@@ -134,6 +138,8 @@ fun DiaryEditScreen(
     val wc = if (isDark) WriteColorsDark else WriteColors
     val accent = wc.Purple
     val accentLight = wc.PurpleLight
+    val dialogBg = if (isDark) SurfaceDark else White
+    val dialogText = if (isDark) TextPrimaryDark else Ink
     val context = LocalContext.current
 
     val draft by viewModel.draft.collectAsStateWithLifecycle()
@@ -153,8 +159,8 @@ fun DiaryEditScreen(
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title = { Text(stringResource(R.string.dialog_exit_title)) },
-            text  = { Text(stringResource(R.string.dialog_exit_message)) },
+            title = { Text(stringResource(R.string.dialog_exit_title), color = dialogText) },
+            text  = { Text(stringResource(R.string.dialog_exit_message), color = dialogText) },
             confirmButton = {
                 TextButton(onClick = {
                     showExitDialog = false
@@ -167,7 +173,8 @@ fun DiaryEditScreen(
                 TextButton(onClick = { showExitDialog = false }) {
                     Text(stringResource(R.string.dialog_exit_cancel))
                 }
-            }
+            },
+            containerColor = dialogBg
         )
     }
 
