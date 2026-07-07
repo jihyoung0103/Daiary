@@ -352,7 +352,7 @@ fun DiaryDetailScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White)
+                        .background(dialogBg)
                         .padding(12.dp)
                 ) {
                     AsyncImage(
