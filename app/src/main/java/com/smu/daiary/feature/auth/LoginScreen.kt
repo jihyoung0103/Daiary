@@ -57,6 +57,8 @@ import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.DewDark
+import com.smu.daiary.ui.theme.Error
+import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
@@ -105,7 +107,7 @@ private val LoginColors = LoginColorScheme(
     TextMuted    = Stone,
     AccentPurple = SageForest,
     Border       = Linen,
-    ErrorRed     = Color(0xFFD32F2F),
+    ErrorRed     = Error,
     SuccessGreen = Color(0xFF2E7D32),
     Overlay      = Color.Black.copy(alpha = 0.6f)
 )
@@ -118,7 +120,7 @@ private val LoginColorsDark = LoginColorScheme(
     TextMuted    = TextSecondaryDark,
     AccentPurple = SageForestDark,
     Border       = BorderDark,
-    ErrorRed     = Color(0xFFEF9A9A),
+    ErrorRed     = ErrorDark,
     SuccessGreen = Color(0xFF81C784),
     Overlay      = Color.Black.copy(alpha = 0.7f)
 )
