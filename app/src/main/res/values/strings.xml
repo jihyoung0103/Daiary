@@ -284,4 +284,10 @@
 
     <!-- 회고 카드: 내러티브 카드 하단 문구 -->
     <string name="retrospect_narrative_footer">── %1$s의 이야기 ──</string>
+
+    <!-- 회고 카드: 일정 카드 -->
+    <string name="retrospect_schedule_title">%1$s 일정은 어땠나요</string>
+    <string name="retrospect_schedule_count_label">📅 총 일정</string>
+    <string name="retrospect_schedule_count_value">%1$d건</string>
+    <string name="retrospect_schedule_busiest_day">가장 바빴던 날: %1$s</string>
 </resources>

@@ -271,4 +271,10 @@
 
     <!-- Retrospect card: narrative card footer -->
     <string name="retrospect_narrative_footer">── The Story of %1$s ──</string>
+
+    <!-- Retrospect card: schedule card -->
+    <string name="retrospect_schedule_title">How was %1$s\'s schedule?</string>
+    <string name="retrospect_schedule_count_label">📅 Total Events</string>
+    <string name="retrospect_schedule_count_value">%1$d events</string>
+    <string name="retrospect_schedule_busiest_day">Busiest day: %1$s</string>
 </resources>

@@ -38,6 +38,11 @@ data class RetrospectReport(
     val spendingByCategory: Map<String, Int> = emptyMap(),
     val topMerchant: String = "",
 
+    // Card SCHEDULE
+    val scheduleCount: Int = 0,
+    val busiestScheduleDay: String = "",
+    val topScheduleTitles: List<String> = emptyList(),
+
     // Card 6
     val keywords: List<String> = emptyList(),
 

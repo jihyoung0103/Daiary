@@ -115,6 +115,9 @@ class RetrospectViewModel : ViewModel() {
                 totalSpending = agg.totalSpending,
                 spendingByCategory = agg.spendingByCategory,
                 topMerchant = agg.topMerchant,
+                scheduleCount = agg.scheduleCount,
+                busiestScheduleDay = agg.busiestScheduleDay,
+                topScheduleTitles = agg.topScheduleTitles,
                 keywords = keywords,
                 memorableDate = memorableDate,
                 memorableReason = memorableReason
@@ -161,7 +164,10 @@ class RetrospectViewModel : ViewModel() {
         val bestActivityDay: String,
         val totalSpending: Int,
         val spendingByCategory: Map<String, Int>,
-        val topMerchant: String
+        val topMerchant: String,
+        val scheduleCount: Int,
+        val busiestScheduleDay: String,
+        val topScheduleTitles: List<String>
     )
 
     private fun aggregate(diaries: List<DiaryEntry>, dailyDataList: List<DailyData>): Aggregation {
@@ -197,6 +203,19 @@ class RetrospectViewModel : ViewModel() {
             ?.let { "${it.key} ${it.value}회" }
             ?: ""
 
+        val scheduleCount = dailyDataList.sumOf { it.calendar.size }
+        val busiestScheduleDay = dailyDataList
+            .filter { it.calendar.isNotEmpty() }
+            .maxByOrNull { it.calendar.size }
+            ?.let { runCatching { LocalDate.parse(it.date) }.getOrNull() }
+            ?.let { koreanWeekday(it.dayOfWeek) }
+            ?: ""
+        val topScheduleTitles = dailyDataList
+            .flatMap { it.calendar }
+            .map { it.title }
+            .filter { it.isNotBlank() }
+            .take(5)
+
         return Aggregation(
             emotionDistribution = emotionDistribution,
             totalSteps = totalSteps,
@@ -204,7 +223,10 @@ class RetrospectViewModel : ViewModel() {
             bestActivityDay = bestActivityDay,
             totalSpending = totalSpending,
             spendingByCategory = spendingByCategory,
-            topMerchant = topMerchant
+            topMerchant = topMerchant,
+            scheduleCount = scheduleCount,
+            busiestScheduleDay = busiestScheduleDay,
+            topScheduleTitles = topScheduleTitles
         )
     }
 
