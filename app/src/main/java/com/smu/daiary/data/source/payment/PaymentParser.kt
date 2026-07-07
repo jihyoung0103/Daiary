@@ -49,9 +49,9 @@ object PaymentCategory {
 
     fun of(merchant: String): String = when {
         merchant.containsAny("스타벅스", "투썸", "메가커피", "컴포즈") -> "카페"
-        merchant.containsAny("GS25", "CU", "세븐")                  -> "편의점"
+        merchant.containsAny("GS25", "지에스25", "CU", "씨유", "세븐", "이마트24") -> "편의점"
         merchant.containsAny("버스", "지하철", "카카오T")            -> "교통"
-        merchant.containsAny("맥도날드", "버거킹", "롯데리아")        -> "식사"
+        merchant.containsAny("맥도날드", "버거킹", "롯데리아", "써브웨이", "치킨") -> "식사"
         else                                                        -> "기타"
     }
 
