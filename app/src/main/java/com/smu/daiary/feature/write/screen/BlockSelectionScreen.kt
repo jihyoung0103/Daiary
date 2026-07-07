@@ -314,7 +314,7 @@ fun BlockSelectionScreen(
                         }
 
                         else -> {
-                            // WEATHER, HEALTH — 단일 블록, 체크박스 유지
+                            // WEATHER, WEATHER_TOMORROW, HEALTH — 단일 블록, 체크박스 유지
                             SingleBlockItem(
                                 block = block,
                                 enabled = !isGeneratingQuestions,
@@ -420,7 +420,7 @@ private fun SingleBlockItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = if (block.type == BlockType.WEATHER) weatherIconFor(block.content) else blockTypeIcon(block.type),
+                    imageVector = if (block.type == BlockType.WEATHER || block.type == BlockType.WEATHER_TOMORROW) weatherIconFor(block.content) else blockTypeIcon(block.type),
                     contentDescription = null,
                     tint = if (block.isSelected) Color.White else wc.Purple,
                     modifier = Modifier.size(20.dp)
@@ -677,6 +677,7 @@ private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
     BlockType.CALENDAR_UPCOMING -> Icons.Outlined.DateRange
     BlockType.HEALTH            -> Icons.Outlined.FitnessCenter
     BlockType.WEATHER           -> Icons.Outlined.WbSunny
+    BlockType.WEATHER_TOMORROW  -> Icons.Outlined.WbSunny
 }
 
 /** 날씨 블록의 content(예: "맑음 22°C · 습도 60%")에서 날씨 종류를 읽어 아이콘 매핑. 매칭 실패 시 WbSunny로 fallback */
@@ -700,4 +701,5 @@ private fun blockTypeLabel(type: BlockType): String = when (type) {
     BlockType.CALENDAR_UPCOMING -> stringResource(R.string.block_type_calendar_upcoming)
     BlockType.HEALTH            -> stringResource(R.string.block_type_health)
     BlockType.WEATHER           -> stringResource(R.string.block_type_weather)
+    BlockType.WEATHER_TOMORROW  -> stringResource(R.string.block_type_weather_tomorrow)
 }

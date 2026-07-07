@@ -162,6 +162,7 @@
     <string name="block_type_calendar_upcoming">Upcoming Events</string>
     <string name="block_type_health">Health</string>
     <string name="block_type_weather">Weather</string>
+    <string name="block_type_weather_tomorrow">Tomorrow\'s Weather</string>
 
     <!-- WriteViewModel: Draft templates -->
     <string name="diary_entry_title">%2$d/%3$d/%1$d Diary</string>
@@ -171,8 +172,10 @@
     <string name="draft_block_calendar">• Had %1$s.</string>
     <string name="draft_block_health">• Today\'s health: %1$s</string>
     <string name="draft_block_weather">• The weather was %1$s.</string>
+    <string name="draft_block_weather_tomorrow">• Tomorrow\'s weather will be %1$s.</string>
     <string name="draft_outro">Good job today.</string>
     <string name="block_weather_content">%1$s · %2$s %3$d°C · Humidity %4$d%%</string>
+    <string name="block_weather_tomorrow_content">%1$s %2$d°C · Humidity %3$d%%</string>
     <string name="block_weather_unavailable">Weather info unavailable</string>
     <string name="block_calendar_empty">No events today</string>
     <string name="block_calendar_unavailable">Calendar info unavailable</string>

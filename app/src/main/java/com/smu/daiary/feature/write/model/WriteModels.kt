@@ -6,7 +6,8 @@ enum class BlockType(val label: String) {
     CALENDAR("오늘 일정"),
     CALENDAR_UPCOMING("향후 일정"),
     HEALTH("건강"),
-    WEATHER("날씨")
+    WEATHER("날씨"),
+    WEATHER_TOMORROW("내일 날씨")
 }
 
 enum class DraftStatus { IDLE, EDITING, SAVED }

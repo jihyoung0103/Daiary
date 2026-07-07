@@ -239,6 +239,17 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             weather.humidity
                         )
                     ))
+                    if (weather.tomorrowDescription.isNotBlank()) {
+                        blocks.add(ContentBlock(
+                            id = "weather_tomorrow", type = BlockType.WEATHER_TOMORROW,
+                            content = localizedContext().getString(
+                                R.string.block_weather_tomorrow_content,
+                                localizedWeatherDescription(weather.tomorrowDescription),
+                                weather.tomorrowTemperature.toInt(),
+                                weather.tomorrowHumidity
+                            )
+                        ))
+                    }
                 }
                 .onFailure {
                     Log.w(TAG, "⚠️ 날씨 수집 실패", it)
@@ -1013,6 +1024,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 BlockType.CALENDAR_UPCOMING -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
                 BlockType.HEALTH            -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
                 BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
+                BlockType.WEATHER_TOMORROW -> appendLine(localizedContext().getString(R.string.draft_block_weather_tomorrow, block.content))
             }
         }
         appendLine()
