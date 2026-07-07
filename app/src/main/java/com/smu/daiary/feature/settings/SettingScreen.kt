@@ -157,14 +157,6 @@ fun SettingsScreen(onBack: () -> Unit = {}, onConfirm: () -> Unit = {}) {
                                         textAlign = TextAlign.Center,
                                         color = if (selected == mbti.type) accentColor else textColor
                                     )
-                                    if (selected == mbti.type) {
-                                        Text(
-                                            text = "✓",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = accentColor,
-                                            modifier = Modifier.align(Alignment.TopStart)
-                                        )
-                                    }
                                 }
                                 Spacer(Modifier.height(4.dp))
                                 Text(
