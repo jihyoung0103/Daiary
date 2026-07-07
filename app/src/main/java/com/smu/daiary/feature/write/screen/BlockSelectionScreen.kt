@@ -40,6 +40,7 @@ import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Nightlight
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Umbrella
@@ -314,7 +315,7 @@ fun BlockSelectionScreen(
                         }
 
                         else -> {
-                            // WEATHER, WEATHER_TOMORROW, HEALTH — 단일 블록, 체크박스 유지
+                            // WEATHER, WEATHER_TOMORROW, PHOTO_LOCATION, HEALTH — 단일 블록, 체크박스 유지
                             SingleBlockItem(
                                 block = block,
                                 enabled = !isGeneratingQuestions,
@@ -678,6 +679,7 @@ private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
     BlockType.HEALTH            -> Icons.Outlined.FitnessCenter
     BlockType.WEATHER           -> Icons.Outlined.WbSunny
     BlockType.WEATHER_TOMORROW  -> Icons.Outlined.WbSunny
+    BlockType.PHOTO_LOCATION    -> Icons.Outlined.LocationOn
 }
 
 /** 날씨 블록의 content(예: "맑음 22°C · 습도 60%")에서 날씨 종류를 읽어 아이콘 매핑. 매칭 실패 시 WbSunny로 fallback */
@@ -702,4 +704,5 @@ private fun blockTypeLabel(type: BlockType): String = when (type) {
     BlockType.HEALTH            -> stringResource(R.string.block_type_health)
     BlockType.WEATHER           -> stringResource(R.string.block_type_weather)
     BlockType.WEATHER_TOMORROW  -> stringResource(R.string.block_type_weather_tomorrow)
+    BlockType.PHOTO_LOCATION    -> stringResource(R.string.block_type_photo_location)
 }

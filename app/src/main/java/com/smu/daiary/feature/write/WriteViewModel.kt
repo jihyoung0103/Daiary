@@ -3,6 +3,7 @@ package com.smu.daiary.feature.write
 import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
+import android.location.Geocoder
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -342,6 +343,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     _photos.value = photos.map { photo ->
                         PhotoSelectableItem(
                             uri = photo.uri,
+                            latitude = photo.latitude,
+                            longitude = photo.longitude,
                             isSelected = true
                         )
                     }
@@ -355,6 +358,17 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                                 )
                             )
 
+                    // 촬영 장소 — 선택된 사진 중 GPS 있는 첫 번째 사진 기준, 지오코딩 실패 시 블록 미생성
+                    _photos.value
+                        .firstOrNull { it.isSelected && (it.latitude != 0.0 || it.longitude != 0.0) }
+                        ?.let { photo ->
+                            reverseGeocode(photo.latitude, photo.longitude)?.let { placeName ->
+                                blocks.add(ContentBlock(
+                                    id = "photo_location", type = BlockType.PHOTO_LOCATION,
+                                    content = placeName
+                                ))
+                            }
+                        }
                 }
                 .onFailure {
                     Log.w(TAG, "⚠️ 사진 수집 실패 (권한 문제)", it)
@@ -454,6 +468,26 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         "바람" -> localizedContext().getString(R.string.weather_wind)
         else   -> canonical
     }
+
+    /** 좌표 → 장소 텍스트(구/동, 시). Geocoder 미지원 기기이거나 결과가 없으면 null 반환 */
+    @Suppress("DEPRECATION")
+    private suspend fun reverseGeocode(latitude: Double, longitude: Double): String? =
+        withContext(Dispatchers.IO) {
+            if (!Geocoder.isPresent()) return@withContext null
+            runCatching {
+                val geocoder = Geocoder(getApplication(), Locale.getDefault())
+                val address = geocoder.getFromLocation(latitude, longitude, 1)?.firstOrNull()
+                    ?: return@runCatching null
+                val district = address.subLocality ?: address.locality
+                val city = address.locality ?: address.adminArea
+                when {
+                    district != null && city != null && district != city -> "$district, $city"
+                    district != null -> district
+                    else -> city
+                }
+            }.onFailure { Log.w(TAG, "⚠️ 촬영 장소 지오코딩 실패", it) }.getOrNull()
+        }
+
     /** 사진 URI를 Base64 문자열로 변환 — Claude Vision API 전달용 */
     private fun encodeImage(uriString: String): EncodedImage? {
         return try {
@@ -1025,6 +1059,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 BlockType.HEALTH            -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
                 BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
                 BlockType.WEATHER_TOMORROW -> appendLine(localizedContext().getString(R.string.draft_block_weather_tomorrow, block.content))
+                BlockType.PHOTO_LOCATION   -> appendLine(localizedContext().getString(R.string.draft_block_photo_location, block.content))
             }
         }
         appendLine()

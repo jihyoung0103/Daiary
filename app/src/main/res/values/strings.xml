@@ -176,6 +176,7 @@
     <string name="block_type_health">건강</string>
     <string name="block_type_weather">날씨</string>
     <string name="block_type_weather_tomorrow">내일 날씨</string>
+    <string name="block_type_photo_location">촬영 장소</string>
 
     <!-- WriteViewModel: 일기 초안 템플릿 -->
     <string name="diary_entry_title">%1$d년 %2$d월 %3$d일 일기</string>
@@ -186,6 +187,7 @@
     <string name="draft_block_health">• 오늘의 건강: %1$s</string>
     <string name="draft_block_weather">• 날씨는 %1$s이었다.</string>
     <string name="draft_block_weather_tomorrow">• 내일 날씨는 %1$s일 예정이다.</string>
+    <string name="draft_block_photo_location">• %1$s에서 사진을 남겼다.</string>
     <string name="draft_outro">오늘도 수고했다.</string>
     <string name="block_weather_content">%1$s · %2$s %3$d°C · 습도 %4$d%%</string>
     <string name="block_weather_tomorrow_content">%1$s %2$d°C · 습도 %3$d%%</string>

@@ -7,7 +7,8 @@ enum class BlockType(val label: String) {
     CALENDAR_UPCOMING("향후 일정"),
     HEALTH("건강"),
     WEATHER("날씨"),
-    WEATHER_TOMORROW("내일 날씨")
+    WEATHER_TOMORROW("내일 날씨"),
+    PHOTO_LOCATION("촬영 장소")
 }
 
 enum class DraftStatus { IDLE, EDITING, SAVED }
@@ -50,5 +51,7 @@ data class PaymentSelectableItem(
 
 data class PhotoSelectableItem(
     val uri: String,
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
     val isSelected: Boolean = true
 )
