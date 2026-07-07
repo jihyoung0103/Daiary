@@ -166,6 +166,12 @@ fun ScheduleViewScreen(
     else
         stringResource(R.string.schedule_subtitle_upcoming)
 
+    val emptyText = when {
+        daysFromToday == 0L -> stringResource(R.string.schedule_empty_today)
+        daysFromToday != null && daysFromToday < 0L -> stringResource(R.string.schedule_empty_past)
+        else -> stringResource(R.string.schedule_empty_upcoming)
+    }
+
     Scaffold(
         containerColor = sc.bg,
         topBar = {
@@ -253,7 +259,7 @@ fun ScheduleViewScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "이 날에 예정된 일정이 없습니다",
+                            text = emptyText,
                             fontSize = 14.sp,
                             color = sc.textMuted
                         )
