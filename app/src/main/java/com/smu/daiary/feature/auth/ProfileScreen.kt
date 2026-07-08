@@ -89,6 +89,8 @@ import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
+import com.smu.daiary.ui.theme.Error
+import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
@@ -172,6 +174,7 @@ fun ProfileScreen(
     val textMuted = if (isDark) TextSecondaryDark else ProfileColors.TextMuted
     val borderColor = if (isDark) BorderDark else ProfileColors.Border
     val accentColor = if (isDark) SageForestDark else ProfileColors.Accent
+    val dangerColor = if (isDark) ErrorDark else Error
     val avatarBg = if (isDark) DewDark else ProfileColors.AvatarBg
 
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -408,7 +411,7 @@ fun ProfileScreen(
                     ProfileDivider()
                     SimpleRow(
                         label = stringResource(R.string.delete_account),
-                        labelColor = ProfileColors.Danger,
+                        labelColor = dangerColor,
                         onClick = { showDeleteDialog = true }
                     )
                 }
@@ -487,7 +490,7 @@ fun ProfileScreen(
         var minuteText by remember { mutableStateOf("%02d".format(notificationMinute)) }
         var hourFocused by remember { mutableStateOf(false) }
         var minuteFocused by remember { mutableStateOf(false) }
-        val cardSelected = Color(0xFF3D7A5C)
+        val cardSelected = accentColor
         val cardUnselected = Color(0xFFC8E6C9)
 
         Dialog(onDismissRequest = { showTimePickerDialog = false }) {
@@ -531,7 +534,7 @@ fun ProfileScreen(
                                     textStyle = TextStyle(
                                         fontSize = 28.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = if (hourFocused) Color.White else Color(0xFF3D7A5C),
+                                        color = if (hourFocused) Color.White else accentColor,
                                         textAlign = TextAlign.Center
                                     ),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -578,7 +581,7 @@ fun ProfileScreen(
                                     textStyle = TextStyle(
                                         fontSize = 28.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = if (minuteFocused) Color.White else Color(0xFF3D7A5C),
+                                        color = if (minuteFocused) Color.White else accentColor,
                                         textAlign = TextAlign.Center
                                     ),
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -671,7 +674,7 @@ fun ProfileScreen(
                         authViewModel.deleteAccount()
                     }
                 ) {
-                    Text(stringResource(R.string.btn_delete_confirm), color = ProfileColors.Danger, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.btn_delete_confirm), color = dangerColor, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {

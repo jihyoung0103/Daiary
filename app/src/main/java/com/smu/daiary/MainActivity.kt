@@ -79,6 +79,8 @@ import com.smu.daiary.feature.write.screen.DraftPreviewScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -118,6 +120,7 @@ class MainActivity : ComponentActivity() {
                 // Material3의 기본 레이아웃 틀.
                 // innerPadding이란 상단바/하단바 여백 자동 계산 설정
                 val snackbarHostState = remember { SnackbarHostState() }
+                val isDark = LocalDarkTheme.current
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     snackbarHost = {
@@ -127,7 +130,7 @@ class MainActivity : ComponentActivity() {
                         ) { data ->
                             Snackbar(
                                 snackbarData    = data,
-                                containerColor  = Color(0xFF3D7A5C),
+                                containerColor  = if (isDark) SageForestDark else SageForest,
                                 contentColor    = Color.White
                             )
                         }
