@@ -174,7 +174,7 @@ fun DraftPreviewScreen(
                             modifier = Modifier
                                 .size(20.dp)
                                 .padding(end = 16.dp),
-                            color = wc.Purple,
+                            color = wc.Accent,
                             strokeWidth = 2.dp
                         )
                     } else {
@@ -187,7 +187,7 @@ fun DraftPreviewScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.btn_save),
-                                color = wc.Purple,
+                                color = wc.Accent,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
@@ -208,7 +208,7 @@ fun DraftPreviewScreen(
                         .padding(bottom = 8.dp)
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
+                    colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
                 ) {
                     Text(text = stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 }
@@ -228,7 +228,7 @@ fun DraftPreviewScreen(
                     text = formatDate(it.date),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = wc.Purple
+                    color = wc.Accent
                 )
             }
 
@@ -327,7 +327,7 @@ fun DraftPreviewScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(wc.PurpleLight)
+                                .background(wc.AccentLight)
                                 .clickable {
                                     selectedPhotoUri = photo
                                     showPhotoDialog = true
@@ -410,7 +410,7 @@ private fun MetaChip(icon: ImageVector, label: String) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = wc.Purple,
+            tint = wc.Accent,
             modifier = Modifier.size(16.dp)
         )
         Text(
@@ -446,7 +446,7 @@ private fun DraftPreviewScreenPreview() {
                     },
                     actions = {
                         TextButton(onClick = {}) {
-                            Text(stringResource(R.string.btn_save), color = wc.Purple, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(stringResource(R.string.btn_save), color = wc.Accent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
@@ -462,7 +462,7 @@ private fun DraftPreviewScreenPreview() {
                             .padding(bottom = 8.dp)
                             .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = wc.Purple)
+                        colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
                     ) {
                         Text(stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
                     }
@@ -477,7 +477,7 @@ private fun DraftPreviewScreenPreview() {
                     .padding(horizontal = 24.dp, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text(text = formatDate(sampleDraft.date), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
+                Text(text = formatDate(sampleDraft.date), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Accent)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)

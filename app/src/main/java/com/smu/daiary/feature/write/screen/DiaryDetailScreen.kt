@@ -185,7 +185,7 @@ fun DiaryDetailScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.btn_edit_diary),
-                            color = wc.Purple,
+                            color = wc.Accent,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp
                         )
@@ -208,7 +208,7 @@ fun DiaryDetailScreen(
                 text = formatDate(entry.date),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = wc.Purple
+                color = wc.Accent
             )
 
             if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty()) {
@@ -253,7 +253,7 @@ fun DiaryDetailScreen(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(wc.PurpleLight)
+                                .background(wc.AccentLight)
                                 .clickable { selectedImageUri = uri },
                             contentAlignment = Alignment.Center
                         ) {
@@ -274,7 +274,7 @@ fun DiaryDetailScreen(
                                 if (imageState is AsyncImagePainter.State.Loading) {
                                     CircularProgressIndicator(
                                         modifier = Modifier.size(24.dp),
-                                        color = wc.Purple,
+                                        color = wc.Accent,
                                         strokeWidth = 2.dp
                                     )
                                 }
@@ -304,7 +304,7 @@ fun DiaryDetailScreen(
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
-                color = wc.Purple,
+                color = wc.Accent,
                 modifier = Modifier.size(40.dp),
                 strokeWidth = 3.dp
             )
@@ -337,7 +337,7 @@ fun DiaryDetailScreen(
                     if (imageState is AsyncImagePainter.State.Loading) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(24.dp),
-                            color = wc.Purple,
+                            color = wc.Accent,
                             strokeWidth = 2.dp
                         )
                     }
@@ -382,7 +382,7 @@ private fun DetailMetaChip(icon: ImageVector, label: String) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = wc.Purple,
+            tint = wc.Accent,
             modifier = Modifier.size(16.dp)
         )
         Text(

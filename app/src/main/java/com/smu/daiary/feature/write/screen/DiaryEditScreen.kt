@@ -137,8 +137,8 @@ fun DiaryEditScreen(
 ) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
-    val accent = wc.Purple
-    val accentLight = wc.PurpleLight
+    val accent = wc.Accent
+    val accentLight = wc.AccentLight
     val dialogBg = if (isDark) SurfaceDark else White
     val dialogText = if (isDark) TextPrimaryDark else Ink
     val context = LocalContext.current
@@ -438,8 +438,8 @@ fun IconSelectChip(
 ) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
-    val accent = wc.Purple
-    val accentLight = wc.PurpleLight
+    val accent = wc.Accent
+    val accentLight = wc.AccentLight
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -497,7 +497,7 @@ private fun PhotoThumbnail(uri: String, onRemove: () -> Unit) {
         if (imageState is AsyncImagePainter.State.Loading) {
             CircularProgressIndicator(
                 modifier = Modifier.size(20.dp),
-                color = wc.Purple,
+                color = wc.Accent,
                 strokeWidth = 2.dp
             )
         }
@@ -541,7 +541,7 @@ private fun DiaryEditScreenPreview() {
     DaiaryTheme {
         val isDark = LocalDarkTheme.current
         val wc = if (isDark) WriteColorsDark else WriteColors
-        val accent = wc.Purple
+        val accent = wc.Accent
         Scaffold(
             containerColor = wc.Bg,
             topBar = {
@@ -632,7 +632,7 @@ private fun DiaryEditScreenPreview() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(92.dp)
-                        .background(wc.PurpleLight)
+                        .background(wc.AccentLight)
                         .padding(horizontal = 24.dp, vertical = 12.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
