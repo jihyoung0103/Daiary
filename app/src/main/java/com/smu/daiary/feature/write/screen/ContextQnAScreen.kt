@@ -2,6 +2,8 @@ package com.smu.daiary.feature.write.screen
 
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.model.*
+import com.smu.daiary.ui.theme.Error
+import com.smu.daiary.ui.theme.ErrorDark
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -108,7 +110,7 @@ fun ContextQnAScreen(
         containerColor = wc.Bg,
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
-                Snackbar(snackbarData = data, containerColor = Color(0xFFB00020), contentColor = Color.White)
+                Snackbar(snackbarData = data, containerColor = if (isDark) ErrorDark else Error, contentColor = Color.White)
             }
         },
         topBar = {
@@ -141,7 +143,7 @@ fun ContextQnAScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    CircularProgressIndicator(color = wc.Purple, strokeWidth = 3.dp)
+                    CircularProgressIndicator(color = wc.Accent, strokeWidth = 3.dp)
                     Text(
                         text = "일기를 작성하고 있어요...",
                         fontSize = 15.sp,
@@ -162,7 +164,7 @@ fun ContextQnAScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = wc.Purple, strokeWidth = 3.dp)
+                CircularProgressIndicator(color = wc.Accent, strokeWidth = 3.dp)
             }
             return@Scaffold
         }
@@ -185,7 +187,7 @@ fun ContextQnAScreen(
             LinearProgressIndicator(
                 progress = { (currentIndex + 1).toFloat() / questionList.size },
                 modifier = Modifier.fillMaxWidth(),
-                color = wc.Purple,
+                color = wc.Accent,
                 trackColor = wc.Border
             )
             Spacer(Modifier.height(6.dp))
@@ -226,7 +228,7 @@ fun ContextQnAScreen(
                             val isSelected = selectedOption == option
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = if (isSelected) wc.Purple else wc.SurfaceBg,
+                                color = if (isSelected) wc.Accent else wc.SurfaceBg,
                                 onClick = {
                                     answers[question.blockId] = option
                                     if (option != "기타") {
@@ -266,11 +268,11 @@ fun ContextQnAScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = wc.Purple,
+                        focusedBorderColor = wc.Accent,
                         unfocusedBorderColor = wc.Border,
                         focusedTextColor = wc.TextPrimary,
                         unfocusedTextColor = wc.TextPrimary,
-                        cursorColor = wc.Purple
+                        cursorColor = wc.Accent
                     ),
                     singleLine = true
                 )
@@ -291,7 +293,7 @@ fun ContextQnAScreen(
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = wc.Purple,
+                        containerColor = wc.Accent,
                         disabledContainerColor = wc.Border
                     )
                 ) {

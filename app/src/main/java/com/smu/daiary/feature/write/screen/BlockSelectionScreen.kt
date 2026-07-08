@@ -82,6 +82,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.smu.daiary.R
+import com.smu.daiary.ui.theme.Error
+import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
@@ -140,7 +142,7 @@ fun BlockSelectionScreen(
         containerColor = wc.Bg,
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
-                Snackbar(snackbarData = data, containerColor = Color(0xFFB00020), contentColor = Color.White)
+                Snackbar(snackbarData = data, containerColor = if (isDark) ErrorDark else Error, contentColor = Color.White)
             }
         },
         topBar = {
@@ -178,7 +180,7 @@ fun BlockSelectionScreen(
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = wc.Purple,
+                        containerColor = wc.Accent,
                         disabledContainerColor = wc.Border
                     )
                 ) {
@@ -194,7 +196,7 @@ fun BlockSelectionScreen(
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = wc.Purple)
+                    CircularProgressIndicator(color = wc.Accent)
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(text = stringResource(R.string.loading_data), fontSize = 14.sp, color = wc.TextMuted, textAlign = TextAlign.Center)
                 }
@@ -205,7 +207,7 @@ fun BlockSelectionScreen(
                     DateBanner(wc = wc, date = writingDate, isLateNight = isLateNight)
                     Text(text = stringResource(R.string.block_empty_message), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = wc.TextPrimary, textAlign = TextAlign.Center)
                     TextButton(onClick = onRetry) {
-                        Text(text = stringResource(R.string.btn_retry), color = wc.Purple, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text(text = stringResource(R.string.btn_retry), color = wc.Accent, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                     }
                 }
             }
@@ -346,8 +348,8 @@ private fun CategoryBlockItem(
     val wc = if (isDark) WriteColorsDark else WriteColors
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (block.isSelected) wc.PurpleLight else wc.Bg,
-        border = if (block.isSelected) BorderStroke(1.5.dp, wc.Purple) else BorderStroke(0.5.dp, wc.Border),
+        color = if (block.isSelected) wc.AccentLight else wc.Bg,
+        border = if (block.isSelected) BorderStroke(1.5.dp, wc.Accent) else BorderStroke(0.5.dp, wc.Border),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
@@ -359,13 +361,13 @@ private fun CategoryBlockItem(
         ) {
             Box(
                 modifier = Modifier.size(40.dp).clip(CircleShape)
-                    .background(if (block.isSelected) wc.Purple else wc.SurfaceBg),
+                    .background(if (block.isSelected) wc.Accent else wc.SurfaceBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = blockTypeIcon(block.type),
                     contentDescription = null,
-                    tint = if (block.isSelected) Color.White else wc.Purple,
+                    tint = if (block.isSelected) Color.White else wc.Accent,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -373,7 +375,7 @@ private fun CategoryBlockItem(
                 Text(
                     text = blockTypeLabel(block.type),
                     fontSize = 11.sp,
-                    color = if (block.isSelected) wc.Purple else wc.TextMuted,
+                    color = if (block.isSelected) wc.Accent else wc.TextMuted,
                     fontWeight = FontWeight.Medium
                 )
                 Text(text = displayText, fontSize = 14.sp, color = wc.TextPrimary)
@@ -382,7 +384,7 @@ private fun CategoryBlockItem(
                 Icon(
                     imageVector = if (isExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
                     contentDescription = if (isExpanded) "접기" else "펼치기",
-                    tint = if (block.isSelected) wc.Purple else wc.TextMuted,
+                    tint = if (block.isSelected) wc.Accent else wc.TextMuted,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -404,8 +406,8 @@ private fun SingleBlockItem(
     val wc = if (isDark) WriteColorsDark else WriteColors
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = if (block.isSelected) wc.PurpleLight else wc.Bg,
-        border = if (block.isSelected) BorderStroke(1.5.dp, wc.Purple) else BorderStroke(0.5.dp, wc.Border),
+        color = if (block.isSelected) wc.AccentLight else wc.Bg,
+        border = if (block.isSelected) BorderStroke(1.5.dp, wc.Accent) else BorderStroke(0.5.dp, wc.Border),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
@@ -417,13 +419,13 @@ private fun SingleBlockItem(
         ) {
             Box(
                 modifier = Modifier.size(40.dp).clip(CircleShape)
-                    .background(if (block.isSelected) wc.Purple else wc.SurfaceBg),
+                    .background(if (block.isSelected) wc.Accent else wc.SurfaceBg),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = if (block.type == BlockType.WEATHER || block.type == BlockType.WEATHER_TOMORROW) weatherIconFor(block.content) else blockTypeIcon(block.type),
                     contentDescription = null,
-                    tint = if (block.isSelected) Color.White else wc.Purple,
+                    tint = if (block.isSelected) Color.White else wc.Accent,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -431,7 +433,7 @@ private fun SingleBlockItem(
                 Text(
                     text = blockTypeLabel(block.type),
                     fontSize = 11.sp,
-                    color = if (block.isSelected) wc.Purple else wc.TextMuted,
+                    color = if (block.isSelected) wc.Accent else wc.TextMuted,
                     fontWeight = FontWeight.Medium
                 )
                 Text(text = block.content, fontSize = 14.sp, color = wc.TextPrimary)
@@ -439,7 +441,7 @@ private fun SingleBlockItem(
             Checkbox(
                 checked = block.isSelected,
                 onCheckedChange = { if (enabled) onClick() },
-                colors = CheckboxDefaults.colors(checkedColor = wc.Purple, uncheckedColor = wc.Border)
+                colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
             )
         }
     }
@@ -462,8 +464,8 @@ private fun SubItemBlock(
         .padding(start = 20.dp)
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = if (isSelected) wc.PurpleLight else wc.SurfaceBg,
-        border = if (isSelected) BorderStroke(1.dp, wc.Purple.copy(alpha = 0.5f)) else BorderStroke(0.5.dp, wc.Border),
+        color = if (isSelected) wc.AccentLight else wc.SurfaceBg,
+        border = if (isSelected) BorderStroke(1.dp, wc.Accent.copy(alpha = 0.5f)) else BorderStroke(0.5.dp, wc.Border),
         modifier = if (onClick != null) baseModifier.clickable(onClick = onClick) else baseModifier
     ) {
         Row(
@@ -502,7 +504,7 @@ private fun CalendarDetailSelector(
                 Checkbox(
                     checked = event.isSelected,
                     onCheckedChange = { onToggle(event.id) },
-                    colors = CheckboxDefaults.colors(checkedColor = wc.Purple, uncheckedColor = wc.Border)
+                    colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
                 )
             }
         }
@@ -528,7 +530,7 @@ private fun PhotoDetailSelector(
             Icon(
                 imageVector = Icons.Outlined.Add,
                 contentDescription = "사진 추가",
-                tint = wc.Purple,
+                tint = wc.Accent,
                 modifier = Modifier.size(18.dp)
             )
             Spacer(Modifier.width(8.dp))
@@ -536,7 +538,7 @@ private fun PhotoDetailSelector(
                 text = "갤러리에서 사진 추가",
                 modifier = Modifier.weight(1f),
                 fontSize = 13.sp,
-                color = wc.Purple,
+                color = wc.Accent,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -569,7 +571,7 @@ private fun PhotoDetailSelector(
                     Checkbox(
                         checked = photo.isSelected,
                         onCheckedChange = { onToggle(photo.uri) },
-                        colors = CheckboxDefaults.colors(checkedColor = wc.Purple, uncheckedColor = wc.Border)
+                        colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
                     )
                     IconButton(
                         onClick = { onRemove(photo.uri) },
@@ -615,7 +617,7 @@ private fun PaymentDetailSelector(
                 Checkbox(
                     checked = payment.isSelected,
                     onCheckedChange = { onToggle(payment.id) },
-                    colors = CheckboxDefaults.colors(checkedColor = wc.Purple, uncheckedColor = wc.Border)
+                    colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
                 )
             }
         }
@@ -639,8 +641,8 @@ private fun DateBanner(wc: WriteColorScheme, date: LocalDate, isLateNight: Boole
 
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = wc.PurpleLight,
-        border = BorderStroke(1.5.dp, wc.Purple),
+        color = wc.AccentLight,
+        border = BorderStroke(1.5.dp, wc.Accent),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
@@ -649,7 +651,7 @@ private fun DateBanner(wc: WriteColorScheme, date: LocalDate, isLateNight: Boole
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(wc.Purple),
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(wc.Accent),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -660,8 +662,8 @@ private fun DateBanner(wc: WriteColorScheme, date: LocalDate, isLateNight: Boole
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = "$dateText 일기를 작성하고 있어요", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Purple)
-                Text(text = subtitle, fontSize = 11.sp, color = wc.Purple.copy(alpha = 0.7f))
+                Text(text = "$dateText 일기를 작성하고 있어요", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Accent)
+                Text(text = subtitle, fontSize = 11.sp, color = wc.Accent.copy(alpha = 0.7f))
             }
         }
     }
