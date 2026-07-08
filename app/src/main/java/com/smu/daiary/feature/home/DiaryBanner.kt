@@ -67,7 +67,7 @@ fun DiaryBanner(
             Column {
                 Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
                 Text(
-                    text = subLabel,
+                    text = if (state == DiaryBannerState.FUTURE) "아직 작성할 수 없어요" else subLabel,
                     fontSize = 12.sp,
                     color = textColor.copy(alpha = 0.7f)
                 )

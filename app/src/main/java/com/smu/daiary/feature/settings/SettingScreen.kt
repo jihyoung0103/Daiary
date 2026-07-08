@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -118,9 +120,14 @@ fun SettingsScreen(onBack: () -> Unit = {}, onConfirm: () -> Unit = {}) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp)
             ) {
-                LazyVerticalGrid(columns = GridCells.Fixed(4)) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    userScrollEnabled = false
+                ) {
                     items(mbtiList) { mbti ->
                         Card(
                             onClick = {
@@ -194,6 +201,10 @@ fun SettingsScreen(onBack: () -> Unit = {}, onConfirm: () -> Unit = {}) {
                         }
                         showSavedMessage = true
                     },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = accentColor,
+                        contentColor = if (isDark) Ink else White
+                    ),
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
                     Text(stringResource(R.string.btn_save_mbti))
@@ -210,7 +221,8 @@ fun SettingsScreen(onBack: () -> Unit = {}, onConfirm: () -> Unit = {}) {
                             onClick = {
                                 showSavedMessage = false
                                 onConfirm()
-                            }
+                            },
+                            colors = ButtonDefaults.textButtonColors(contentColor = accentColor)
                         ) {
                             Text(stringResource(R.string.confirm))
                         }

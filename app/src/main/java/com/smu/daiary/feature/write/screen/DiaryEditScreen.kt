@@ -25,8 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -35,6 +33,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -47,6 +46,7 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -77,6 +77,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
+import coil.compose.AsyncImagePainter
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -223,14 +224,26 @@ fun DiaryEditScreen(
                             viewModel.updateEditedContent(text)
                             onDone()
                         },
+                        enabled = !isSaving,
                         shape = RoundedCornerShape(20.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = accent),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = accent,
+                            disabledContainerColor = accent
+                        ),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                         modifier = Modifier
                             .padding(end = 12.dp)
                             .height(36.dp)
                     ) {
-                        Text(stringResource(R.string.btn_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Text(stringResource(R.string.btn_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
@@ -342,14 +355,13 @@ fun DiaryEditScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(92.dp)
                     .background(accentLight)
                     .padding(horizontal = 24.dp, vertical = 12.dp)
             ) {
                 val photos = draft?.photos.orEmpty()
                 if (photos.isEmpty()) {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxWidth(),
                         contentAlignment = Alignment.Center
                     ) {
                         TextButton(
@@ -370,34 +382,28 @@ fun DiaryEditScreen(
                         }
                     }
                 } else {
-                    LazyRow(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp, bottom = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(top = 8.dp, bottom = 4.dp)
                     ) {
-                        items(photos) { uri ->
-                            PhotoThumbnail(uri = uri, onRemove = { viewModel.removePhoto(uri) })
+                        Row(
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            photos.forEach { uri ->
+                                PhotoThumbnail(uri = uri, onRemove = { viewModel.removePhoto(uri) })
+                            }
                         }
                         if (photos.size < 3) {
-                            item {
-                                TextButton(
-                                    onClick = {
-                                        photoPicker.launch(
-                                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                        )
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.AddPhotoAlternate,
-                                        contentDescription = stringResource(R.string.add_photo_desc),
-                                        tint = accent,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
-                                }
+                            TextButton(
+                                modifier = Modifier.align(Alignment.Center),
+                                onClick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                            ) {
+                                Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = stringResource(R.string.add_photo_desc), tint = accent, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
                             }
                         }
                     }
@@ -469,17 +475,42 @@ fun IconSelectChip(
 
 @Composable
 private fun PhotoThumbnail(uri: String, onRemove: () -> Unit) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
     Box(
         modifier = Modifier
             .size(60.dp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(10.dp)),
+        contentAlignment = Alignment.Center
     ) {
+        var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
+
         AsyncImage(
             model = uri,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            onState = { imageState = it }
         )
+
+        if (imageState is AsyncImagePainter.State.Loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = wc.Purple,
+                strokeWidth = 2.dp
+            )
+        }
+
+        if (imageState is AsyncImagePainter.State.Error) {
+            Icon(
+                imageVector = Icons.Outlined.BrokenImage,
+                contentDescription = null,
+                tint = wc.TextMuted,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)

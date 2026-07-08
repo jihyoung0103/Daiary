@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -61,7 +62,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import coil.compose.AsyncImagePainter
 import com.smu.daiary.R
@@ -121,8 +121,6 @@ fun DiaryDetailScreen(
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var showPhotoDialog by remember { mutableStateOf(false) }
-    var selectedPhotoUri by remember { mutableStateOf("") }
 
     if (showDeleteDialog) {
         AlertDialog(
@@ -256,14 +254,10 @@ fun DiaryDetailScreen(
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(wc.PurpleLight)
-                                .clickable {
-                                    selectedPhotoUri = uri
-                                    showPhotoDialog = true
-                                },
+                                .clickable { selectedImageUri = uri },
                             contentAlignment = Alignment.Center
                         ) {
                             Surface(
-                                onClick = { selectedImageUri = uri },
                                 modifier = Modifier.size(80.dp),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
@@ -302,34 +296,6 @@ fun DiaryDetailScreen(
         }
     }
 
-    if (showPhotoDialog) {
-        Dialog(
-            onDismissRequest = { showPhotoDialog = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                AsyncImage(
-                    model = selectedPhotoUri,
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
-                IconButton(
-                    onClick = { showPhotoDialog = false },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "닫기",
-                        tint = Color.White
-                    )
-                }
-            }
-        }
-    }
-
     if (isDeleting) {
         Box(
             modifier = Modifier
@@ -353,16 +319,52 @@ fun DiaryDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(dialogBg)
-                        .padding(12.dp)
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
+                    var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
+
                     AsyncImage(
                         model = selectedImageUri,
                         contentDescription = null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp)),
-                        contentScale = ContentScale.Fit
+                        contentScale = ContentScale.Fit,
+                        onState = { imageState = it }
                     )
+
+                    if (imageState is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = wc.Purple,
+                            strokeWidth = 2.dp
+                        )
+                    }
+
+
+                    if (imageState is AsyncImagePainter.State.Error) {
+                        Icon(
+                            imageVector = Icons.Outlined.BrokenImage,
+                            contentDescription = null,
+                            tint = wc.TextMuted,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { selectedImageUri = null },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "닫기",
+                            tint = Color.White
+                        )
+                    }
                 }
             }
         }
