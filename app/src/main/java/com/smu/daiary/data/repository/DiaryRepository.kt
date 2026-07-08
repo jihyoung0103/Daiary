@@ -56,6 +56,20 @@ class DiaryRepository {
             .mapNotNull { doc -> doc.toObject<DiaryEntry>()?.copy(id = doc.id) }
     }
 
+    /**
+     * 특정 날짜("YYYY-MM-DD")에 이미 저장된 일기를 한 건 조회합니다.
+     * 하루 1개 유지(중복 저장 방지)를 위해 사용하며, 없으면 null을 반환합니다.
+     */
+    suspend fun getDiaryByDate(userId: String, date: String): Result<DiaryEntry?> = runCatching {
+        diariesRef(userId)
+            .whereEqualTo("date", date)
+            .get()
+            .await()
+            .documents
+            .mapNotNull { doc -> doc.toObject<DiaryEntry>()?.copy(id = doc.id) }
+            .firstOrNull()
+    }
+
     /** 일기를 Firestore에 추가합니다. */
     suspend fun addDiary(userId: String, entry: DiaryEntry): Result<Unit> = runCatching {
         diariesRef(userId).add(entry).await()
