@@ -19,6 +19,8 @@ import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
 import com.smu.daiary.R
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -158,9 +160,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
-    /** 사진 다중 분석 결과 요약 (analyzePhotos 호출 결과) */
-    private val _photoAnalysis = MutableStateFlow<String?>(null)
-    val photoAnalysis: StateFlow<String?> = _photoAnalysis.asStateFlow()
+    /** [개발용] 일기 생성에 사용된 사진별 분석 결과(photoSummary). UI에서 확인용 */
+    private val _photoAnalysisDebug = MutableStateFlow("")
+    val photoAnalysisDebug: StateFlow<String> = _photoAnalysisDebug.asStateFlow()
 
     // ─────────────────────────────────────────────────────────────
     // 이벤트
@@ -344,9 +346,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     _photos.value = photos.map { photo ->
                         PhotoSelectableItem(
                             uri = photo.uri,
+                            isSelected = true,
+                            takenAt = photo.takenAt,
                             latitude = photo.latitude,
                             longitude = photo.longitude,
-                            isSelected = true
+                            isCameraPhoto = photo.isCameraPhoto
                         )
                     }
 
@@ -645,23 +649,30 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         syncPhotoBlockSelection()
     }
 
-    /** 갤러리에서 직접 고른 사진을 목록에 추가 (중복 방지 포함) */
+    /** 갤러리에서 직접 고른 사진을 목록에 추가 (중복 방지 + EXIF 메타데이터 읽기) */
     fun addSelectablePhoto(uri: String) {
-        val alreadyExists =
-            _photos.value.any {
-                it.uri == uri
+        if (_photos.value.any { it.uri == uri }) return
+
+        viewModelScope.launch {
+            // EXIF에서 촬영 시각·위치를 읽어 자동 수집 사진과 동일한 데이터로 채움
+            val meta = photoDataSource.readPhotoMeta(uri)
+
+            // 비동기 사이에 중복 추가됐을 수 있으니 재확인
+            if (_photos.value.any { it.uri == uri }) return@launch
+
+            _photos.update { list ->
+                list + PhotoSelectableItem(
+                    uri = uri,
+                    isSelected = true,
+                    takenAt = meta.takenAt,
+                    latitude = meta.latitude,
+                    longitude = meta.longitude,
+                    isCameraPhoto = meta.isCameraPhoto
+                )
             }
 
-        if (alreadyExists) return
-
-        _photos.update { list ->
-            list + PhotoSelectableItem(
-                uri = uri,
-                isSelected = true
-            )
+            syncPhotoBlockSelection()
         }
-
-        syncPhotoBlockSelection()
     }
 
     /** 향후 일정 개별 선택 토글 → 완료 후 향후 일정 블록 요약 텍스트 자동 갱신 */
@@ -895,7 +906,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
      */
     fun prepareGeneration() = viewModelScope.launch {
-        _photoAnalysis.value = null
+        _photoAnalysisDebug.value = ""
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
             _contextQuestions.value = emptyList()
@@ -955,23 +966,52 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val locale = if (savedLang == "English") "en" else "ko"
             android.util.Log.d(TAG, "🌐 저장된 언어: $savedLang → locale: $locale")
 
-            val selectedEncodedImages =
-                _photos.value
-                    .filter { it.isSelected }
-                    .mapNotNull { encodeImage(it.uri) }
+            // 선택된 사진을 장별로 병렬 분석 (결과는 각 사진 객체 analysis에 캐싱)
+            val selectedPhotos = _photos.value.filter { it.isSelected }
+            Log.d(TAG, "📸 선택된 사진 수: ${selectedPhotos.size}")
 
-            Log.d(TAG, "📸 선택된 사진 수: ${_photos.value.count { it.isSelected }}")
-            Log.d(TAG, "📦 인코딩 성공 수: ${selectedEncodedImages.size}")
-
-            val photoSummary = try {
-                aiRepository.analyzePhotos(selectedEncodedImages)
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ 사진 분석 실패", e)
-                "사진 ${selectedEncodedImages.size}장이 선택됨"
+            val analyzedPhotos = coroutineScope {
+                selectedPhotos.map { photo ->
+                    async {
+                        // 이미 분석된 사진은 재사용 (세션 캐시 → 중복 Vision 호출 방지)
+                        if (!photo.analysis.isNullOrBlank()) return@async photo
+                        val encoded = encodeImage(photo.uri) ?: return@async photo
+                        val result = try {
+                            aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
+                            ""
+                        }
+                        photo.copy(analysis = result.ifBlank { null })
+                    }
+                }.awaitAll()
             }
 
-            Log.d(TAG, "📸 사진 분석 결과: $photoSummary")
-            _photoAnalysis.value = photoSummary
+            // 분석 결과를 _photos에 반영해 캐싱
+            _photos.update { list ->
+                list.map { p -> analyzedPhotos.firstOrNull { it.uri == p.uri } ?: p }
+            }
+
+            // 촬영 시각 순으로 정렬하고 시간 라벨을 붙여 사진별 요약 구성
+            val photoTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+            val photoSummary = analyzedPhotos
+                .filter { !it.analysis.isNullOrBlank() }
+                .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
+                .mapIndexed { index, photo ->
+                    val kindLabel = if (photo.isCameraPhoto) "촬영 사진" else "화면 캡처/수신 이미지"
+                    // 촬영 시각은 직접 촬영한 사진에서만 의미가 있으므로 그 경우에만 표시
+                    val timeLabel = if (photo.isCameraPhoto && photo.takenAt > 0L) {
+                        val t = Instant.ofEpochMilli(photo.takenAt)
+                            .atZone(ZoneId.systemDefault())
+                            .format(photoTimeFormatter)
+                        ", 촬영 $t"
+                    } else ""
+                    "사진 ${index + 1} [$kindLabel$timeLabel]:\n${photo.analysis}"
+                }
+                .joinToString("\n\n")
+
+            _photoAnalysisDebug.value = photoSummary
+            Log.d(TAG, "📸 사진별 분석 결과:\n$photoSummary")
 
             val mbti = getApplication<Application>()
                 .getSharedPreferences(
@@ -1023,28 +1063,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
-
-
-    private fun encodeImage(uri: Uri): EncodedImage? {
-        return try {
-            val mimeTypeFromResolver = context.contentResolver.getType(uri)
-
-            val bytes = context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                inputStream.readBytes()
-            } ?: return null
-
-            val mediaType = detectImageMediaType(bytes, mimeTypeFromResolver)
-            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-
-            EncodedImage(
-                base64 = base64,
-                mediaType = mediaType
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
 
 
     /** AI 생성 실패 시 블록 내용을 단순 나열한 기본 초안 반환 */
@@ -1176,7 +1194,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun clearDraftOnly() {
         _draft.value = null
         _contextQuestions.value = null
-        _photoAnalysis.value = null
+        _photoAnalysisDebug.value = ""
     }
 
     /**
@@ -1222,5 +1240,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _existingEntryId.value = null
+        _photoAnalysisDebug.value = ""
     }
 }

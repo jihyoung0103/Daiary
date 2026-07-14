@@ -133,7 +133,8 @@ fun DraftPreviewScreen(
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
     val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
-    val photoAnalysis by viewModel.photoAnalysis.collectAsStateWithLifecycle()
+    val photoAnalysisDebug by viewModel.photoAnalysisDebug.collectAsStateWithLifecycle()
+    val selectedPhotos = photos.filter { it.isSelected }
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
@@ -250,50 +251,6 @@ fun DraftPreviewScreen(
                 }
             }
 
-            val photoAnalysisSnapshot = photoAnalysis
-            if (!photoAnalysisSnapshot.isNullOrBlank()) {
-                val materials = extractDiaryMaterials(photoAnalysisSnapshot)
-                if (materials != null) {
-                    var photoCardExpanded by remember { mutableStateOf(false) }
-                    val summaryText = materials.lines().filter { it.isNotBlank() }.take(3).joinToString("\n")
-                    Surface(
-                        shape = RoundedCornerShape(28.dp),
-                        color = wc.SurfaceBg,
-                        border = BorderStroke(0.5.dp, wc.Border)
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { photoCardExpanded = !photoCardExpanded },
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.photo_analysis_card_title),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = wc.TextPrimary
-                                )
-                                Icon(
-                                    imageVector = if (photoCardExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = wc.TextMuted,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = if (photoCardExpanded) materials else summaryText,
-                                fontSize = 14.sp,
-                                lineHeight = 22.sp,
-                                color = wc.TextMuted
-                            )
-                        }
-                    }
-                }
-            }
-
             Surface(
                 shape = RoundedCornerShape(28.dp),
                 color = wc.SurfaceBg,
@@ -308,6 +265,47 @@ fun DraftPreviewScreen(
                     lineHeight = 24.sp,
                     color = wc.TextPrimary
                 )
+            }
+
+            // [개발용] 일기 생성에 사용된 사진별 분석 내용 확인 (접이식)
+            if (photoAnalysisDebug.isNotBlank()) {
+                var showAnalysis by remember { mutableStateOf(false) }
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = wc.SurfaceBg,
+                    border = BorderStroke(0.5.dp, wc.Border)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showAnalysis = !showAnalysis },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "사진 분석 내용 (개발용)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = wc.TextMuted
+                            )
+                            Text(
+                                text = if (showAnalysis) "숨기기" else "보기",
+                                fontSize = 13.sp,
+                                color = wc.Accent
+                            )
+                        }
+                        if (showAnalysis) {
+                            Text(
+                                text = photoAnalysisDebug,
+                                modifier = Modifier.padding(top = 8.dp),
+                                fontSize = 13.sp,
+                                lineHeight = 20.sp,
+                                color = wc.TextPrimary
+                            )
+                        }
+                    }
+                }
             }
 
             val photos = draft?.photos.orEmpty()
@@ -390,13 +388,6 @@ fun DraftPreviewScreen(
             }
         }
     }
-}
-
-private fun extractDiaryMaterials(text: String): String? {
-    val headerPattern = Regex("##\\s*일기 작성에 활용하기 좋은 소재")
-    val startIdx = headerPattern.find(text)?.range?.last?.plus(1) ?: return null
-    val nextHeaderIdx = text.indexOf("\n##", startIdx).let { if (it == -1) text.length else it }
-    return text.substring(startIdx, nextHeaderIdx).trim().ifBlank { null }
 }
 
 @Composable
