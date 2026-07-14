@@ -69,7 +69,6 @@ import com.smu.daiary.feature.home.HomeViewModel
 import com.smu.daiary.feature.settings.SettingsScreen
 import com.smu.daiary.feature.notification.createNotificationChannel
 import com.smu.daiary.feature.settings.SettingsScreen
-import com.smu.daiary.feature.schedule.ScheduleViewScreen
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.screen.BlockSelectionScreen
 import com.smu.daiary.feature.write.screen.ContextQnAScreen
@@ -159,7 +158,7 @@ class MainActivity : ComponentActivity() {
                             val isLoading by homeViewModel.isLoading.collectAsStateWithLifecycle()
                             val homeError by homeViewModel.error.collectAsStateWithLifecycle()
                             val isDeletingDiary by homeViewModel.isDeletingDiary.collectAsStateWithLifecycle()
-                            var selectedDiary by remember { mutableStateOf<DiaryEntry?>(null) }
+                            var viewingDate by remember { mutableStateOf<LocalDate?>(null) }
                             var editFromDetail by remember { mutableStateOf(false) }
                             val scope = rememberCoroutineScope()
                             val saveFailedMessage = stringResource(R.string.profile_save_error)
@@ -343,16 +342,14 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onProfileClick = { navController.navigate("profile") },
                                         onDiaryClick = { entry ->
-                                            selectedDiary = entry
+                                            viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                             navController.navigate("diary_detail")
-                                        },
-                                        onScheduleClick = { date ->
-                                            navController.navigate("schedule_view/$date")
                                         },
                                         onWriteDiary = { dateStr ->
                                             writeViewModel.setTargetDate(LocalDate.parse(dateStr))
                                             permissionLauncher.launch(requiredPermissions)
                                         },
+                                        onViewAllDiaries = { navController.navigate("diary_list") },
                                         weeklyBannerStatus = weeklyBannerStatus,
                                         monthlyBannerStatus = monthlyBannerStatus,
                                         weeklyBannerSubLabel = retrospectViewModel.weeklyPeriod.rangeLabel,
@@ -422,7 +419,7 @@ class MainActivity : ComponentActivity() {
                                             onSave = { navController.popBackStack("main", inclusive = false) },
                                             onViewDiary = { date ->
                                                 diaries.find { it.date == date }?.let { entry ->
-                                                    selectedDiary = entry
+                                                    viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                                     navController.navigate("diary_detail")
                                                 }
                                             },
@@ -572,20 +569,32 @@ class MainActivity : ComponentActivity() {
                                         modifier = Modifier.padding(innerPadding)
                                     )
                                 }
-                                // "diary_detail": 일기 상세 화면
+                                // "diary_detail": 일기 상세 화면 (날짜 기반, 좌우 스와이프로 인접 날짜 이동)
                                 composable("diary_detail") {
-                                    selectedDiary?.let { entry ->
+                                    viewingDate?.let { date ->
+                                        val entry = diaries.firstOrNull { it.date == date.toString() }
                                         DiaryDetailScreen(
+                                            date = date,
                                             entry = entry,
                                             isDeleting = isDeletingDiary,
+                                            onPrevDay = { viewingDate = date.minusDays(1) },
+                                            onNextDay = { viewingDate = date.plusDays(1) },
+                                            onWrite = {
+                                                writeViewModel.setTargetDate(date)
+                                                permissionLauncher.launch(requiredPermissions)
+                                            },
                                             onEdit = {
-                                                editFromDetail = true
-                                                writeViewModel.loadExistingEntry(entry)
-                                                navController.navigate("diary_edit")
+                                                entry?.let {
+                                                    editFromDetail = true
+                                                    writeViewModel.loadExistingEntry(it)
+                                                    navController.navigate("diary_edit")
+                                                }
                                             },
                                             onDelete = {
-                                                homeViewModel.deleteDiary(userId, entry.id) { success ->
-                                                    if (success) navController.popBackStack()
+                                                entry?.let {
+                                                    homeViewModel.deleteDiary(userId, it.id) { success ->
+                                                        if (success) navController.popBackStack()
+                                                    }
                                                 }
                                             },
                                             onBack = { navController.popBackStack() },
@@ -593,18 +602,21 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 }
+                                // "diary_list": 모든 일기 리스트 (일기 날짜 내림차순)
+                                composable("diary_list") {
+                                    com.smu.daiary.feature.home.DiaryListScreen(
+                                        diaries = diaries,
+                                        onDiaryClick = { entry ->
+                                            viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
+                                            navController.navigate("diary_detail")
+                                        },
+                                        onBack = { navController.popBackStack() }
+                                    )
+                                }
                                 composable("settings") {
                                     SettingsScreen(
                                         onBack = { navController.popBackStack() },
                                         onConfirm = { navController.popBackStack() }
-                                    )
-                                }
-                                // "schedule_view/{date}": 날짜별 캘린더 일정 화면
-                                composable("schedule_view/{date}") { backStackEntry ->
-                                    val date = backStackEntry.arguments?.getString("date") ?: ""
-                                    ScheduleViewScreen(
-                                        date = date,
-                                        onBack = { navController.popBackStack() }
                                     )
                                 }
                             }
