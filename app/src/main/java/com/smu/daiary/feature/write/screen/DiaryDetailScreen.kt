@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -105,9 +111,11 @@ private fun formatDate(raw: String): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryDetailScreen(
-    entry: DiaryEntry,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
+    initialDate: LocalDate,
+    diaries: List<DiaryEntry>,
+    onWrite: (LocalDate) -> Unit,
+    onEdit: (DiaryEntry) -> Unit,
+    onDelete: (DiaryEntry) -> Unit,
     onBack: () -> Unit,
     isDeleting: Boolean = false,
     modifier: Modifier = Modifier
@@ -117,6 +125,13 @@ fun DiaryDetailScreen(
     val dialogBg = if (isDark) SurfaceDark else White
     val dialogText = if (isDark) TextPrimaryDark else Ink
     val errorColor = if (isDark) ErrorDark else Error
+
+    // 인접 날짜를 좌우 페이지로 넘기는 무한 페이저. 중앙(startIndex)을 initialDate로 매핑.
+    val startIndex = 50_000
+    val pagerState = rememberPagerState(initialPage = startIndex, pageCount = { 100_001 })
+    fun dateOf(page: Int): LocalDate = initialDate.plusDays((page - startIndex).toLong())
+    val currentDate = dateOf(pagerState.currentPage)
+    val currentEntry = diaries.firstOrNull { it.date == currentDate.toString() }
 
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
@@ -130,7 +145,7 @@ fun DiaryDetailScreen(
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
-                    onDelete()
+                    currentEntry?.let(onDelete)
                 }) {
                     Text(stringResource(R.string.btn_delete), color = errorColor)
                 }
@@ -152,7 +167,7 @@ fun DiaryDetailScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = stringResource(R.string.screen_diary),
+                        text = formatDate(currentDate.toString()),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
                         color = wc.TextPrimary
@@ -168,27 +183,29 @@ fun DiaryDetailScreen(
                     }
                 },
                 actions = {
-                    TextButton(
-                        onClick = { showDeleteDialog = true },
-                        enabled = !isDeleting
-                    ) {
-                        Text(
-                            text = stringResource(R.string.btn_delete),
-                            color = errorColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                    TextButton(
-                        onClick = onEdit,
-                        enabled = !isDeleting
-                    ) {
-                        Text(
-                            text = stringResource(R.string.btn_edit_diary),
-                            color = wc.Accent,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
+                    if (currentEntry != null) {
+                        TextButton(
+                            onClick = { showDeleteDialog = true },
+                            enabled = !isDeleting
+                        ) {
+                            Text(
+                                text = stringResource(R.string.btn_delete),
+                                color = errorColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                        TextButton(
+                            onClick = { onEdit(currentEntry) },
+                            enabled = !isDeleting
+                        ) {
+                            Text(
+                                text = stringResource(R.string.btn_edit_diary),
+                                color = wc.Accent,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
@@ -196,103 +213,21 @@ fun DiaryDetailScreen(
             )
         }
     ) { padding ->
-        Column(
+        HorizontalPager(
+            state = pagerState,
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = formatDate(entry.date),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                color = wc.Accent
+                .fillMaxSize(),
+            pageSpacing = 8.dp
+        ) { page ->
+            val pageDate = dateOf(page)
+            val pageEntry = diaries.firstOrNull { it.date == pageDate.toString() }
+            DiaryDayContent(
+                date = pageDate,
+                entry = pageEntry,
+                onWrite = { onWrite(pageDate) },
+                onImageClick = { selectedImageUri = it }
             )
-
-            if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = localizedWeatherLabel(entry.weather)) }
-                    emotionIcons[entry.emotion]?.let { DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion)) }
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = wc.SurfaceBg,
-                border = BorderStroke(0.5.dp, wc.Border)
-            ) {
-                Text(
-                    text = entry.content,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                    color = wc.TextPrimary
-                )
-            }
-
-            if (entry.photos.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.attached_photos),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = wc.TextMuted
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(entry.photos) { uri ->
-                        Box(
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(wc.AccentLight)
-                                .clickable { selectedImageUri = uri },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Surface(
-                                modifier = Modifier.size(80.dp),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
-
-                                AsyncImage(
-                                    model = uri,
-                                    contentDescription = null,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
-                                    onState = { imageState = it }
-                                )
-
-                                if (imageState is AsyncImagePainter.State.Loading) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(24.dp),
-                                        color = wc.Accent,
-                                        strokeWidth = 2.dp
-                                    )
-                                }
-
-
-                                if (imageState is AsyncImagePainter.State.Error) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.BrokenImage,
-                                        contentDescription = null,
-                                        tint = wc.TextMuted,
-                                        modifier = Modifier.size(32.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -371,6 +306,130 @@ fun DiaryDetailScreen(
     } // Box
 }
 
+/** 페이저 한 페이지: 특정 날짜의 일기 내용, 없으면 빈 상태(생성하기). */
+@Composable
+private fun DiaryDayContent(
+    date: LocalDate,
+    entry: DiaryEntry?,
+    onWrite: () -> Unit,
+    onImageClick: (String) -> Unit
+) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
+    if (entry == null) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(text = "아직 일기가 없어요...", fontSize = 15.sp, color = wc.TextMuted)
+            if (!date.isAfter(LocalDate.now())) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onWrite,
+                    colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
+                ) {
+                    Text(text = "생성하기", color = White, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
+        return
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = localizedWeatherLabel(entry.weather)) }
+                emotionIcons[entry.emotion]?.let { DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion)) }
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(28.dp),
+            color = wc.SurfaceBg,
+            border = BorderStroke(0.5.dp, wc.Border)
+        ) {
+            Text(
+                text = entry.content,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                fontSize = 15.sp,
+                lineHeight = 24.sp,
+                color = wc.TextPrimary
+            )
+        }
+
+        if (entry.photos.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.attached_photos),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = wc.TextMuted
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(entry.photos) { uri ->
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(wc.AccentLight)
+                            .clickable { onImageClick(uri) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(80.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
+
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                                onState = { imageState = it }
+                            )
+
+                            if (imageState is AsyncImagePainter.State.Loading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = wc.Accent,
+                                    strokeWidth = 2.dp
+                                )
+                            }
+
+                            if (imageState is AsyncImagePainter.State.Error) {
+                                Icon(
+                                    imageVector = Icons.Outlined.BrokenImage,
+                                    contentDescription = null,
+                                    tint = wc.TextMuted,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun DetailMetaChip(icon: ImageVector, label: String) {
     val isDark = LocalDarkTheme.current
@@ -410,6 +469,13 @@ private fun DiaryDetailScreenPreview() {
         date = "2026-05-11"
     )
     DaiaryTheme {
-        DiaryDetailScreen(entry = sample, onEdit = {}, onDelete = {}, onBack = {})
+        DiaryDetailScreen(
+            initialDate = LocalDate.parse("2026-05-11"),
+            diaries = listOf(sample),
+            onWrite = {},
+            onEdit = {},
+            onDelete = {},
+            onBack = {}
+        )
     }
 }

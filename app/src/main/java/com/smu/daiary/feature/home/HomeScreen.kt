@@ -136,8 +136,8 @@ fun HomeScreen(
     onStartDiary: () -> Unit = {},
     onProfileClick: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {},
-    onScheduleClick: (String) -> Unit = {},
     onWriteDiary: (String) -> Unit = {},
+    onViewAllDiaries: () -> Unit = {},
     weeklyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     monthlyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     weeklyBannerSubLabel: String = "",
@@ -206,29 +206,25 @@ fun HomeScreen(
                             diaryBannerDate.isAfter(today) -> DiaryBannerState.FUTURE
                             else -> DiaryBannerState.WRITABLE
                         }
-                        if (diaryBannerState != DiaryBannerState.HAS_DIARY) {
-                            // 일기가 이미 있으면 아래 RecentDiaryList 카드가 조회를 담당하므로
-                            // 배너는 작성 유도(WRITABLE)/미래 안내(FUTURE)일 때만 노출한다.
-                            DiaryBanner(
-                                title = if (diaryBannerDate == today) "오늘의 일기"
-                                else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
-                                subLabel = when (diaryBannerState) {
-                                    DiaryBannerState.HAS_DIARY ->
-                                        existingDiary?.content?.replace("\n", " ")?.trim()
-                                            ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
-                                    DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
-                                    DiaryBannerState.FUTURE -> ""
-                                },
-                                state = diaryBannerState,
-                                onClick = {
-                                    when (diaryBannerState) {
-                                        DiaryBannerState.HAS_DIARY -> existingDiary?.let { onDiaryClick(it) }
-                                        DiaryBannerState.WRITABLE -> onWriteDiary(diaryBannerDate.toString())
-                                        DiaryBannerState.FUTURE -> {}
-                                    }
+                        DiaryBanner(
+                            title = if (diaryBannerDate == today) "오늘의 일기"
+                            else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
+                            subLabel = when (diaryBannerState) {
+                                DiaryBannerState.HAS_DIARY ->
+                                    existingDiary?.content?.replace("\n", " ")?.trim()
+                                        ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
+                                DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
+                                DiaryBannerState.FUTURE -> ""
+                            },
+                            state = diaryBannerState,
+                            onClick = {
+                                when (diaryBannerState) {
+                                    DiaryBannerState.HAS_DIARY -> existingDiary?.let { onDiaryClick(it) }
+                                    DiaryBannerState.WRITABLE -> onWriteDiary(diaryBannerDate.toString())
+                                    DiaryBannerState.FUTURE -> {}
                                 }
-                            )
-                        }
+                            }
+                        )
                         RetrospectBanner(
                             title = "이번 주 회고",
                             subLabel = weeklyBannerSubLabel,
@@ -242,16 +238,37 @@ fun HomeScreen(
                             onClick = onMonthlyBannerClick
                         )
                     }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    RecentDiaryList(
-                        diaries = diaries,
-                        selectedDate = selectedDate,
-                        isLoading = isLoading,
-                        error = error,
-                        onRetry = onRetry,
-                        onDiaryClick = onDiaryClick,
-                        onScheduleClick = onScheduleClick
-                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // 작성한 모든 일기를 일기 날짜순으로 보는 리스트 페이지 진입
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .clickable(onClick = onViewAllDiaries),
+                        color = if (isDark) DewDark else Dew,
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "모든 일기 보기",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isDark) TextPrimaryDark else Ink
+                            )
+                            Text(
+                                text = "→",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isDark) TextPrimaryDark else Ink
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
                 BottomNavBar(
@@ -494,227 +511,6 @@ private fun CalendarDayCell(
                         .background(if (isSelected) mc.calCard else diaryMoodColor)
                 )
             }
-        }
-    }
-}
-
-data class DiaryListItemUi(
-    val day: Int,
-    val weekdayLabel: String,
-    val title: String,
-    val preview: String,
-    val moodColor: Color,
-    val moodIcon: ImageVector,
-    val entry: DiaryEntry
-)
-
-@Composable
-private fun RecentDiaryList(
-    diaries: List<DiaryEntry>,
-    selectedDate: LocalDate? = null,
-    isLoading: Boolean = false,
-    error: String? = null,
-    onRetry: () -> Unit = {},
-    onDiaryClick: (DiaryEntry) -> Unit = {},
-    onScheduleClick: (String) -> Unit = {}
-) {
-    val isDark = LocalDarkTheme.current
-    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-
-    val weekLabels = stringArrayResource(R.array.week_days_mon_first).toList()
-    val diaryTitleTemplate = stringResource(R.string.diary_title_date)
-    val items = remember(diaries, selectedDate, weekLabels, diaryTitleTemplate) {
-        val source = if (selectedDate != null) {
-            diaries.filter { it.date == selectedDate.toString() }
-        } else {
-            diaries.take(5)
-        }
-        source.mapNotNull { entry ->
-            runCatching {
-                val localDate = LocalDate.parse(entry.date)
-                DiaryListItemUi(
-                    day = localDate.dayOfMonth,
-                    weekdayLabel = weekLabels[localDate.dayOfWeek.value - 1],
-                    title = String.format(diaryTitleTemplate, localDate.year, localDate.monthValue, localDate.dayOfMonth),
-                    preview = entry.content.replace("\n", " "),
-                    moodColor = when (entry.mood) {
-                        "happy"   -> MoodHappy
-                        "sad"     -> MoodSad
-                        else      -> MoodNeutral
-                    },
-                    moodIcon = when (entry.mood) {
-                        "happy"   -> Icons.Outlined.SentimentVerySatisfied
-                        "sad"     -> Icons.Outlined.SentimentDissatisfied
-                        else      -> Icons.Outlined.SentimentNeutral
-                    },
-                    entry = entry
-                )
-            }.getOrNull()
-        }
-    }
-    val sectionTitle = if (selectedDate != null)
-        stringResource(R.string.date_record_title, selectedDate.monthValue, selectedDate.dayOfMonth)
-    else stringResource(R.string.recent_record)
-
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
-        Text(
-            text = sectionTitle,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium,
-            color = mc.textMuted,
-            letterSpacing = 0.05.sp,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-        if (isLoading && selectedDate == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    color = mc.accentPurple,
-                    modifier = Modifier.size(32.dp),
-                    strokeWidth = 2.5.dp
-                )
-            }
-        } else if (error != null && selectedDate == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.error_load_failed),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = mc.textPrimary
-                    )
-                    TextButton(onClick = onRetry) {
-                        Text(
-                            text = stringResource(R.string.btn_retry),
-                            color = mc.accentPurple,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-        } else if (items.isEmpty()) {
-            if (selectedDate != null && selectedDate.isAfter(LocalDate.now())) {
-                Text(
-                    text = "아직 작성할 수 없어요",
-                    fontSize = 14.sp,
-                    color = mc.textMuted,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            } else if (selectedDate != null) {
-                Text(
-                    text = stringResource(R.string.no_diary_on_date),
-                    fontSize = 14.sp,
-                    color = mc.textMuted,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Create,
-                            contentDescription = null,
-                            tint = mc.accentPurple.copy(alpha = 0.4f),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.no_diaries_yet),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = mc.textPrimary
-                        )
-                        Text(
-                            text = stringResource(R.string.no_diaries_subtitle),
-                            fontSize = 13.sp,
-                            color = mc.textMuted
-                        )
-                    }
-                }
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items.forEach { item ->
-                    DiaryRow(item = item, onClick = { onDiaryClick(item.entry) })
-                }
-            }
-        }
-        if (selectedDate != null) {
-            // 일기 작성/조회는 상단 DiaryBanner가 담당하므로 여기선 일정 보기만 노출한다.
-            Row(modifier = Modifier.padding(top = 12.dp)) {
-                TextButton(onClick = { onScheduleClick(selectedDate.toString()) }) {
-                    Text(text = "일정 보기", fontSize = 13.sp, color = mc.accentPurple)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DiaryRow(item: DiaryListItemUi, onClick: () -> Unit) {
-    val isDark = LocalDarkTheme.current
-    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-    val cardBg = if (isDark) SurfaceDark else White
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        color = cardBg,
-        border = BorderStroke(0.5.dp, mc.border)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp, 14.dp, 16.dp, 14.dp),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
-            ) {
-                Text(
-                    text = item.title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = mc.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = item.preview,
-                    fontSize = 12.sp,
-                    color = mc.textMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            Icon(
-                imageVector = item.moodIcon,
-                contentDescription = null,
-                tint = item.moodColor,
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .size(18.dp)
-            )
         }
     }
 }
