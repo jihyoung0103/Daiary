@@ -115,14 +115,16 @@ class NaverPayParser(
 /**
  * 신한카드(신한플레이) 알림 파서.
  *
- * 실제 알림 형식:
- *   title: "[신한카드 (3695) 승인] 조형"
- *   text:  "- 승인금액 : 2,500원 (일시불)
- *           승인일시: 07/07 20:21
- *           - 가맹점명: 지에스25 백송 9단지점
- *           - 누적금액 : 486,769원
+ * 실제 알림 형식(실기기 로그로 확인, 2026-07):
+ *   title: "[신한카드]"                          ← title엔 "승인"이 없다!
+ *   text:  "[신한카드(3695)승인] 조*형
+ *           - 승인금액: 11,900원(일시불)
+ *           - 승인일시: 07/14 16:12
+ *           - 가맹점명: 주식회사 우아한형제
+ *           - 누적금액: 557,859원
  *           [신한카드 1544-7000]"
- * → 금액은 "승인금액" 라벨에서(누적금액과 혼동 방지), 가맹점은 "가맹점명" 라벨에서 추출.
+ * → "승인" 마커·승인금액·가맹점명이 모두 text(bigText)에 들어오므로 body 전체에서 검사/추출한다.
+ *   (금액은 "승인금액" 라벨 앵커로 누적금액과 구분, 가맹점은 "가맹점명" 라벨에서 추출.)
  */
 class ShinhanCardParser : PaymentParser {
     override val packageId = "com.shcard.smartpay"
@@ -130,13 +132,14 @@ class ShinhanCardParser : PaymentParser {
     // 라벨을 앵커로 삼아 승인금액/가맹점명만 정확히 뽑는다. (누적금액·취소 등에 오염되지 않도록)
     private val amountRegex = Regex("""승인금액\s*[:：]\s*([\d,]+)원""")
     private val merchantRegex = Regex("""가맹점명\s*[:：]\s*(.+)""")
-    // "승인일시: 07/07 20:21" → (월, 일, 시, 분). 연도는 알림 수신 시점 기준으로 채운다.
+    // "승인일시: 07/14 16:12" → (월, 일, 시, 분). 연도는 알림 수신 시점 기준으로 채운다.
     private val paidAtRegex = Regex("""승인일시\s*[:：]\s*(\d{1,2})/(\d{1,2})\s+(\d{1,2}):(\d{1,2})""")
 
     override fun parse(title: String, text: String): PaymentData? {
-        // 승인 알림만 수집(취소·거절 등 제외). 라벨은 title/text 어디에 있어도 되도록 합쳐서 검색.
-        if (!title.contains("승인")) return null
         val body = "$title\n$text"
+        // 승인 알림만 수집(취소·거절 등 제외). 실제 알림은 title이 "[신한카드]"뿐이고
+        // "승인"은 text에 있으므로 body 전체에서 검사한다.
+        if (!body.contains("승인")) return null
 
         val amount = amountRegex.find(body)?.groupValues?.get(1)
             ?.replace(",", "")?.toIntOrNull() ?: return null
