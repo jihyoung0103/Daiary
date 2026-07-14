@@ -432,6 +432,14 @@ fun ProfileScreen(
                                 }
                             }
                         )
+                        ProfileDivider()
+                        SimpleRow(
+                            label = "테스트 결제 알림 보내기",
+                            onClick = {
+                                showTestPaymentNotification(context, "스타벅스", 4500)
+                                Toast.makeText(context, "테스트 결제 알림을 보냈어요", Toast.LENGTH_SHORT).show()
+                            }
+                        )
                     }
                 }
             }
