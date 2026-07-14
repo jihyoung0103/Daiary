@@ -572,29 +572,22 @@ class MainActivity : ComponentActivity() {
                                 // "diary_detail": 일기 상세 화면 (날짜 기반, 좌우 스와이프로 인접 날짜 이동)
                                 composable("diary_detail") {
                                     viewingDate?.let { date ->
-                                        val entry = diaries.firstOrNull { it.date == date.toString() }
                                         DiaryDetailScreen(
-                                            date = date,
-                                            entry = entry,
+                                            initialDate = date,
+                                            diaries = diaries,
                                             isDeleting = isDeletingDiary,
-                                            onPrevDay = { viewingDate = date.minusDays(1) },
-                                            onNextDay = { viewingDate = date.plusDays(1) },
-                                            onWrite = {
-                                                writeViewModel.setTargetDate(date)
+                                            onWrite = { writeDate ->
+                                                writeViewModel.setTargetDate(writeDate)
                                                 permissionLauncher.launch(requiredPermissions)
                                             },
-                                            onEdit = {
-                                                entry?.let {
-                                                    editFromDetail = true
-                                                    writeViewModel.loadExistingEntry(it)
-                                                    navController.navigate("diary_edit")
-                                                }
+                                            onEdit = { entry ->
+                                                editFromDetail = true
+                                                writeViewModel.loadExistingEntry(entry)
+                                                navController.navigate("diary_edit")
                                             },
-                                            onDelete = {
-                                                entry?.let {
-                                                    homeViewModel.deleteDiary(userId, it.id) { success ->
-                                                        if (success) navController.popBackStack()
-                                                    }
+                                            onDelete = { entry ->
+                                                homeViewModel.deleteDiary(userId, entry.id) { success ->
+                                                    if (success) navController.popBackStack()
                                                 }
                                             },
                                             onBack = { navController.popBackStack() },
