@@ -3,6 +3,7 @@ package com.smu.daiary.data.repository
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.data.source.AnthropicDataSource
 import com.smu.daiary.data.source.EncodedImage
+import com.smu.daiary.data.source.GeneratedBlock
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 
@@ -15,20 +16,18 @@ class AiRepository(
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         dataSource.generateContextQuestions(blocks)
 
-    suspend fun generateDraft(
-        blocks: List<ContentBlock>,
+    suspend fun generateDiaryBlocks(
+        sources: List<DiarySource>,
         locale: String,
         mbti: String,
-        photoSummary: String? = null,
         recentDiarySamples: String = "",
         qaAnswers: Map<String, String> = emptyMap()
-    ): Result<String> =
+    ): Result<List<GeneratedBlock>> =
         runCatching {
-            dataSource.generateDiary(
-                blocks = blocks,
+            dataSource.generateDiaryBlocks(
+                sources = sources,
                 locale = locale,
                 mbti = mbti,
-                photoSummary = photoSummary,
                 recentDiarySamples = recentDiarySamples,
                 qaAnswers = qaAnswers
             )

@@ -25,7 +25,36 @@ data class DiaryDraft(
     val aiContent: String,
     val editedContent: String? = null,
     val photos: List<String> = emptyList(),
+    /** 소스별로 나뉜 본문 블록. 노션식 블록 편집/재배치의 단위 */
+    val blocks: List<DiaryBodyBlock> = emptyList(),
     val status: DraftStatus = DraftStatus.IDLE
+)
+
+/**
+ * AI에 넘기는 소스 아이템 — 본문 블록 1개의 재료가 된다.
+ * 사진은 장별로 photo_1..N 으로 전개되며 각자의 분석 결과를 content로 갖는다.
+ */
+data class DiarySource(
+    val sourceId: String,
+    val type: BlockType,
+    val content: String,
+    /** PHOTO 소스일 때 해당 사진의 URI */
+    val imageUri: String? = null
+)
+
+/**
+ * AI가 소스 하나를 근거로 작성한 본문 블록. 블록 1개 = 소스 1개(엄격한 1:1).
+ * sourceId를 들고 있어 블록 단위 재생성·출처 표시가 가능하다.
+ */
+data class DiaryBodyBlock(
+    /** 리스트 key / 재배치용 고유 id */
+    val id: String,
+    val sourceType: BlockType,
+    /** 대응하는 DiarySource.sourceId. 사용자가 직접 추가한 블록이면 null */
+    val sourceId: String?,
+    val text: String,
+    /** PHOTO 블록이면 본문에 함께 표시할 사진 */
+    val imageUri: String? = null
 )
 
 data class ContextQuestion(

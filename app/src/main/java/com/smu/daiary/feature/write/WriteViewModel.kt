@@ -40,6 +40,8 @@ import android.util.Base64
 import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.data.source.EncodedImage
+import com.smu.daiary.data.source.GeneratedBlock
+import java.util.UUID
 
 
 private const val TAG = "WriteViewModel"
@@ -992,9 +994,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 list.map { p -> analyzedPhotos.firstOrNull { it.uri == p.uri } ?: p }
             }
 
-            // 촬영 시각 순으로 정렬하고 시간 라벨을 붙여 사진별 요약 구성
+            // 사진을 촬영 시각 순으로 정렬해 장별 소스(photo_1..N)로 전개.
+            // 사진 1장 = 소스 1개 = 본문 블록 1개가 되도록 여기서 경계를 만든다.
             val photoTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-            val photoSummary = analyzedPhotos
+            val photoSources = analyzedPhotos
                 .filter { !it.analysis.isNullOrBlank() }
                 .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
                 .mapIndexed { index, photo ->
@@ -1006,12 +1009,35 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             .format(photoTimeFormatter)
                         ", 촬영 $t"
                     } else ""
-                    "사진 ${index + 1} [$kindLabel$timeLabel]:\n${photo.analysis}"
+                    DiarySource(
+                        sourceId = "photo_${index + 1}",
+                        type = BlockType.PHOTO,
+                        content = "[$kindLabel$timeLabel]\n${photo.analysis}",
+                        imageUri = photo.uri
+                    )
                 }
-                .joinToString("\n\n")
 
-            _photoAnalysisDebug.value = photoSummary
-            Log.d(TAG, "📸 사진별 분석 결과:\n$photoSummary")
+            // 사진 외 블록은 1:1로 소스가 된다. PHOTO 블록("N장 · 선택 M장")은
+            // 장별 소스로 대체되었으므로 제외한다.
+            val otherSources = selected
+                .filter { it.type != BlockType.PHOTO }
+                .map { block ->
+                    DiarySource(
+                        sourceId = block.id,
+                        type = block.type,
+                        content = block.content
+                    )
+                }
+
+            // 사진(구체적 장면)을 앞에 두고 나머지 데이터가 뒤따르게 한다.
+            val sources = photoSources + otherSources
+
+            _photoAnalysisDebug.value = photoSources
+                .joinToString("\n\n") { "${it.sourceId} ${it.content}" }
+
+            Log.d(TAG, "===== DIARY SOURCES (${sources.size}) =====")
+            sources.forEach { Log.d(TAG, "- ${it.sourceId} [${it.type.label}] ${it.content}") }
+            Log.d(TAG, "======================================")
 
             val mbti = getApplication<Application>()
                 .getSharedPreferences(
@@ -1020,32 +1046,42 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 .getString("mbti", "INFP") ?: "INFP"
 
-            val selectedDebugText = selected.joinToString("\n") {
-                "- [${it.type.label}] ${it.content}"
-            }
-
-            Log.d(TAG, "===== SELECTED BLOCKS =====")
-            Log.d(TAG, selectedDebugText)
-            Log.d(TAG, "===========================")
-
-
             val result =
-                aiRepository.generateDraft(
-                    blocks = selected,
+                aiRepository.generateDiaryBlocks(
+                    sources = sources,
                     locale = locale,
                     mbti = mbti,
-                    photoSummary = photoSummary,
                     recentDiarySamples = recentDiarySamples,
                     qaAnswers = qaAnswers
                 )
 
-            val content = result.getOrElse { fallbackTemplate(selected) }
-            if (result.isFailure) {
+            result.exceptionOrNull()?.let { Log.e(TAG, "❌ 블록 생성 실패", it) }
+
+            // AI 호출이 실패했거나, 응답은 왔지만 쓸 만한 블록이 하나도 없으면 폴백
+            val generated = result.getOrNull().orEmpty()
+            val usedFallback = generated.isEmpty()
+            if (usedFallback) {
                 _generateError.value = if (locale == "en")
                     "AI generation failed. Using default template."
                 else
                     "초안 생성에 실패했습니다. 기본 템플릿으로 대체합니다."
             }
+
+            // sourceId로 소스와 다시 이어붙여 사진 URI·출처 타입을 블록에 부착
+            val sourceById = sources.associateBy { it.sourceId }
+            val bodyBlocks = (if (usedFallback) fallbackBlocks(sources) else generated)
+                .mapNotNull { gen ->
+                    val source = sourceById[gen.sourceId] ?: return@mapNotNull null
+                    DiaryBodyBlock(
+                        id = UUID.randomUUID().toString(),
+                        sourceType = source.type,
+                        sourceId = source.sourceId,
+                        text = gen.text,
+                        imageUri = source.imageUri
+                    )
+                }
+
+            Log.d(TAG, "✅ 본문 블록 ${bodyBlocks.size}개 생성 (소스 ${sources.size}개)")
 
             val selectedPhotoUris =
                 _photos.value
@@ -1054,7 +1090,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
             _draft.value = DiaryDraft(
                 date = today,
-                aiContent = content,
+                // 블록 렌더링/편집 전까지 기존 화면이 그대로 동작하도록 평문도 함께 유지
+                aiContent = bodyBlocks.joinToString("\n\n") { it.text },
+                blocks = bodyBlocks,
                 photos = selectedPhotoUris
             )
 
@@ -1065,25 +1103,24 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
 
-    /** AI 생성 실패 시 블록 내용을 단순 나열한 기본 초안 반환 */
-    private fun fallbackTemplate(selected: List<ContentBlock>): String = buildString {
-        appendLine(localizedContext().getString(R.string.draft_intro))
-        appendLine()
-        selected.forEach { block ->
-            when (block.type) {
-                BlockType.PAYMENT  -> appendLine(localizedContext().getString(R.string.draft_block_payment, block.content))
-                BlockType.PHOTO    -> appendLine(localizedContext().getString(R.string.draft_block_photo, block.content))
-                BlockType.CALENDAR          -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
-                BlockType.CALENDAR_UPCOMING -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
-                BlockType.HEALTH            -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
-                BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
-                BlockType.WEATHER_TOMORROW -> appendLine(localizedContext().getString(R.string.draft_block_weather_tomorrow, block.content))
-                BlockType.PHOTO_LOCATION   -> appendLine(localizedContext().getString(R.string.draft_block_photo_location, block.content))
+    /**
+     * AI 생성/파싱 실패 시 소스 내용을 그대로 문단화한 폴백 블록.
+     * 블록 구조는 유지되므로 편집·재배치는 정상 동작한다.
+     */
+    private fun fallbackBlocks(sources: List<DiarySource>): List<GeneratedBlock> =
+        sources.map { source ->
+            val text = when (source.type) {
+                BlockType.PAYMENT  -> localizedContext().getString(R.string.draft_block_payment, source.content)
+                BlockType.PHOTO    -> localizedContext().getString(R.string.draft_block_photo, source.content)
+                BlockType.CALENDAR          -> localizedContext().getString(R.string.draft_block_calendar, source.content)
+                BlockType.CALENDAR_UPCOMING -> localizedContext().getString(R.string.draft_block_calendar, source.content)
+                BlockType.HEALTH            -> localizedContext().getString(R.string.draft_block_health, source.content)
+                BlockType.WEATHER  -> localizedContext().getString(R.string.draft_block_weather, source.content)
+                BlockType.WEATHER_TOMORROW -> localizedContext().getString(R.string.draft_block_weather_tomorrow, source.content)
+                BlockType.PHOTO_LOCATION   -> localizedContext().getString(R.string.draft_block_photo_location, source.content)
             }
+            GeneratedBlock(sourceId = source.sourceId, text = text)
         }
-        appendLine()
-        append(localizedContext().getString(R.string.draft_outro))
-    }
 
     // ─────────────────────────────────────────────────────────────
     // 초안 편집 & 저장

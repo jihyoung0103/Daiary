@@ -19,6 +19,12 @@ data class EncodedImage(
     val mediaType: String
 )
 
+/** AI가 소스 하나당 작성한 일기 문단. sourceId로 원래 소스와 다시 이어붙인다. */
+data class GeneratedBlock(
+    val sourceId: String,
+    val text: String
+)
+
 class AnthropicDataSource {
 
     private val client = OkHttpClient.Builder()
@@ -106,16 +112,31 @@ $blocksText
             }
         }
 
-    suspend fun generateDiary(
-        blocks: List<ContentBlock>,
+    /**
+     * 소스별로 일기 문단을 생성한다. 소스 1개 → 블록 1개(엄격한 1:1).
+     * 쓸 내용이 마땅치 않은 소스는 AI가 응답에서 생략할 수 있다(없는 사실 창작 방지).
+     * 호출은 1회 — 전체를 함께 보되 출력만 소스별로 쪼갠다.
+     */
+    suspend fun generateDiaryBlocks(
+        sources: List<DiarySource>,
         locale: String,
         mbti: String,
-        photoSummary: String? = null,
         qaAnswers: Map<String, String> = emptyMap(),
         recentDiarySamples: String = ""
-    ): String =
+    ): List<GeneratedBlock> =
         withContext(Dispatchers.IO) {
-            val blocksText = blocks.joinToString("\n") { "- [${it.type.label}] ${it.content}" }
+            if (sources.isEmpty()) return@withContext emptyList()
+
+            val sourcesJson = JSONArray().apply {
+                sources.forEach { source ->
+                    put(
+                        JSONObject()
+                            .put("sourceId", source.sourceId)
+                            .put("type", source.type.label)
+                            .put("content", source.content)
+                    )
+                }
+            }.toString(2)
 
             val followUpAnswerText =
                 qaAnswers
@@ -125,19 +146,8 @@ $blocksText
                         "- $question: $answer"
                     }
 
-            val photoText = photoSummary
-                ?.takeIf { it.isNotBlank() }
-                ?.let {
-                    if (locale == "en") {
-                        "\n\nPhoto analysis result:\n$it"
-                    } else {
-                        "\n\n사진 분석 결과:\n$it"
-                    }
-                }
-                ?: ""
-
             val prompt = buildPrompt(
-                blocksText = blocksText + photoText,
+                sourcesJson = sourcesJson,
                 locale = locale,
                 mbti = mbti,
                 recentDiarySamples = recentDiarySamples,
@@ -146,7 +156,8 @@ $blocksText
 
             val body = JSONObject().apply {
                 put("model", "claude-haiku-4-5-20251001")
-                put("max_tokens", 1024)
+                // 소스 수만큼 문단이 나오므로 통짜 일기(1024)보다 여유를 둔다
+                put("max_tokens", 2048)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -165,16 +176,28 @@ $blocksText
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: throw Exception("빈 응답")
 
-
-
             if (!response.isSuccessful) {
                 throw Exception("API 오류 (${response.code}): $responseBody")
             }
 
-            JSONObject(responseBody)
+            val text = JSONObject(responseBody)
                 .getJSONArray("content")
                 .getJSONObject(0)
                 .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            val blocksArray = JSONObject(text).getJSONArray("blocks")
+            val validIds = sources.map { it.sourceId }.toSet()
+
+            (0 until blocksArray.length()).mapNotNull { i ->
+                val obj = blocksArray.getJSONObject(i)
+                val sourceId = obj.optString("sourceId").takeIf { it in validIds }
+                    ?: return@mapNotNull null   // 모르는 sourceId를 지어냈으면 버린다
+                val blockText = obj.optString("text").trim().takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                GeneratedBlock(sourceId = sourceId, text = blockText)
+            }
         }
 
     /**
@@ -378,7 +401,7 @@ $periodInstruction
         }
 
     private fun buildPrompt(
-        blocksText: String,
+        sourcesJson: String,
         locale: String,
         mbti: String,
         recentDiarySamples: String = "",
@@ -388,7 +411,9 @@ $periodInstruction
         return """
 당신은 사용자를 대신해 하루 일기를 쓰는 AI입니다.
 마치 사용자 본인이 직접 작성한 것 같은 느낌으로 일기를 작성해야 합니다.
-제공된 사용자의 데이터를 바탕으로 오늘 하루를 돌아보는 1인칭 일기를 작성해 주세요.
+제공된 데이터 소스를 바탕으로 오늘 하루를 돌아보는 1인칭 일기를 작성해 주세요.
+
+일기는 하나의 긴 글이 아니라, 소스별로 나뉜 여러 개의 문단(블록)으로 작성합니다.
 
 [가장 중요한 출력 규칙]
 - 반드시 한국어로만 작성할 것
@@ -396,7 +421,15 @@ $periodInstruction
 - 데이터가 부족해도 사용자에게 추가 정보를 요청하지 말 것
 - "사진을 제공해 주세요", "결제 정보를 제공해 주세요", "정보가 부족합니다" 같은 안내문을 쓰지 말 것
 - 주어진 데이터만으로 자연스러운 일기 초안을 완성할 것
-- 일기 본문만 출력할 것
+- 아래 [출력 형식]의 JSON만 출력할 것. JSON 밖에 어떤 텍스트도 쓰지 말 것
+
+[블록 작성 규칙 — 가장 중요]
+- 블록 1개는 정확히 소스 1개에 대응합니다. 각 블록의 sourceId는 그 블록이 근거로 삼은 소스의 sourceId입니다.
+- 각 블록은 자기 소스의 내용만 다루세요. 다른 소스의 내용을 그 블록에 끌어오지 마세요.
+- 입력에 없는 sourceId를 새로 만들지 마세요.
+- 한 소스에 대해 블록을 2개 이상 만들지 마세요.
+- 쓸 내용이 마땅치 않은 소스는 blocks 배열에서 아예 빼세요. 억지로 문단을 만들어 없는 사실을 지어내는 것보다 생략하는 것이 항상 낫습니다.
+- 블록 순서는 입력된 소스 순서를 그대로 따르세요. (사진은 촬영 시각 순으로 이미 정렬되어 있습니다)
 
 [사진 해석 원칙]
 
@@ -463,18 +496,17 @@ $mbtiStyle
 - 사진에 등장하는 구체적인 이름이나 특징(예: 캐릭터 이름, 브랜드, 물건 종류)은 뭉뚱그리지 말고 사진 분석 결과에 있는 그대로 유지하세요.
 
 [분량]
-- 기본 범위: 5~40문장
-- 오늘 데이터가 충분하면 충분한 문장으로 작성
-- 오늘 데이터가 날씨만 있거나 매우 적으면 2~4문장으로 짧게 작성해도 됨
-- 데이터가 적을수록 짧고 담백하게 작성할 것
+- 블록 하나는 1~3문장.
+- 소스의 내용이 풍부하면 3문장까지, 담백하면 1문장으로 충분합니다.
 - 억지로 문장을 늘리기 위해 새로운 행동, 감정, 계획, 사건을 만들지 말 것
-- 서로 관련 없는 사진이나 사건이 여러 개 있어서 5~8문장에 모두 담으면 한 문장에 여러 개를 나열해야 하는 경우, 기본 범위를 넘기더라도 각 장면에 문장을 하나씩 배정해 압축하지 말고 구체적으로 쓰세요.
+- 소스가 여러 개일 때 각 소스를 한 문장에 몰아 나열하지 말고, 소스마다 자기 블록에서 구체적으로 쓰세요.
 
 [작성 방식]
 
 - 반말 일기체로 작성하세요.
-- 사진이나 구체적인 장면 데이터가 있으면 첫 문장은 가장 구체적인 장면으로 시작하세요.
-- 날씨처럼 추상적인 데이터만 있을 때는 해당 데이터만 담백하게 언급하며 시작하세요.
+- 각 블록은 그 자체로 자연스럽게 읽히는 문단이어야 합니다.
+- 블록들을 이어 읽었을 때 전체가 하나의 일기처럼 읽히도록 문체를 통일하세요.
+- 단, 블록 사이를 "그리고", "그 후에", "이어서"처럼 인과나 시간 순서로 억지로 연결하지 마세요. 사용자가 블록 순서를 자유롭게 바꿀 수 있습니다.
 - 단순 나열보다 자연스럽게 연결하세요.
 - 마지막은 하루를 돌아보는 짧은 문장으로 마무리하세요.
 - 문장을 자연스럽게 다듬되 새로운 사실은 만들지 마세요.
@@ -640,8 +672,11 @@ ${if (recentDiarySamples.isNotBlank()) """
 $recentDiarySamples
 """ else ""}
 
-[오늘의 데이터]
-$blocksText
+[오늘의 데이터 소스]
+아래 JSON 배열의 각 원소가 소스 1개입니다. type은 소스의 종류, content는 그 소스에서 확인된 사실입니다.
+사진 소스(sourceId가 photo_로 시작)의 content는 그 사진 1장의 분석 결과입니다.
+
+$sourcesJson
 
 ${if (followUpAnswerText.isNotBlank()) """
 [사용자의 추가 답변]
@@ -677,6 +712,22 @@ $followUpAnswerText
 □ 사진 속 사물을 근거로 새로운 행동이나 사건을 만들어내지 않았는가?
 
 □ "오늘도 별거 없는 하루였다.", "평범한 하루였다."처럼 반복적인 시작 문장을 사용하지 않았는가?
+
+□ 각 블록의 sourceId가 입력 소스에 실제로 존재하는 값인가?
+
+□ 한 소스에 블록을 2개 이상 만들지 않았는가?
+
+□ 쓸 내용이 없는 소스를 억지로 채우지 않고 생략했는가?
+
+[출력 형식]
+
+반드시 아래 JSON 형식으로만 응답하세요. JSON 외의 텍스트, 설명, 코드펜스를 붙이지 마세요.
+
+{
+  "blocks": [
+    { "sourceId": "입력 소스의 sourceId", "text": "그 소스로 쓴 일기 문단" }
+  ]
+}
 """.trimIndent()
     }
 
