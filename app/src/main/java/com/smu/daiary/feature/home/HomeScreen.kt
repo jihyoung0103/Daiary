@@ -60,15 +60,7 @@ import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.LocalDarkTheme
-import com.smu.daiary.ui.theme.MoodHappy
-import com.smu.daiary.ui.theme.MoodNeutral
-import com.smu.daiary.ui.theme.MoodSad
-import androidx.compose.material.icons.outlined.SentimentVerySatisfied
-import androidx.compose.material.icons.outlined.SentimentDissatisfied
-import androidx.compose.material.icons.outlined.SentimentNeutral
-import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.ui.graphics.vector.ImageVector
+import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
@@ -357,17 +349,14 @@ private fun CalendarCard(
     val daysInMonth = yearMonth.lengthOfMonth()
     val first = yearMonth.atDay(1)
     val leadingEmpty = first.dayOfWeek.value % 7
-    val moodByDay = remember(yearMonth, diaries) {
+    val emotionColorByDay = remember(yearMonth, diaries) {
         val prefix = "${yearMonth.year}-${yearMonth.monthValue.toString().padStart(2, '0')}"
         diaries
             .filter { it.date.startsWith(prefix) }
             .mapNotNull { entry ->
                 entry.date.substringAfterLast("-").toIntOrNull()?.let { day ->
-                    day to when (entry.mood) {
-                        "happy" -> MoodHappy
-                        "sad"   -> MoodSad
-                        else    -> MoodNeutral
-                    }
+                    // entry.emotion이 빈 문자열(감정 미기록)이면 emotionColor()의 else 분기(회색)가 적용됨
+                    day to emotionColor(entry.emotion, isDark)
                 }
             }.toMap()
     }
@@ -443,7 +432,7 @@ private fun CalendarCard(
                                     selectedDate?.year == yearMonth.year &&
                                     selectedDate.monthValue == yearMonth.monthValue &&
                                     selectedDate.dayOfMonth == day,
-                                diaryMoodColor = if (day != null) moodByDay[day] else null,
+                                diaryEmotionColor = if (day != null) emotionColorByDay[day] else null,
                                 onClick = {
                                     if (day != null) onDateSelect(yearMonth.atDay(day))
                                 }
@@ -564,7 +553,7 @@ private fun CalendarDayCell(
     modifier: Modifier = Modifier,
     isToday: Boolean,
     isSelected: Boolean,
-    diaryMoodColor: Color?,
+    diaryEmotionColor: Color?,
     onClick: () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
@@ -604,13 +593,13 @@ private fun CalendarDayCell(
                     else       -> mc.textPrimary
                 }
             )
-            if (diaryMoodColor != null) {
+            if (diaryEmotionColor != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Box(
                     modifier = Modifier
                         .size(4.dp)
                         .clip(CircleShape)
-                        .background(if (isSelected) mc.calCard else diaryMoodColor)
+                        .background(if (isSelected) mc.calCard else diaryEmotionColor)
                 )
             }
         }
