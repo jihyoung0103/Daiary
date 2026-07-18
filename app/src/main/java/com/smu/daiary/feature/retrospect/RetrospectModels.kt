@@ -16,6 +16,7 @@ data class RetrospectAiResult(
 /** RetrospectViewModel의 화면 전환 상태 */
 sealed class RetrospectState {
     object Idle : RetrospectState()
+    object Loading : RetrospectState()          // 저장된 회고 재조회 (openSaved)
     object LoadingData : RetrospectState()      // Firestore 쿼리
     object Aggregating : RetrospectState()      // 로컬 집계
     object GeneratingAI : RetrospectState()     // AI 호출

@@ -134,6 +134,7 @@ class RetrospectViewModel : ViewModel() {
     /** 배너 "보기→" 탭 — 저장된 회고를 요약 형태로 표시 */
     fun openSaved(userId: String, type: RetrospectType) {
         viewModelScope.launch {
+            _state.value = RetrospectState.Loading
             val period = if (type == RetrospectType.WEEKLY) weeklyPeriod else monthlyPeriod
             val report = retrospectRepository.getRetrospect(userId, period.id).getOrNull()
             _state.value = if (report != null) RetrospectState.Summary(report)
