@@ -73,14 +73,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
@@ -559,13 +557,11 @@ private fun PhotoDetailSelector(
                     isSelected = photo.isSelected,
                     onClick = { onToggle(photo.uri) }
                 ) {
-                    AsyncImage(
+                    PhotoThumbnail(
                         model = photo.uri,
                         contentDescription = "사진",
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
+                        modifier = Modifier.size(56.dp),
+                        shape = RoundedCornerShape(8.dp)
                     )
                     Spacer(Modifier.weight(1f))
                     Checkbox(

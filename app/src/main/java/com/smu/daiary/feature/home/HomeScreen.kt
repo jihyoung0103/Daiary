@@ -54,20 +54,13 @@ import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.feature.retrospect.BannerStatus
 import com.smu.daiary.feature.retrospect.RetrospectBanner
+import com.smu.daiary.ui.components.SkeletonBox
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.LocalDarkTheme
-import com.smu.daiary.ui.theme.MoodHappy
-import com.smu.daiary.ui.theme.MoodNeutral
-import com.smu.daiary.ui.theme.MoodSad
-import androidx.compose.material.icons.outlined.SentimentVerySatisfied
-import androidx.compose.material.icons.outlined.SentimentDissatisfied
-import androidx.compose.material.icons.outlined.SentimentNeutral
-import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
-import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.ui.graphics.vector.ImageVector
+import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
@@ -176,67 +169,77 @@ fun HomeScreen(
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    CalendarCard(
-                        yearMonth = visibleMonth,
-                        diaries = diaries,
-                        selectedDate = selectedDate,
-                        onDateSelect = { date ->
-                            selectedDate = if (selectedDate == date) null else date
-                        },
-                        onPrevMonth = {
-                            visibleMonth = visibleMonth.minusMonths(1)
-                            selectedDate = null
-                        },
-                        onNextMonth = {
-                            visibleMonth = visibleMonth.plusMonths(1)
-                            selectedDate = null
-                        }
-                    )
+                    when {
+                        error != null -> CalendarErrorPlaceholder(onRetry = onRetry)
+                        isLoading -> CalendarCardSkeleton()
+                        else -> CalendarCard(
+                            yearMonth = visibleMonth,
+                            diaries = diaries,
+                            selectedDate = selectedDate,
+                            onDateSelect = { date ->
+                                selectedDate = if (selectedDate == date) null else date
+                            },
+                            onPrevMonth = {
+                                visibleMonth = visibleMonth.minusMonths(1)
+                                selectedDate = null
+                            },
+                            onNextMonth = {
+                                visibleMonth = visibleMonth.plusMonths(1)
+                                selectedDate = null
+                            }
+                        )
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        val today = LocalDate.now()
-                        val diaryBannerDate = selectedDate ?: today
-                        val existingDiary = diaries.firstOrNull { it.date == diaryBannerDate.toString() }
-                        val diaryBannerState = when {
-                            existingDiary != null -> DiaryBannerState.HAS_DIARY
-                            diaryBannerDate.isAfter(today) -> DiaryBannerState.FUTURE
-                            else -> DiaryBannerState.WRITABLE
-                        }
-                        DiaryBanner(
-                            title = if (diaryBannerDate == today) "오늘의 일기"
-                            else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
-                            subLabel = when (diaryBannerState) {
-                                DiaryBannerState.HAS_DIARY ->
-                                    existingDiary?.content?.replace("\n", " ")?.trim()
-                                        ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
-                                DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
-                                DiaryBannerState.FUTURE -> ""
-                            },
-                            state = diaryBannerState,
-                            onClick = {
-                                when (diaryBannerState) {
-                                    DiaryBannerState.HAS_DIARY -> existingDiary?.let { onDiaryClick(it) }
-                                    DiaryBannerState.WRITABLE -> onWriteDiary(diaryBannerDate.toString())
-                                    DiaryBannerState.FUTURE -> {}
-                                }
+                        if (isLoading || error != null) {
+                            BannerSkeleton()
+                            BannerSkeleton()
+                            BannerSkeleton()
+                        } else {
+                            val today = LocalDate.now()
+                            val diaryBannerDate = selectedDate ?: today
+                            val existingDiary = diaries.firstOrNull { it.date == diaryBannerDate.toString() }
+                            val diaryBannerState = when {
+                                existingDiary != null -> DiaryBannerState.HAS_DIARY
+                                diaryBannerDate.isAfter(today) -> DiaryBannerState.FUTURE
+                                else -> DiaryBannerState.WRITABLE
                             }
-                        )
-                        RetrospectBanner(
-                            title = "이번 주 회고",
-                            subLabel = weeklyBannerSubLabel,
-                            status = weeklyBannerStatus,
-                            onClick = onWeeklyBannerClick
-                        )
-                        RetrospectBanner(
-                            title = "이번 달 회고",
-                            subLabel = monthlyBannerSubLabel,
-                            status = monthlyBannerStatus,
-                            onClick = onMonthlyBannerClick
-                        )
+                            DiaryBanner(
+                                title = if (diaryBannerDate == today) "오늘의 일기"
+                                else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
+                                subLabel = when (diaryBannerState) {
+                                    DiaryBannerState.HAS_DIARY ->
+                                        existingDiary?.content?.replace("\n", " ")?.trim()
+                                            ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
+                                    DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
+                                    DiaryBannerState.FUTURE -> ""
+                                },
+                                state = diaryBannerState,
+                                onClick = {
+                                    when (diaryBannerState) {
+                                        DiaryBannerState.HAS_DIARY -> existingDiary?.let { onDiaryClick(it) }
+                                        DiaryBannerState.WRITABLE -> onWriteDiary(diaryBannerDate.toString())
+                                        DiaryBannerState.FUTURE -> {}
+                                    }
+                                }
+                            )
+                            RetrospectBanner(
+                                title = "이번 주 회고",
+                                subLabel = weeklyBannerSubLabel,
+                                status = weeklyBannerStatus,
+                                onClick = onWeeklyBannerClick
+                            )
+                            RetrospectBanner(
+                                title = "이번 달 회고",
+                                subLabel = monthlyBannerSubLabel,
+                                status = monthlyBannerStatus,
+                                onClick = onMonthlyBannerClick
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     // 작성한 모든 일기를 일기 날짜순으로 보는 리스트 페이지 진입
@@ -346,17 +349,14 @@ private fun CalendarCard(
     val daysInMonth = yearMonth.lengthOfMonth()
     val first = yearMonth.atDay(1)
     val leadingEmpty = first.dayOfWeek.value % 7
-    val moodByDay = remember(yearMonth, diaries) {
+    val emotionColorByDay = remember(yearMonth, diaries) {
         val prefix = "${yearMonth.year}-${yearMonth.monthValue.toString().padStart(2, '0')}"
         diaries
             .filter { it.date.startsWith(prefix) }
             .mapNotNull { entry ->
                 entry.date.substringAfterLast("-").toIntOrNull()?.let { day ->
-                    day to when (entry.mood) {
-                        "happy" -> MoodHappy
-                        "sad"   -> MoodSad
-                        else    -> MoodNeutral
-                    }
+                    // entry.emotion이 빈 문자열(감정 미기록)이면 emotionColor()의 else 분기(회색)가 적용됨
+                    day to emotionColor(entry.emotion, isDark)
                 }
             }.toMap()
     }
@@ -432,13 +432,104 @@ private fun CalendarCard(
                                     selectedDate?.year == yearMonth.year &&
                                     selectedDate.monthValue == yearMonth.monthValue &&
                                     selectedDate.dayOfMonth == day,
-                                diaryMoodColor = if (day != null) moodByDay[day] else null,
+                                diaryEmotionColor = if (day != null) emotionColorByDay[day] else null,
                                 onClick = {
                                     if (day != null) onDateSelect(yearMonth.atDay(day))
                                 }
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** 캘린더 카드 자리의 로딩 스켈레톤 — shimmer 교체 예정. */
+@Composable
+private fun CalendarCardSkeleton() {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+        Surface(
+            color = mc.calCard,
+            shape = RoundedCornerShape(28.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                SkeletonBox(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(96.dp)
+                        .height(16.dp),
+                    color = mc.border,
+                    shape = RoundedCornerShape(4.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                repeat(5) {
+                    CalendarWeekRow {
+                        repeat(7) {
+                            SkeletonBox(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 2.dp)
+                                    .height(40.dp),
+                                color = mc.border,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
+    }
+}
+
+/** 일기/회고 배너 자리의 로딩 스켈레톤 — shimmer 교체 예정. */
+@Composable
+private fun BannerSkeleton() {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+    SkeletonBox(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp),
+        color = mc.border
+    )
+}
+
+/** 캘린더 카드 자리에 표시하는 에러 안내 — 기존 RecentDiaryList 에러 UI 패턴 재사용. */
+@Composable
+private fun CalendarErrorPlaceholder(onRetry: () -> Unit) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+        Surface(
+            color = mc.calCard,
+            shape = RoundedCornerShape(28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(R.string.error_load_failed),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = mc.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = onRetry) {
+                    Text(
+                        text = stringResource(R.string.btn_retry),
+                        color = mc.accentPurple,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
@@ -462,7 +553,7 @@ private fun CalendarDayCell(
     modifier: Modifier = Modifier,
     isToday: Boolean,
     isSelected: Boolean,
-    diaryMoodColor: Color?,
+    diaryEmotionColor: Color?,
     onClick: () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
@@ -502,13 +593,13 @@ private fun CalendarDayCell(
                     else       -> mc.textPrimary
                 }
             )
-            if (diaryMoodColor != null) {
+            if (diaryEmotionColor != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Box(
                     modifier = Modifier
                         .size(4.dp)
                         .clip(CircleShape)
-                        .background(if (isSelected) mc.calCard else diaryMoodColor)
+                        .background(if (isSelected) mc.calCard else diaryEmotionColor)
                 )
             }
         }

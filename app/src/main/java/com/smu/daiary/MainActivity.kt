@@ -49,6 +49,8 @@ import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.feature.retrospect.RetrospectCardScreen
 import com.smu.daiary.feature.retrospect.RetrospectLoadingScreen
 import com.smu.daiary.feature.retrospect.RetrospectState
+import com.smu.daiary.feature.retrospect.RetrospectSummaryErrorScreen
+import com.smu.daiary.feature.retrospect.RetrospectSummaryLoadingScreen
 import com.smu.daiary.feature.retrospect.RetrospectSummaryScreen
 import com.smu.daiary.feature.retrospect.RetrospectViewModel
 import kotlinx.coroutines.delay
@@ -429,17 +431,29 @@ class MainActivity : ComponentActivity() {
                                 }
                                 // "retrospect_summary": 저장된 회고 재진입 요약 화면
                                 composable("retrospect_summary") {
-                                    val s = retrospectState
-                                    if (s is RetrospectState.Summary) {
-                                        RetrospectSummaryScreen(
-                                            report = s.report,
-                                            onBack = { navController.popBackStack() },
-                                            onViewFull = {
-                                                retrospectViewModel.showFullRecap()
-                                                navController.navigate("retrospect_card")
-                                            },
-                                            modifier = Modifier.padding(innerPadding)
-                                        )
+                                    when (val s = retrospectState) {
+                                        is RetrospectState.Summary -> {
+                                            RetrospectSummaryScreen(
+                                                report = s.report,
+                                                onBack = { navController.popBackStack() },
+                                                onViewFull = {
+                                                    retrospectViewModel.showFullRecap()
+                                                    navController.navigate("retrospect_card")
+                                                },
+                                                modifier = Modifier.padding(innerPadding)
+                                            )
+                                        }
+                                        is RetrospectState.Error -> {
+                                            RetrospectSummaryErrorScreen(
+                                                message = s.message,
+                                                onBack = { navController.popBackStack() },
+                                                modifier = Modifier.padding(innerPadding)
+                                            )
+                                        }
+                                        // Loading 및 그 외 전환 상태 — Firestore fetch 완료 전 blank 화면 방지
+                                        else -> {
+                                            RetrospectSummaryLoadingScreen(modifier = Modifier.padding(innerPadding))
+                                        }
                                     }
                                 }
                                 // "block_selection": 블록 선택 화면
@@ -599,6 +613,7 @@ class MainActivity : ComponentActivity() {
                                 composable("diary_list") {
                                     com.smu.daiary.feature.home.DiaryListScreen(
                                         diaries = diaries,
+                                        isLoading = isLoading,
                                         onDiaryClick = { entry ->
                                             viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                             navController.navigate("diary_detail")

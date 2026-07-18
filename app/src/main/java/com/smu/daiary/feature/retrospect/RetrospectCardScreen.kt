@@ -57,6 +57,7 @@ import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
+import com.smu.daiary.ui.theme.emotionColor
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -269,7 +270,7 @@ private fun EmotionCard(report: RetrospectReport) {
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier.width(90.dp)
                         ) {
-                            Icon(imageVector = emotionIcon(emotion), contentDescription = null, tint = textColor, modifier = Modifier.size(16.dp))
+                            Icon(imageVector = emotionIcon(emotion), contentDescription = null, tint = emotionColor(emotion, isDark), modifier = Modifier.size(16.dp))
                             Text(emotion, fontSize = 14.sp, color = textColor)
                         }
                         Box(
@@ -296,7 +297,7 @@ private fun EmotionCard(report: RetrospectReport) {
             val top = sorted.first()
             Text("${periodWord(report)} 가장 많은 감정", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(imageVector = emotionIcon(top.key), contentDescription = null, tint = textColor, modifier = Modifier.size(22.dp))
+                Icon(imageVector = emotionIcon(top.key), contentDescription = null, tint = emotionColor(top.key, isDark), modifier = Modifier.size(22.dp))
                 Text(top.key, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
             }
         }
@@ -491,6 +492,7 @@ fun SummaryContent(
     textColor: Color,
     accentColor: Color
 ) {
+    val isDark = LocalDarkTheme.current
     Column(
         modifier = modifier.padding(horizontal = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -501,7 +503,7 @@ fun SummaryContent(
         val topEmotion = report.emotionDistribution.entries.maxByOrNull { it.value }
         if (topEmotion != null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(imageVector = emotionIcon(topEmotion.key), contentDescription = null, tint = textColor, modifier = Modifier.size(18.dp))
+                Icon(imageVector = emotionIcon(topEmotion.key), contentDescription = null, tint = emotionColor(topEmotion.key, isDark), modifier = Modifier.size(18.dp))
                 Text("${topEmotion.key} ${topEmotion.value}일", fontSize = 15.sp, color = textColor)
             }
         }

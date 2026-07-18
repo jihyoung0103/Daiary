@@ -34,7 +34,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
@@ -67,6 +67,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
@@ -82,10 +83,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import android.util.Log
-import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.emotionColor
 import java.time.LocalDate
 
 private val weatherIconMap: Map<String, ImageVector> = mapOf(
@@ -101,7 +102,7 @@ private val emotionIconMap: Map<String, ImageVector> = mapOf(
     "슬픔" to Icons.Outlined.SentimentDissatisfied,
     "평온" to Icons.Outlined.SentimentNeutral,
     "화남" to Icons.Outlined.SentimentVeryDissatisfied,
-    "설렘" to Icons.Outlined.Favorite
+    "설렘" to Icons.Outlined.FavoriteBorder
 )
 
 @Composable
@@ -244,7 +245,7 @@ fun DraftPreviewScreen(
                     }
                     selectedEmotion?.let { key ->
                         emotionIconMap[key]?.let { icon ->
-                            MetaChip(icon = icon, label = localizedEmotionLabel(key))
+                            MetaChip(icon = icon, label = localizedEmotionLabel(key), tint = emotionColor(key, isDark))
                         }
                     }
                 }
@@ -323,24 +324,17 @@ fun DraftPreviewScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(photos) { photo ->
-                        Box(
+                        PhotoThumbnail(
+                            model = photo,
+                            contentDescription = null,
                             modifier = Modifier
                                 .size(80.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(wc.AccentLight)
                                 .clickable {
                                     selectedPhotoUri = photo
                                     showPhotoDialog = true
                                 },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AsyncImage(
-                                model = photo,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
+                            shape = RoundedCornerShape(12.dp)
+                        )
                     }
                 }
             }
@@ -364,11 +358,13 @@ fun DraftPreviewScreen(
                         .fillMaxSize()
                         .background(Color.Transparent)
                 ) {
-                    AsyncImage(
+                    PhotoThumbnail(
                         model = selectedPhotoUri,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+                        shape = RectangleShape,
+                        contentScale = ContentScale.Fit,
+                        errorIconSize = 32.dp
                     )
                     AnimatedVisibility(
                         visible = dialogVisible,
@@ -400,7 +396,7 @@ private fun extractDiaryMaterials(text: String): String? {
 }
 
 @Composable
-private fun MetaChip(icon: ImageVector, label: String) {
+private fun MetaChip(icon: ImageVector, label: String, tint: Color? = null) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
     Row(
@@ -410,7 +406,7 @@ private fun MetaChip(icon: ImageVector, label: String) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = wc.Accent,
+            tint = tint ?: wc.Accent,
             modifier = Modifier.size(16.dp)
         )
         Text(

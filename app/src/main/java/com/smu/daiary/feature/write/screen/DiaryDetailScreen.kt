@@ -65,11 +65,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
-import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
 import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -80,6 +77,7 @@ import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
+import com.smu.daiary.ui.theme.emotionColor
 import java.time.LocalDate
 import androidx.compose.ui.window.Dialog
 
@@ -257,35 +255,14 @@ fun DiaryDetailScreen(
                         .padding(12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
-
-                    AsyncImage(
+                    PhotoThumbnail(
                         model = selectedImageUri,
                         contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp)),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
                         contentScale = ContentScale.Fit,
-                        onState = { imageState = it }
+                        errorIconSize = 32.dp
                     )
-
-                    if (imageState is AsyncImagePainter.State.Loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = wc.Accent,
-                            strokeWidth = 2.dp
-                        )
-                    }
-
-
-                    if (imageState is AsyncImagePainter.State.Error) {
-                        Icon(
-                            imageVector = Icons.Outlined.BrokenImage,
-                            contentDescription = null,
-                            tint = wc.TextMuted,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
 
                     IconButton(
                         onClick = { selectedImageUri = null },
@@ -352,7 +329,9 @@ private fun DiaryDayContent(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = localizedWeatherLabel(entry.weather)) }
-                emotionIcons[entry.emotion]?.let { DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion)) }
+                emotionIcons[entry.emotion]?.let {
+                    DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
+                }
             }
         }
 
@@ -384,46 +363,15 @@ private fun DiaryDayContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(entry.photos) { uri ->
-                    Box(
+                    PhotoThumbnail(
+                        model = uri,
+                        contentDescription = null,
                         modifier = Modifier
                             .size(80.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(wc.AccentLight)
                             .clickable { onImageClick(uri) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(80.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
-
-                            AsyncImage(
-                                model = uri,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize(),
-                                onState = { imageState = it }
-                            )
-
-                            if (imageState is AsyncImagePainter.State.Loading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = wc.Accent,
-                                    strokeWidth = 2.dp
-                                )
-                            }
-
-                            if (imageState is AsyncImagePainter.State.Error) {
-                                Icon(
-                                    imageVector = Icons.Outlined.BrokenImage,
-                                    contentDescription = null,
-                                    tint = wc.TextMuted,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                            }
-                        }
-                    }
+                        shape = RoundedCornerShape(12.dp),
+                        errorIconSize = 32.dp
+                    )
                 }
             }
         }
@@ -431,7 +379,7 @@ private fun DiaryDayContent(
 }
 
 @Composable
-private fun DetailMetaChip(icon: ImageVector, label: String) {
+private fun DetailMetaChip(icon: ImageVector, label: String, tint: Color? = null) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
     Row(
@@ -441,7 +389,7 @@ private fun DetailMetaChip(icon: ImageVector, label: String) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = wc.Accent,
+            tint = tint ?: wc.Accent,
             modifier = Modifier.size(16.dp)
         )
         Text(
