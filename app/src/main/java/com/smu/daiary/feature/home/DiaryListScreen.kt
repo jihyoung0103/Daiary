@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.DiaryEntry
+import com.smu.daiary.ui.components.SkeletonBox
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.Ink
@@ -54,6 +57,7 @@ import java.time.LocalDate
 @Composable
 fun DiaryListScreen(
     diaries: List<DiaryEntry>,
+    isLoading: Boolean = false,
     onDiaryClick: (DiaryEntry) -> Unit,
     onBack: () -> Unit
 ) {
@@ -93,7 +97,17 @@ fun DiaryListScreen(
             )
         }
     ) { padding ->
-        if (sorted.isEmpty()) {
+        if (isLoading) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                repeat(5) { DiaryRowSkeleton(surface = surface, border = border) }
+            }
+        } else if (sorted.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
@@ -120,6 +134,51 @@ fun DiaryListScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/** 일기 리스트 행 자리의 로딩 스켈레톤 — shimmer 교체 예정. */
+@Composable
+private fun DiaryRowSkeleton(
+    surface: androidx.compose.ui.graphics.Color,
+    border: androidx.compose.ui.graphics.Color
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = surface,
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(0.5.dp, border)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // 날짜 라벨 자리
+            SkeletonBox(
+                modifier = Modifier
+                    .width(96.dp)
+                    .height(13.dp),
+                color = border,
+                shape = RoundedCornerShape(4.dp)
+            )
+            // 내용 미리보기 자리(2줄)
+            SkeletonBox(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(14.dp),
+                color = border,
+                shape = RoundedCornerShape(4.dp)
+            )
+            SkeletonBox(
+                modifier = Modifier
+                    .fillMaxWidth(0.6f)
+                    .height(14.dp),
+                color = border,
+                shape = RoundedCornerShape(4.dp)
+            )
         }
     }
 }

@@ -613,6 +613,7 @@ class MainActivity : ComponentActivity() {
                                 composable("diary_list") {
                                     com.smu.daiary.feature.home.DiaryListScreen(
                                         diaries = diaries,
+                                        isLoading = isLoading,
                                         onDiaryClick = { entry ->
                                             viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                             navController.navigate("diary_detail")

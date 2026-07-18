@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.feature.retrospect.BannerStatus
 import com.smu.daiary.feature.retrospect.RetrospectBanner
+import com.smu.daiary.ui.components.SkeletonBox
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -176,67 +177,77 @@ fun HomeScreen(
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    CalendarCard(
-                        yearMonth = visibleMonth,
-                        diaries = diaries,
-                        selectedDate = selectedDate,
-                        onDateSelect = { date ->
-                            selectedDate = if (selectedDate == date) null else date
-                        },
-                        onPrevMonth = {
-                            visibleMonth = visibleMonth.minusMonths(1)
-                            selectedDate = null
-                        },
-                        onNextMonth = {
-                            visibleMonth = visibleMonth.plusMonths(1)
-                            selectedDate = null
-                        }
-                    )
+                    when {
+                        error != null -> CalendarErrorPlaceholder(onRetry = onRetry)
+                        isLoading -> CalendarCardSkeleton()
+                        else -> CalendarCard(
+                            yearMonth = visibleMonth,
+                            diaries = diaries,
+                            selectedDate = selectedDate,
+                            onDateSelect = { date ->
+                                selectedDate = if (selectedDate == date) null else date
+                            },
+                            onPrevMonth = {
+                                visibleMonth = visibleMonth.minusMonths(1)
+                                selectedDate = null
+                            },
+                            onNextMonth = {
+                                visibleMonth = visibleMonth.plusMonths(1)
+                                selectedDate = null
+                            }
+                        )
+                    }
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        val today = LocalDate.now()
-                        val diaryBannerDate = selectedDate ?: today
-                        val existingDiary = diaries.firstOrNull { it.date == diaryBannerDate.toString() }
-                        val diaryBannerState = when {
-                            existingDiary != null -> DiaryBannerState.HAS_DIARY
-                            diaryBannerDate.isAfter(today) -> DiaryBannerState.FUTURE
-                            else -> DiaryBannerState.WRITABLE
-                        }
-                        DiaryBanner(
-                            title = if (diaryBannerDate == today) "오늘의 일기"
-                            else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
-                            subLabel = when (diaryBannerState) {
-                                DiaryBannerState.HAS_DIARY ->
-                                    existingDiary?.content?.replace("\n", " ")?.trim()
-                                        ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
-                                DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
-                                DiaryBannerState.FUTURE -> ""
-                            },
-                            state = diaryBannerState,
-                            onClick = {
-                                when (diaryBannerState) {
-                                    DiaryBannerState.HAS_DIARY -> existingDiary?.let { onDiaryClick(it) }
-                                    DiaryBannerState.WRITABLE -> onWriteDiary(diaryBannerDate.toString())
-                                    DiaryBannerState.FUTURE -> {}
-                                }
+                        if (isLoading || error != null) {
+                            BannerSkeleton()
+                            BannerSkeleton()
+                            BannerSkeleton()
+                        } else {
+                            val today = LocalDate.now()
+                            val diaryBannerDate = selectedDate ?: today
+                            val existingDiary = diaries.firstOrNull { it.date == diaryBannerDate.toString() }
+                            val diaryBannerState = when {
+                                existingDiary != null -> DiaryBannerState.HAS_DIARY
+                                diaryBannerDate.isAfter(today) -> DiaryBannerState.FUTURE
+                                else -> DiaryBannerState.WRITABLE
                             }
-                        )
-                        RetrospectBanner(
-                            title = "이번 주 회고",
-                            subLabel = weeklyBannerSubLabel,
-                            status = weeklyBannerStatus,
-                            onClick = onWeeklyBannerClick
-                        )
-                        RetrospectBanner(
-                            title = "이번 달 회고",
-                            subLabel = monthlyBannerSubLabel,
-                            status = monthlyBannerStatus,
-                            onClick = onMonthlyBannerClick
-                        )
+                            DiaryBanner(
+                                title = if (diaryBannerDate == today) "오늘의 일기"
+                                else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
+                                subLabel = when (diaryBannerState) {
+                                    DiaryBannerState.HAS_DIARY ->
+                                        existingDiary?.content?.replace("\n", " ")?.trim()
+                                            ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
+                                    DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
+                                    DiaryBannerState.FUTURE -> ""
+                                },
+                                state = diaryBannerState,
+                                onClick = {
+                                    when (diaryBannerState) {
+                                        DiaryBannerState.HAS_DIARY -> existingDiary?.let { onDiaryClick(it) }
+                                        DiaryBannerState.WRITABLE -> onWriteDiary(diaryBannerDate.toString())
+                                        DiaryBannerState.FUTURE -> {}
+                                    }
+                                }
+                            )
+                            RetrospectBanner(
+                                title = "이번 주 회고",
+                                subLabel = weeklyBannerSubLabel,
+                                status = weeklyBannerStatus,
+                                onClick = onWeeklyBannerClick
+                            )
+                            RetrospectBanner(
+                                title = "이번 달 회고",
+                                subLabel = monthlyBannerSubLabel,
+                                status = monthlyBannerStatus,
+                                onClick = onMonthlyBannerClick
+                            )
+                        }
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     // 작성한 모든 일기를 일기 날짜순으로 보는 리스트 페이지 진입
@@ -439,6 +450,97 @@ private fun CalendarCard(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/** 캘린더 카드 자리의 로딩 스켈레톤 — shimmer 교체 예정. */
+@Composable
+private fun CalendarCardSkeleton() {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+        Surface(
+            color = mc.calCard,
+            shape = RoundedCornerShape(28.dp)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                SkeletonBox(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .width(96.dp)
+                        .height(16.dp),
+                    color = mc.border,
+                    shape = RoundedCornerShape(4.dp)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                repeat(5) {
+                    CalendarWeekRow {
+                        repeat(7) {
+                            SkeletonBox(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 2.dp)
+                                    .height(40.dp),
+                                color = mc.border,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
+    }
+}
+
+/** 일기/회고 배너 자리의 로딩 스켈레톤 — shimmer 교체 예정. */
+@Composable
+private fun BannerSkeleton() {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+    SkeletonBox(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp),
+        color = mc.border
+    )
+}
+
+/** 캘린더 카드 자리에 표시하는 에러 안내 — 기존 RecentDiaryList 에러 UI 패턴 재사용. */
+@Composable
+private fun CalendarErrorPlaceholder(onRetry: () -> Unit) {
+    val isDark = LocalDarkTheme.current
+    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
+
+    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+        Surface(
+            color = mc.calCard,
+            shape = RoundedCornerShape(28.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = stringResource(R.string.error_load_failed),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = mc.textPrimary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = onRetry) {
+                    Text(
+                        text = stringResource(R.string.btn_retry),
+                        color = mc.accentPurple,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
