@@ -67,6 +67,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.text.font.FontWeight
@@ -82,7 +83,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import android.util.Log
-import coil.compose.AsyncImage
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.LocalDarkTheme
@@ -323,24 +323,17 @@ fun DraftPreviewScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(photos) { photo ->
-                        Box(
+                        PhotoThumbnail(
+                            model = photo,
+                            contentDescription = null,
                             modifier = Modifier
                                 .size(80.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(wc.AccentLight)
                                 .clickable {
                                     selectedPhotoUri = photo
                                     showPhotoDialog = true
                                 },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AsyncImage(
-                                model = photo,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
+                            shape = RoundedCornerShape(12.dp)
+                        )
                     }
                 }
             }
@@ -364,11 +357,13 @@ fun DraftPreviewScreen(
                         .fillMaxSize()
                         .background(Color.Transparent)
                 ) {
-                    AsyncImage(
+                    PhotoThumbnail(
                         model = selectedPhotoUri,
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
+                        shape = RectangleShape,
+                        contentScale = ContentScale.Fit,
+                        errorIconSize = 32.dp
                     )
                     AnimatedVisibility(
                         visible = dialogVisible,

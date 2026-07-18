@@ -33,7 +33,6 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Air
-import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -73,11 +72,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -393,7 +389,7 @@ fun DiaryEditScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             photos.forEach { uri ->
-                                PhotoThumbnail(uri = uri, onRemove = { viewModel.removePhoto(uri) })
+                                RemovablePhotoThumbnail(uri = uri, onRemove = { viewModel.removePhoto(uri) })
                             }
                         }
                         if (photos.size < 3) {
@@ -474,42 +470,15 @@ fun IconSelectChip(
 }
 
 @Composable
-private fun PhotoThumbnail(uri: String, onRemove: () -> Unit) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-
-    Box(
-        modifier = Modifier
-            .size(60.dp)
-            .clip(RoundedCornerShape(10.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
-
-        AsyncImage(
+private fun RemovablePhotoThumbnail(uri: String, onRemove: () -> Unit) {
+    Box(contentAlignment = Alignment.Center) {
+        PhotoThumbnail(
             model = uri,
             contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            onState = { imageState = it }
+            modifier = Modifier.size(60.dp),
+            shape = RoundedCornerShape(10.dp),
+            errorIconSize = 20.dp
         )
-
-        if (imageState is AsyncImagePainter.State.Loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = wc.Accent,
-                strokeWidth = 2.dp
-            )
-        }
-
-        if (imageState is AsyncImagePainter.State.Error) {
-            Icon(
-                imageVector = Icons.Outlined.BrokenImage,
-                contentDescription = null,
-                tint = wc.TextMuted,
-                modifier = Modifier.size(20.dp)
-            )
-        }
 
         Box(
             modifier = Modifier
