@@ -410,7 +410,6 @@ private fun DiaryDetailScreenPreview() {
         content = "오늘은 날씨가 맑았다. 스타벅스에서 아메리카노를 마시며 팀 미팅을 준비했다. " +
                 "오후에는 8,342걸음을 걸으며 산책을 즐겼고, 저녁엔 사진 정리를 했다. " +
                 "전반적으로 알차고 기분 좋은 하루였다.",
-        mood = "happy",
         emotion = "기쁨",
         weather = "맑음",
         photos = listOf("content://media/external/images/1001", "content://media/external/images/1002"),

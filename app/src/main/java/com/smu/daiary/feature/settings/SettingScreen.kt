@@ -44,7 +44,11 @@ data class MbtiOption(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit = {}, onConfirm: () -> Unit = {}) {
+fun SettingsScreen(
+    onBack: () -> Unit = {},
+    onConfirm: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
 
     val context = LocalContext.current
 
@@ -91,6 +95,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, onConfirm: () -> Unit = {}) {
     var showSavedMessage by remember { mutableStateOf(false) }
 
     Scaffold(
+        modifier = modifier,
         containerColor = bgColor,
         topBar = {
             TopAppBar(

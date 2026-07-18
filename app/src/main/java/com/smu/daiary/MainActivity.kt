@@ -624,7 +624,8 @@ class MainActivity : ComponentActivity() {
                                 composable("settings") {
                                     SettingsScreen(
                                         onBack = { navController.popBackStack() },
-                                        onConfirm = { navController.popBackStack() }
+                                        onConfirm = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
                                     )
                                 }
                             }
