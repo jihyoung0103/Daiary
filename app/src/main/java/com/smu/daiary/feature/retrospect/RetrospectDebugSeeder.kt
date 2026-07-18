@@ -39,12 +39,6 @@ object RetrospectDebugSeeder {
         "올리브영" to "기타"
     )
 
-    private fun moodFor(emotion: String): String = when (emotion) {
-        "기쁨", "설렘" -> "happy"
-        "슬픔", "화남" -> "sad"
-        else -> "neutral"
-    }
-
     /** 오늘부터 최근 [days]일 동안의 테스트 일기/건강/결제 데이터를 생성 */
     suspend fun seedTestData(userId: String, days: Int = 10) {
         val diaryRepository = DiaryRepository()
@@ -61,7 +55,6 @@ object RetrospectDebugSeeder {
                 DiaryEntry(
                     title = "${date.monthValue}월 ${date.dayOfMonth}일의 기록",
                     content = contents[i % contents.size],
-                    mood = moodFor(emotion),
                     emotion = emotion,
                     weather = "",
                     date = dateStr

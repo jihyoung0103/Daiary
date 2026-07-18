@@ -1102,13 +1102,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val formattedTitle = if (localDate != null)
                 localizedContext().getString(R.string.diary_entry_title, localDate.year, localDate.monthValue, localDate.dayOfMonth)
             else d.date
-            val mood = when (_selectedEmotion.value) {
-                localizedContext().getString(R.string.emotion_joy),
-                localizedContext().getString(R.string.emotion_excited) -> "happy"
-                localizedContext().getString(R.string.emotion_sad),
-                localizedContext().getString(R.string.emotion_angry) -> "sad"
-                else -> "neutral"
-            }
             // 편집 진입 id가 없어도, 같은 날짜에 이미 저장된 일기가 있으면 그 문서를 덮어써서
             // 하루 1개만 유지한다. (FAB·블록 플로우 등 어느 경로로 들어와도 중복 방지)
             val existingId = _existingEntryId.value
@@ -1132,7 +1125,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 title = formattedTitle,
                 content = d.editedContent ?: d.aiContent,
                 date = d.date,
-                mood = mood,
                 emotion = _selectedEmotion.value ?: "",
                 weather = _selectedWeather.value ?: "",
                 photos = uploadedPhotoUrls
