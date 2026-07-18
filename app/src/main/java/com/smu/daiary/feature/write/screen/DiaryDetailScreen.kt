@@ -77,6 +77,7 @@ import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
+import com.smu.daiary.ui.theme.emotionColor
 import java.time.LocalDate
 import androidx.compose.ui.window.Dialog
 
@@ -328,7 +329,9 @@ private fun DiaryDayContent(
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = localizedWeatherLabel(entry.weather)) }
-                emotionIcons[entry.emotion]?.let { DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion)) }
+                emotionIcons[entry.emotion]?.let {
+                    DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
+                }
             }
         }
 
@@ -376,7 +379,7 @@ private fun DiaryDayContent(
 }
 
 @Composable
-private fun DetailMetaChip(icon: ImageVector, label: String) {
+private fun DetailMetaChip(icon: ImageVector, label: String, tint: Color? = null) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
     Row(
@@ -386,7 +389,7 @@ private fun DetailMetaChip(icon: ImageVector, label: String) {
         Icon(
             imageVector = icon,
             contentDescription = label,
-            tint = wc.Accent,
+            tint = tint ?: wc.Accent,
             modifier = Modifier.size(16.dp)
         )
         Text(

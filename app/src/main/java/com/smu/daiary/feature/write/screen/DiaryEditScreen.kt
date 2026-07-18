@@ -79,6 +79,7 @@ import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -279,7 +280,8 @@ fun DiaryEditScreen(
                             icon = e.icon,
                             label = localizedEmotionLabel(e.label),
                             selected = selectedEmotion == e.label,
-                            onClick = { viewModel.updateEmotionSelection(if (selectedEmotion == e.label) null else e.label) }
+                            onClick = { viewModel.updateEmotionSelection(if (selectedEmotion == e.label) null else e.label) },
+                            accentColor = emotionColor(e.label, isDark)
                         )
                     }
                 }
@@ -430,11 +432,12 @@ fun IconSelectChip(
     icon: ImageVector,
     label: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    accentColor: Color? = null
 ) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
-    val accent = wc.Accent
+    val accent = accentColor ?: wc.Accent
     val accentLight = wc.AccentLight
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
