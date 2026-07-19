@@ -26,7 +26,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
@@ -116,7 +116,7 @@ fun RetrospectCardScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = barColor)
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로", tint = barColor)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 pages.forEachIndexed { index, _ ->
@@ -551,7 +551,7 @@ fun RetrospectSummaryScreen(
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = textColor)
+            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로", tint = textColor)
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             SummaryContent(report, textColor = textColor, accentColor = accentColor)
