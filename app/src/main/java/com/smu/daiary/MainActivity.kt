@@ -618,7 +618,8 @@ class MainActivity : ComponentActivity() {
                                             viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                             navController.navigate("diary_detail")
                                         },
-                                        onBack = { navController.popBackStack() }
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
                                     )
                                 }
                                 composable("settings") {

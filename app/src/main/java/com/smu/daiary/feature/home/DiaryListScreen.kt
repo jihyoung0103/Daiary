@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -59,7 +60,8 @@ fun DiaryListScreen(
     diaries: List<DiaryEntry>,
     isLoading: Boolean = false,
     onDiaryClick: (DiaryEntry) -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
     val bg = if (isDark) BackgroundDark else Ivory
@@ -73,6 +75,7 @@ fun DiaryListScreen(
     val sorted = remember(diaries) { diaries.sortedByDescending { it.date } }
 
     Scaffold(
+        modifier = modifier,
         containerColor = bg,
         topBar = {
             TopAppBar(
@@ -93,7 +96,8 @@ fun DiaryListScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg),
+                windowInsets = WindowInsets(0)
             )
         }
     ) { padding ->
