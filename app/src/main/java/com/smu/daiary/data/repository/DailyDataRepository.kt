@@ -10,6 +10,7 @@ import com.smu.daiary.data.model.HealthData
 import com.smu.daiary.data.model.PaymentData
 import com.smu.daiary.data.model.PhotoMeta
 import com.smu.daiary.data.model.WeatherData
+import com.smu.daiary.data.model.WeatherSnapshot
 import kotlinx.coroutines.tasks.await
 
 private const val TAG = "DailyDataRepo"
@@ -66,6 +67,29 @@ class DailyDataRepository {
         Log.d(TAG, "✅ updateWeather 완료")
         Unit
     }.onFailure { Log.e(TAG, "❌ updateWeather 실패", it) }
+
+    /**
+     * 오늘 날씨 스냅샷 하나를 append 합니다.
+     * 기존 weather 객체가 있으면 snapshots 배열에 추가하고, 없으면 스냅샷 하나 담긴 weather 새로 생성.
+     * 문서가 없으면 자동 생성됩니다.
+     *
+     * 주의: 읽기-수정-쓰기 패턴이라 동시성 없음(하루 2번, 시간대 겹치지 않음 가정).
+     * 만약 동시성 이슈가 발생하면 FieldValue.arrayUnion으로 리팩터링 필요.
+     */
+    suspend fun appendWeatherSnapshot(userId: String, date: String, snapshot: WeatherSnapshot): Result<Unit> = runCatching {
+        Log.d(TAG, "🌤️ appendWeatherSnapshot 시작 | date=$date | ts=${snapshot.timestamp}")
+        val existing = getDailyData(userId, date).getOrNull()
+        val existingWeather = existing?.weather ?: WeatherData()
+        // 시간 순서 유지 (timestamp 오름차순)
+        val newSnapshots = (existingWeather.snapshots + snapshot).sortedBy { it.timestamp }
+        val newWeather = existingWeather.copy(snapshots = newSnapshots)
+
+        dailyDataRef(userId).document(date)
+            .set(mapOf("weather" to newWeather, "date" to date, "updatedAt" to System.currentTimeMillis()), SetOptions.merge())
+            .await()
+        Log.d(TAG, "✅ appendWeatherSnapshot 완료 | 누적 스냅샷=${newSnapshots.size}개")
+        Unit
+    }.onFailure { Log.e(TAG, "❌ appendWeatherSnapshot 실패", it) }
 
     /** 캘린더 일정만 업데이트합니다. 문서가 없으면 자동 생성됩니다. */
     suspend fun updateCalendar(userId: String, date: String, events: List<CalendarEvent>): Result<Unit> = runCatching {
