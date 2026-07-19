@@ -72,6 +72,7 @@ import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
@@ -263,7 +264,7 @@ fun ProfileEditScreen(
                     .fillMaxWidth()
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 24.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {

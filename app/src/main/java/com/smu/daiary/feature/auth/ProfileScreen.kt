@@ -87,6 +87,7 @@ import com.smu.daiary.feature.notification.scheduleNotification
 import com.smu.daiary.feature.retrospect.RetrospectDebugSeeder
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Error
@@ -97,6 +98,7 @@ import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
@@ -259,7 +261,7 @@ fun ProfileScreen(
                 .fillMaxWidth()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ── 계정 섹션 ──────────────────────────────────────────────────────
@@ -737,7 +739,7 @@ fun ProfileScreen(
 private fun ProfileCard(content: @Composable () -> Unit) {
     val isDark = LocalDarkTheme.current
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         color = if (isDark) SurfaceDark else ProfileColors.CardBg,
         border = BorderStroke(0.5.dp, if (isDark) BorderDark else ProfileColors.Border)
     ) {
@@ -901,7 +903,7 @@ private fun ProfileScreenPreview() {
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 72.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 72.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 ProfileCard {

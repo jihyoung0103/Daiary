@@ -26,12 +26,14 @@ import androidx.compose.ui.res.stringResource
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -126,7 +128,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp)
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 24.dp)
             ) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
@@ -145,8 +147,9 @@ fun SettingsScreen(
                                 .border(
                                     width = if (selected == mbti.type) 2.dp else 1.dp,
                                     color = if (selected == mbti.type) accentColor else borderColor,
-                                    shape = RoundedCornerShape(16.dp)
+                                    shape = RoundedCornerShape(CardCornerRadius)
                                 ),
+                            shape = RoundedCornerShape(CardCornerRadius),
                             colors = CardDefaults.cardColors(
                                 containerColor = cardBg
                             ),

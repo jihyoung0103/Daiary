@@ -80,9 +80,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
+import com.smu.daiary.ui.theme.ButtonCornerRadius
+import com.smu.daiary.ui.theme.ButtonHeight
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -173,10 +177,10 @@ fun BlockSelectionScreen(
                     enabled = !isLoading && !isGeneratingQuestions,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp)
                         .padding(bottom = 8.dp)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
+                        .height(ButtonHeight),
+                    shape = RoundedCornerShape(ButtonCornerRadius),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = wc.Accent,
                         disabledContainerColor = wc.Border
@@ -213,7 +217,7 @@ fun BlockSelectionScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    start = 24.dp, end = 24.dp,
+                    start = ScreenPaddingHorizontal, end = ScreenPaddingHorizontal,
                     top = padding.calculateTopPadding() + 16.dp,
                     bottom = padding.calculateBottomPadding() + 16.dp
                 ),
@@ -345,7 +349,7 @@ private fun CategoryBlockItem(
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         color = if (block.isSelected) wc.AccentLight else wc.Bg,
         border = if (block.isSelected) BorderStroke(1.5.dp, wc.Accent) else BorderStroke(0.5.dp, wc.Border),
         modifier = Modifier
@@ -403,7 +407,7 @@ private fun SingleBlockItem(
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         color = if (block.isSelected) wc.AccentLight else wc.Bg,
         border = if (block.isSelected) BorderStroke(1.5.dp, wc.Accent) else BorderStroke(0.5.dp, wc.Border),
         modifier = Modifier
@@ -636,7 +640,7 @@ private fun DateBanner(wc: WriteColorScheme, date: LocalDate, isLateNight: Boole
                    else "자정이 넘었지만 오전 4시까지는 어제 일기로 저장돼요"
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         color = wc.AccentLight,
         border = BorderStroke(1.5.dp, wc.Accent),
         modifier = Modifier.fillMaxWidth()

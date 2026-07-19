@@ -26,7 +26,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
@@ -51,10 +51,13 @@ import com.smu.daiary.R
 import com.smu.daiary.data.model.RetrospectReport
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.ui.theme.BackgroundDark
+import com.smu.daiary.ui.theme.ButtonCornerRadius
+import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
 import com.smu.daiary.ui.theme.emotionColor
@@ -116,7 +119,7 @@ fun RetrospectCardScreen(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = barColor)
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로", tint = barColor)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 pages.forEachIndexed { index, _ ->
@@ -180,7 +183,8 @@ fun RetrospectCardScreen(
                 Button(
                     onClick = onSave,
                     colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                    shape = RoundedCornerShape(ButtonCornerRadius)
                 ) { Text("저장하기", fontWeight = FontWeight.Medium) }
             } else {
                 Button(
@@ -189,7 +193,8 @@ fun RetrospectCardScreen(
                         containerColor = accentColor,
                         contentColor = Color.White
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                    shape = RoundedCornerShape(ButtonCornerRadius)
                 ) { Text("다음 →", fontWeight = FontWeight.Medium) }
             }
         }
@@ -202,7 +207,7 @@ private fun CardContainer(background: Color, content: @Composable ColumnScope.()
         modifier = Modifier
             .fillMaxSize()
             .background(background)
-            .padding(28.dp),
+            .padding(horizontal = ScreenPaddingHorizontal, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
         content = content
@@ -494,7 +499,7 @@ fun SummaryContent(
 ) {
     val isDark = LocalDarkTheme.current
     Column(
-        modifier = modifier.padding(horizontal = 28.dp),
+        modifier = modifier.padding(horizontal = ScreenPaddingHorizontal),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -551,7 +556,7 @@ fun RetrospectSummaryScreen(
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "뒤로", tint = textColor)
+            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로", tint = textColor)
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             SummaryContent(report, textColor = textColor, accentColor = accentColor)
@@ -560,7 +565,8 @@ fun RetrospectSummaryScreen(
             Button(
                 onClick = onViewFull,
                 colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                shape = RoundedCornerShape(ButtonCornerRadius)
             ) { Text("전체 다시 보기", fontWeight = FontWeight.Medium) }
         }
     }

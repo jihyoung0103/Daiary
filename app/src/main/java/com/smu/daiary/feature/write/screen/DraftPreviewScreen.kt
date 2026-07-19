@@ -84,8 +84,12 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import android.util.Log
 import com.smu.daiary.R
+import com.smu.daiary.ui.theme.ButtonCornerRadius
+import com.smu.daiary.ui.theme.ButtonHeight
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.emotionColor
 import java.time.LocalDate
 
@@ -205,10 +209,10 @@ fun DraftPreviewScreen(
                     onClick = onEdit,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                        .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp)
                         .padding(bottom = 8.dp)
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
+                        .height(ButtonHeight),
+                    shape = RoundedCornerShape(ButtonCornerRadius),
                     colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
                 ) {
                     Text(text = stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
@@ -221,7 +225,7 @@ fun DraftPreviewScreen(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 20.dp),
+                .padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             draft?.let {
@@ -258,7 +262,7 @@ fun DraftPreviewScreen(
                     var photoCardExpanded by remember { mutableStateOf(false) }
                     val summaryText = materials.lines().filter { it.isNotBlank() }.take(3).joinToString("\n")
                     Surface(
-                        shape = RoundedCornerShape(28.dp),
+                        shape = RoundedCornerShape(CardCornerRadius),
                         color = wc.SurfaceBg,
                         border = BorderStroke(0.5.dp, wc.Border)
                     ) {
@@ -296,7 +300,7 @@ fun DraftPreviewScreen(
             }
 
             Surface(
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(CardCornerRadius),
                 color = wc.SurfaceBg,
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {
@@ -454,10 +458,10 @@ private fun DraftPreviewScreenPreview() {
                         onClick = {},
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 16.dp)
+                            .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp)
                             .padding(bottom = 8.dp)
-                            .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
+                            .height(ButtonHeight),
+                        shape = RoundedCornerShape(ButtonCornerRadius),
                         colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
                     ) {
                         Text(stringResource(R.string.btn_edit), fontSize = 16.sp, fontWeight = FontWeight.Medium)
@@ -470,7 +474,7 @@ private fun DraftPreviewScreenPreview() {
                     .padding(padding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(text = formatDate(sampleDraft.date), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Accent)
@@ -482,7 +486,7 @@ private fun DraftPreviewScreenPreview() {
                     MetaChip(icon = Icons.Outlined.SentimentVerySatisfied, label = "기쁨")
                 }
                 Surface(
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(CardCornerRadius),
                     color = wc.SurfaceBg,
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
