@@ -30,10 +30,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.components.SkeletonBox
 import com.smu.daiary.ui.theme.BackgroundDark
@@ -81,7 +83,7 @@ fun DiaryListScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "모든 일기",
+                        text = stringResource(R.string.screen_diary_list),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
                         color = textPrimary
@@ -91,7 +93,7 @@ fun DiaryListScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
+                            contentDescription = stringResource(R.string.back),
                             tint = textPrimary
                         )
                     }
@@ -116,7 +118,7 @@ fun DiaryListScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "작성한 일기가 없어요", fontSize = 14.sp, color = textMuted)
+                Text(text = stringResource(R.string.no_diaries_written), fontSize = 14.sp, color = textMuted)
             }
         } else {
             LazyColumn(
@@ -197,10 +199,11 @@ private fun DiaryRow(
     accent: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit
 ) {
-    val dateLabel = remember(entry.date) {
+    val dateTemplate = stringResource(R.string.date_format_full)
+    val dateLabel = remember(entry.date, dateTemplate) {
         runCatching {
             val d = LocalDate.parse(entry.date)
-            "${d.year}년 ${d.monthValue}월 ${d.dayOfMonth}일"
+            String.format(dateTemplate, d.year, d.monthValue, d.dayOfMonth)
         }.getOrDefault(entry.date)
     }
 
@@ -226,7 +229,7 @@ private fun DiaryRow(
                 color = accent
             )
             Text(
-                text = entry.content.replace("\n", " ").ifBlank { "(내용 없음)" },
+                text = entry.content.replace("\n", " ").ifBlank { stringResource(R.string.no_content_placeholder) },
                 fontSize = 14.sp,
                 color = textPrimary,
                 maxLines = 2,

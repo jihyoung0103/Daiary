@@ -227,6 +227,11 @@
     <!-- Task 2: 빈 화면 -->
     <string name="no_diaries_subtitle">첫 일기를 작성해보세요</string>
 
+    <!-- DiaryListScreen -->
+    <string name="screen_diary_list">모든 일기</string>
+    <string name="no_diaries_written">작성한 일기가 없어요</string>
+    <string name="no_content_placeholder">(내용 없음)</string>
+
     <!-- Task 3: 로그인 유효성 -->
     <string name="error_email_empty">이메일을 입력해주세요</string>
     <string name="error_email_invalid">올바른 이메일 형식을 입력해주세요</string>
