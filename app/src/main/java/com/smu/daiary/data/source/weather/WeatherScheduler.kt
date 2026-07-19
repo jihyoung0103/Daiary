@@ -17,31 +17,26 @@ private const val TAG = "WeatherScheduler"
 /**
  * 백그라운드 날씨 수집 스케줄러.
  *
- * 하루 2회 [WeatherCollectionWorker]를 실행:
- * - 09:00 — 아침(출근/등교 시간대) 날씨
- * - 15:00 — 오후(낮 최고 온도 근처) 날씨
- * 저녁은 사용자가 일기 작성 시점에 자동으로 커버되므로 별도 예약 없음.
+ * 하루 1회 [WeatherCollectionWorker]를 실행 (14:00, 낮 최고 온도 근처).
+ * 저녁 이후 사용자가 일기 작성 시엔 이 스냅샷을 "오늘 날씨"로 사용한다.
  *
  * WorkManager PeriodicWorkRequest는 정확한 정시 실행을 보장하지 않으며 (Doze/배터리 최적화),
- * "대략 그 시간대"에 실행된다. 하루 종일의 대략적인 상황을 잡는 목적에는 충분함.
+ * "대략 그 시간대"에 실행된다. 하루 요약 목적에는 충분함.
  *
- * 로그인 성공 후 [scheduleAll]을 호출해 두 워커를 등록한다.
+ * 로그인 성공 후 [scheduleAll]을 호출해 등록한다.
  * ExistingPeriodicWorkPolicy.KEEP 정책이라 재로그인 시 중복 예약되지 않음.
  */
 object WeatherScheduler {
 
-    private const val WORK_MORNING = "weather-collection-morning"
     private const val WORK_AFTERNOON = "weather-collection-afternoon"
     private const val WORK_ONESHOT = "weather-collection-oneshot"
 
-    private const val MORNING_HOUR = 9
-    private const val AFTERNOON_HOUR = 15
+    private const val AFTERNOON_HOUR = 14
 
-    /** 로그인 시 호출. 아침/오후 두 스케줄을 등록한다(이미 있으면 유지). */
+    /** 로그인 시 호출. 오후 스케줄을 등록한다(이미 있으면 유지). */
     fun scheduleAll(context: Context) {
-        scheduleAt(context, WORK_MORNING, MORNING_HOUR)
         scheduleAt(context, WORK_AFTERNOON, AFTERNOON_HOUR)
-        Log.d(TAG, "🗓️ 날씨 백그라운드 수집 스케줄 등록 완료 (09:00, 15:00)")
+        Log.d(TAG, "🗓️ 날씨 백그라운드 수집 스케줄 등록 완료 (14:00)")
     }
 
     /** 개발/테스트용. 즉시 한 번 수집 실행. */
@@ -60,7 +55,6 @@ object WeatherScheduler {
     /** 로그아웃 등에서 취소하고 싶으면 호출. */
     fun cancelAll(context: Context) {
         val wm = WorkManager.getInstance(context)
-        wm.cancelUniqueWork(WORK_MORNING)
         wm.cancelUniqueWork(WORK_AFTERNOON)
         Log.d(TAG, "🚫 날씨 백그라운드 수집 스케줄 취소")
     }
