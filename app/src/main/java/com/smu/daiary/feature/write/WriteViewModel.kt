@@ -215,7 +215,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
             // --- 날씨, 캘린더, 사진, 건강 병렬 수집 ---
-            val weatherDeferred = async { runCatching { weatherDataSource.fetchWeather() } }
+            // 오늘 날씨는 백그라운드 워커(WeatherCollectionWorker)가 하루 2회 수집해 Firestore에 append 해둠.
+            // 여기서는 내일 예보만 API로 조회. 과거 날짜(target != null) 편집 시엔 날씨 API 호출 없음.
+            val weatherDeferred = async {
+                runCatching {
+                    if (target != null) null else weatherDataSource.fetchTomorrow()
+                }
+            }
             // 과거 날짜면 해당 날짜 일정만 조회, 오늘이면 3일치(오늘/내일/모레) 조회
             val calendarDeferred = async {
                 runCatching {
@@ -226,37 +232,51 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val photoDeferred = async { runCatching { photoDataSource.fetchTodayPhotos() } }
             val healthDeferred = async { runCatching { healthDataSource.fetchTodayHealth() } }
 
-            // 날씨 — 생성 시점 1회만 수집 (재시도 없음, 추후 백그라운드 정기 수집으로 이전 예정)
+            // 날씨 오늘 — Firestore에 백그라운드 워커가 쌓아둔 snapshots를 읽어 블록 구성
+            val existingWeather = dailyDataRepository.getDailyData(userId, date).getOrNull()?.weather
+            val snapshots = existingWeather?.snapshots ?: emptyList()
+            if (snapshots.isNotEmpty()) {
+                val latest = snapshots.last()
+                Log.d(TAG, "🌤️ 오늘 날씨 스냅샷 ${snapshots.size}개 로드 | 최신=${latest.description} ${latest.temperature}°C")
+                blocks.add(ContentBlock(
+                    id = "weather", type = BlockType.WEATHER,
+                    content = localizedContext().getString(
+                        R.string.block_weather_content,
+                        latest.city,
+                        localizedWeatherDescription(latest.description),
+                        latest.temperature.toInt(),
+                        latest.humidity
+                    )
+                ))
+            } else {
+                Log.w(TAG, "⚠️ 오늘 날씨 스냅샷 없음 (백그라운드 수집 아직 미실행)")
+                blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable)))
+            }
+
+            // 날씨 내일 — 사용자 작성 시점에 예보 API 호출한 결과 사용
             weatherDeferred.await()
-                .onSuccess { weather ->
-                    Log.d(TAG, "🌤️ 날씨 수집 완료: ${weather.description} ${weather.temperature}°C")
-                    dailyDataRepository.updateWeather(userId, date, weather)
-                    blocks.add(ContentBlock(
-                        id = "weather", type = BlockType.WEATHER,
-                        content = localizedContext().getString(
-                            R.string.block_weather_content,
-                            weather.city,
-                            localizedWeatherDescription(weather.description),
-                            weather.temperature.toInt(),
-                            weather.humidity
+                .onSuccess { tomorrow ->
+                    if (tomorrow != null && tomorrow.tomorrowDescription.isNotBlank()) {
+                        Log.d(TAG, "🌤️ 내일 날씨: ${tomorrow.tomorrowDescription} ${tomorrow.tomorrowTemperature}°C")
+                        // 오늘 스냅샷과 함께 Firestore weather에 병합 저장 (tomorrow 필드만 갱신)
+                        val merged = (existingWeather ?: com.smu.daiary.data.model.WeatherData()).copy(
+                            tomorrowDescription = tomorrow.tomorrowDescription,
+                            tomorrowTemperature = tomorrow.tomorrowTemperature,
+                            tomorrowHumidity = tomorrow.tomorrowHumidity
                         )
-                    ))
-                    if (weather.tomorrowDescription.isNotBlank()) {
+                        dailyDataRepository.updateWeather(userId, date, merged)
                         blocks.add(ContentBlock(
                             id = "weather_tomorrow", type = BlockType.WEATHER_TOMORROW,
                             content = localizedContext().getString(
                                 R.string.block_weather_tomorrow_content,
-                                localizedWeatherDescription(weather.tomorrowDescription),
-                                weather.tomorrowTemperature.toInt(),
-                                weather.tomorrowHumidity
+                                localizedWeatherDescription(tomorrow.tomorrowDescription),
+                                tomorrow.tomorrowTemperature.toInt(),
+                                tomorrow.tomorrowHumidity
                             )
                         ))
                     }
                 }
-                .onFailure {
-                    Log.w(TAG, "⚠️ 날씨 수집 실패", it)
-                    blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable)))
-                }
+                .onFailure { Log.w(TAG, "⚠️ 내일 날씨 조회 실패", it) }
 
             // 캘린더
             calendarDeferred.await()

@@ -16,17 +16,31 @@ data class DailyData(
     val updatedAt: Long = System.currentTimeMillis()
 )
 
-/** 날씨 정보 (OpenWeatherMap API) */
+/**
+ * 날씨 정보 (OpenWeatherMap API).
+ *
+ * 오늘 날씨는 백그라운드에서 여러 시점에 수집돼 [snapshots]로 쌓인다.
+ * 내일 날씨는 사용자가 일기 작성 시점에 예보 API로 한 번 조회한 값.
+ */
 data class WeatherData(
-    // 오늘
-    val description: String = "",       // 예: "맑음", "흐림"
-    val temperature: Double = 0.0,      // 섭씨
-    val humidity: Int = 0,              // %
-    val city: String = "",
-    // 내일
+    // 오늘 — 백그라운드에서 여러 시점 수집한 스냅샷 목록 (시간순)
+    val snapshots: List<WeatherSnapshot> = emptyList(),
+    // 내일 — 사용자 작성 시점 수집
     val tomorrowDescription: String = "",
     val tomorrowTemperature: Double = 0.0,
     val tomorrowHumidity: Int = 0
+)
+
+/**
+ * 오늘 특정 시점의 날씨 스냅샷. 백그라운드 워커가 시각별로 하나씩 append.
+ * timestamp는 수집 시각(epoch millis). 리스트는 시간 오름차순으로 유지된다.
+ */
+data class WeatherSnapshot(
+    val timestamp: Long = 0L,           // 수집 시각 (epoch millis)
+    val description: String = "",       // canonical 날씨명 (맑음/흐림/비/눈/바람)
+    val temperature: Double = 0.0,      // 섭씨
+    val humidity: Int = 0,              // %
+    val city: String = ""               // 스냅샷 시점의 도시명 (이동 시 달라질 수 있음)
 )
 
 /** 캘린더 일정 (CalendarContract) */
