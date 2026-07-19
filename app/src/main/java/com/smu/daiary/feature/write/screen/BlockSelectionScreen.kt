@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
@@ -684,8 +685,12 @@ private fun blockTypeIcon(type: BlockType): ImageVector = when (type) {
     BlockType.PHOTO_LOCATION    -> Icons.Outlined.LocationOn
 }
 
-/** 날씨 블록의 content(예: "맑음 22°C · 습도 60%")에서 날씨 종류를 읽어 아이콘 매핑. 매칭 실패 시 WbSunny로 fallback */
+/** 날씨 블록의 content(예: "맑음 22°C · 습도 60%")에서 날씨 종류를 읽어 아이콘 매핑. 날씨 정보 없음 상태는 별도 아이콘, 그 외 매칭 실패 시 WbSunny로 fallback */
+@Composable
 private fun weatherIconFor(content: String): ImageVector {
+    if (content == stringResource(R.string.block_weather_unavailable)) {
+        return Icons.Outlined.HelpOutline
+    }
     val weatherIconMap = mapOf(
         "맑음" to Icons.Outlined.WbSunny,
         "흐림" to Icons.Outlined.Cloud,

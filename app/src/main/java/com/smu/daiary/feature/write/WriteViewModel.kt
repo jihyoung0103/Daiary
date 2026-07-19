@@ -250,7 +250,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 ))
             } else {
                 Log.w(TAG, "⚠️ 오늘 날씨 스냅샷 없음 (백그라운드 수집 아직 미실행)")
-                blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable)))
+                // 캘린더 빈 상태(block_calendar_empty)와 동일한 컨벤션: 블록은 보여주되 기본 미선택 처리해
+                // 초안 생성 시 "날씨는 날씨 정보를 가져올 수 없습니다이었다" 같은 어색한 문장이 자동 포함되지 않도록 함.
+                blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable), isSelected = false))
             }
 
             // 날씨 내일 — 사용자 작성 시점에 예보 API 호출한 결과 사용
