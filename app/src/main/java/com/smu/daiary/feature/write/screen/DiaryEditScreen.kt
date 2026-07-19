@@ -76,9 +76,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
@@ -291,9 +293,9 @@ fun DiaryEditScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp),
                 color = wc.SurfaceBg,
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(CardCornerRadius),
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {
                 Column(
@@ -354,7 +356,7 @@ fun DiaryEditScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(accentLight)
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp)
             ) {
                 val photos = draft?.photos.orEmpty()
                 if (photos.isEmpty()) {
@@ -546,9 +548,9 @@ private fun DiaryEditScreenPreview() {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                        .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp),
                     color = wc.SurfaceBg,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(CardCornerRadius),
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
                     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -605,7 +607,7 @@ private fun DiaryEditScreenPreview() {
                         .fillMaxWidth()
                         .height(92.dp)
                         .background(wc.AccentLight)
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                        .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         TextButton(onClick = {}) {

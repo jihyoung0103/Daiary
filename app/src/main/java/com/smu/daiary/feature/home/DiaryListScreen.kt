@@ -40,12 +40,14 @@ import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.components.SkeletonBox
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
@@ -108,7 +110,7 @@ fun DiaryListScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 repeat(5) { DiaryRowSkeleton(surface = surface, border = border) }
@@ -125,7 +127,7 @@ fun DiaryListScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(sorted) { entry ->
@@ -153,7 +155,7 @@ private fun DiaryRowSkeleton(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, border)
     ) {
         Column(
@@ -210,10 +212,10 @@ private fun DiaryRow(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(CardCornerRadius))
             .clickable(onClick = onClick),
         color = surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         border = androidx.compose.foundation.BorderStroke(0.5.dp, border)
     ) {
         Column(

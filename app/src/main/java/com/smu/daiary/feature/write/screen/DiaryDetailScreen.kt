@@ -69,11 +69,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -320,7 +322,7 @@ private fun DiaryDayContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp, vertical = 20.dp),
+            .padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty()) {
@@ -336,7 +338,7 @@ private fun DiaryDayContent(
         }
 
         Surface(
-            shape = RoundedCornerShape(28.dp),
+            shape = RoundedCornerShape(CardCornerRadius),
             color = wc.SurfaceBg,
             border = BorderStroke(0.5.dp, wc.Border)
         ) {

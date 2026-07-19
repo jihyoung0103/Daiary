@@ -57,6 +57,7 @@ import com.smu.daiary.feature.retrospect.RetrospectBanner
 import com.smu.daiary.ui.components.SkeletonBox
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.LocalDarkTheme
@@ -67,6 +68,7 @@ import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.Silver
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
@@ -192,7 +194,7 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
+                            .padding(horizontal = ScreenPaddingHorizontal),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         if (isLoading || error != null) {
@@ -246,10 +248,10 @@ fun HomeScreen(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
+                            .padding(horizontal = ScreenPaddingHorizontal)
                             .clickable(onClick = onViewAllDiaries),
                         color = if (isDark) DewDark else Dew,
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(CardCornerRadius)
                     ) {
                         Row(
                             modifier = Modifier
@@ -313,7 +315,7 @@ private fun TopBarSection(yearMonth: YearMonth) {
         modifier = Modifier
             .fillMaxWidth()
             .height(64.dp)
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = ScreenPaddingHorizontal),
         contentAlignment = Alignment.CenterStart
     ) {
         Column {
@@ -361,10 +363,10 @@ private fun CalendarCard(
             }.toMap()
     }
 
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(CardCornerRadius)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -451,10 +453,10 @@ private fun CalendarCardSkeleton() {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
 
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(CardCornerRadius)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 SkeletonBox(
@@ -505,10 +507,10 @@ private fun CalendarErrorPlaceholder(onRetry: () -> Unit) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
 
-    Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp)) {
+    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(28.dp)
+            shape = RoundedCornerShape(CardCornerRadius)
         ) {
             Column(
                 modifier = Modifier
@@ -629,7 +631,7 @@ private fun BottomNavBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp)
                     .padding(bottom = 12.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically

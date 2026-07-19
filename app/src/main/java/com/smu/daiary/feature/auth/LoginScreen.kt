@@ -55,6 +55,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.ButtonCornerRadius
+import com.smu.daiary.ui.theme.ButtonHeight
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Error
@@ -65,6 +68,7 @@ import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
@@ -211,8 +215,8 @@ fun LoginScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp),
-            shape = RoundedCornerShape(24.dp),
+                .padding(horizontal = ScreenPaddingHorizontal),
+            shape = RoundedCornerShape(CardCornerRadius),
             color = lc.Surface,
             border = BorderStroke(1.5.dp, lc.AccentPurple),
             shadowElevation = 2.dp
@@ -398,8 +402,8 @@ fun LoginScreen(
                         }
                     },
                     enabled  = authState !is AuthState.Loading,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape    = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                    shape    = RoundedCornerShape(ButtonCornerRadius),
                     colors   = ButtonDefaults.buttonColors(
                         containerColor = lc.AccentPurple
                     )
@@ -439,8 +443,8 @@ fun LoginScreen(
                 OutlinedButton(
                     onClick  = { googleLauncher.launch(googleSignInClient.signInIntent) },
                     enabled  = authState !is AuthState.Loading,
-                    modifier = Modifier.fillMaxWidth().height(50.dp),
-                    shape    = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                    shape    = RoundedCornerShape(ButtonCornerRadius),
                     border   = BorderStroke(1.dp, lc.Border),
                     colors   = ButtonDefaults.outlinedButtonColors(
                         contentColor = lc.TextPrimary
@@ -472,7 +476,7 @@ fun LoginScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    shape           = RoundedCornerShape(20.dp),
+                    shape           = RoundedCornerShape(CardCornerRadius),
                     color           = lc.Surface,
                     shadowElevation = 8.dp
                 ) {
@@ -514,8 +518,8 @@ private fun LoginScreenPreview() {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 28.dp),
-                shape = RoundedCornerShape(24.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal),
+                shape = RoundedCornerShape(CardCornerRadius),
                 color = lc.Surface,
                 border = BorderStroke(1.5.dp, lc.AccentPurple),
                 shadowElevation = 2.dp
@@ -595,8 +599,8 @@ private fun LoginScreenPreview() {
                     Spacer(modifier = Modifier.height(24.dp))
                     Button(
                         onClick = {},
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                        shape = RoundedCornerShape(ButtonCornerRadius),
                         colors = ButtonDefaults.buttonColors(containerColor = lc.AccentPurple)
                     ) {
                         Text("로그인", fontSize = 15.sp, fontWeight = FontWeight.Medium)
@@ -611,8 +615,8 @@ private fun LoginScreenPreview() {
                     }
                     OutlinedButton(
                         onClick = {},
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                        shape = RoundedCornerShape(ButtonCornerRadius),
                         border = BorderStroke(1.dp, lc.Border),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = lc.TextPrimary)
                     ) {
@@ -643,7 +647,7 @@ private fun SignUpSuccessOverlayPreview() {
             contentAlignment = Alignment.Center
         ) {
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(CardCornerRadius),
                 color = lc.Surface,
                 shadowElevation = 8.dp
             ) {
@@ -682,7 +686,7 @@ private fun LoginSuccessOverlayPreview() {
             contentAlignment = Alignment.Center
         ) {
             Surface(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(CardCornerRadius),
                 color = lc.Surface,
                 shadowElevation = 8.dp
             ) {
