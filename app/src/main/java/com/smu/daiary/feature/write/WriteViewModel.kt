@@ -1165,14 +1165,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 초안에 사진 URI 추가 (DraftPreviewScreen에서 추가 첨부 시) */
-    fun addPhoto(uri: String) {
-        _draft.update { it?.copy(photos = it.photos + uri) }
-    }
-
-    /** 초안에서 사진 URI 제거 */
-    fun removePhoto(uri: String) {
-        _draft.update { it?.copy(photos = it.photos.filter { p -> p != uri }) }
+    /** 빈 블록을 맨 끝에 추가. 위치는 ↑↓로 옮긴다 */
+    fun addBlock() {
+        _draft.update { draft ->
+            draft?.copy(blocks = draft.blocks + DiaryBodyBlock(id = UUID.randomUUID().toString()))
+        }
     }
 
     /**

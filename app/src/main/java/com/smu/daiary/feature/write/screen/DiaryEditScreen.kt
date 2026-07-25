@@ -3,11 +3,7 @@ package com.smu.daiary.feature.write.screen
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.model.*
 
-import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,9 +29,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Air
-import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -78,10 +73,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
-import coil.compose.AsyncImagePainter
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.DaiaryTheme
@@ -145,7 +138,6 @@ fun DiaryEditScreen(
     val accentLight = wc.AccentLight
     val dialogBg = if (isDark) SurfaceDark else White
     val dialogText = if (isDark) TextPrimaryDark else Ink
-    val context = LocalContext.current
 
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val hasContent = draft?.blocks.orEmpty().any { it.text.isNotBlank() }
@@ -179,21 +171,6 @@ fun DiaryEditScreen(
             },
             containerColor = dialogBg
         )
-    }
-
-    val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3)
-    ) { uris ->
-        val slots = (3 - (viewModel.draft.value?.photos?.size ?: 0)).coerceAtLeast(0)
-        uris.take(slots).forEach { uri ->
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-            viewModel.addPhoto(uri.toString())
-        }
     }
 
     Scaffold(
@@ -338,6 +315,21 @@ fun DiaryEditScreen(
                                 modifier = Modifier.animateItem()
                             )
                         }
+                        item {
+                            TextButton(
+                                onClick = { viewModel.addBlock() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Add,
+                                    contentDescription = null,
+                                    tint = accent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(text = "블록 추가", color = accent, fontSize = 13.sp)
+                            }
+                        }
                     }
                     Text(
                         text = stringResource(R.string.char_count, blocks.sumOf { it.text.length }),
@@ -349,70 +341,11 @@ fun DiaryEditScreen(
                 }
             }
 
-            HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(accentLight)
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
-            ) {
-                val photos = draft?.photos.orEmpty()
-                if (photos.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TextButton(
-                            onClick = {
-                                photoPicker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.AddPhotoAlternate,
-                                contentDescription = stringResource(R.string.add_photo_desc),
-                                tint = accent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp, bottom = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.align(Alignment.CenterStart),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            photos.forEach { uri ->
-                                PhotoThumbnail(uri = uri, onRemove = { viewModel.removePhoto(uri) })
-                            }
-                        }
-                        if (photos.size < 3) {
-                            TextButton(
-                                modifier = Modifier.align(Alignment.Center),
-                                onClick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                            ) {
-                                Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = stringResource(R.string.add_photo_desc), tint = accent, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
 
-/** 본문 블록 1개 — 사진(있으면) + 편집 가능한 문단 + 우측 ↑↓·삭제 버튼 */
+/** 본문 블록 1개 — 사진(있으면) + 편집 가능한 문단 + 하단 우측 조작 줄 */
 @Composable
 private fun BlockEditRow(
     block: DiaryBodyBlock,
@@ -427,32 +360,36 @@ private fun BlockEditRow(
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
 
-    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        Column(modifier = Modifier.weight(1f)) {
-            block.imageUri?.let { uri ->
-                AsyncImage(
-                    model = uri,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            BasicTextField(
-                value = block.text,
-                onValueChange = onTextChange,
-                modifier = Modifier.fillMaxWidth(),
-                textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = wc.TextPrimary)
+    Column(modifier = modifier.fillMaxWidth()) {
+        block.imageUri?.let { uri ->
+            AsyncImage(
+                model = uri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(12.dp))
             )
+            Spacer(Modifier.height(8.dp))
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        BasicTextField(
+            value = block.text,
+            onValueChange = onTextChange,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = wc.TextPrimary)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             BlockIconButton(Icons.Outlined.KeyboardArrowUp, "위로 이동", enabled = !isFirst, onClick = onMoveUp)
             BlockIconButton(Icons.Outlined.KeyboardArrowDown, "아래로 이동", enabled = !isLast, onClick = onMoveDown)
+            Spacer(Modifier.width(2.dp))
             BlockIconButton(Icons.Outlined.Close, stringResource(R.string.btn_delete), onClick = onRemove)
         }
+        HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
     }
 }
 
@@ -464,12 +401,12 @@ private fun BlockIconButton(
     onClick: () -> Unit
 ) {
     val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(32.dp)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(28.dp)) {
         Icon(
             imageVector = icon,
             contentDescription = description,
             tint = if (enabled) wc.TextMuted else wc.Border,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(16.dp)
         )
     }
 }
@@ -531,64 +468,6 @@ fun IconSelectChip(
             color = if (selected) accent else wc.TextMuted,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
         )
-    }
-}
-
-@Composable
-private fun PhotoThumbnail(uri: String, onRemove: () -> Unit) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-
-    Box(
-        modifier = Modifier
-            .size(60.dp)
-            .clip(RoundedCornerShape(10.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        var imageState by remember { mutableStateOf<AsyncImagePainter.State?>(null) }
-
-        AsyncImage(
-            model = uri,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            onState = { imageState = it }
-        )
-
-        if (imageState is AsyncImagePainter.State.Loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
-                color = wc.Accent,
-                strokeWidth = 2.dp
-            )
-        }
-
-        if (imageState is AsyncImagePainter.State.Error) {
-            Icon(
-                imageVector = Icons.Outlined.BrokenImage,
-                contentDescription = null,
-                tint = wc.TextMuted,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(3.dp)
-                .size(18.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable { onRemove() },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.delete_photo_desc),
-                tint = Color.White,
-                modifier = Modifier.size(11.dp)
-            )
-        }
     }
 }
 
@@ -685,22 +564,6 @@ private fun DiaryEditScreenPreview() {
                                 selected = selectedEmotion == e.label,
                                 onClick = { selectedEmotion = if (selectedEmotion == e.label) null else e.label }
                             )
-                        }
-                    }
-                }
-                HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(92.dp)
-                        .background(wc.AccentLight)
-                        .padding(horizontal = 24.dp, vertical = 12.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        TextButton(onClick = {}) {
-                            Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = stringResource(R.string.add_photo_desc), tint = accent, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
                         }
                     }
                 }
