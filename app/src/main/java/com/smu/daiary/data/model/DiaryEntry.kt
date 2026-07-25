@@ -13,7 +13,6 @@ data class DiaryEntry(
     val content: String = "",
     /** 소스별 본문 블록. 옛 일기는 비어 있으며, 그때는 content를 쓴다 */
     val blocks: List<DiaryBodyBlock> = emptyList(),
-    val mood: String = "neutral",              // "happy" | "neutral" | "sad"
     val emotion: String = "",                  // "기쁨" | "슬픔" | "평온" | "화남" | "설렘"
     val weather: String = "",                  // "맑음" | "흐림" | "비" | "눈" | "바람"
     val photos: List<String> = emptyList(),    // 첨부 사진 URI 목록

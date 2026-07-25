@@ -28,7 +28,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -77,9 +79,12 @@ import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -241,9 +246,9 @@ fun DiaryEditScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 12.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp),
                 color = wc.SurfaceBg,
-                shape = RoundedCornerShape(28.dp),
+                shape = RoundedCornerShape(CardCornerRadius),
                 border = BorderStroke(0.5.dp, wc.Border)
             ) {
                 Column(
@@ -269,6 +274,7 @@ fun DiaryEditScreen(
                             placeholder = stringResource(R.string.label_weather),
                             placeholderIcon = Icons.Outlined.WbSunny,
                             labelOf = { localizedWeatherLabel(it) },
+                            tintOf = { accent },
                             onSelect = { viewModel.updateWeatherSelection(it) }
                         )
                         MetaPickerChip(
@@ -277,6 +283,7 @@ fun DiaryEditScreen(
                             placeholder = stringResource(R.string.label_emotion),
                             placeholderIcon = Icons.Outlined.SentimentNeutral,
                             labelOf = { localizedEmotionLabel(it) },
+                            tintOf = { emotionColor(it, isDark) },
                             onSelect = { viewModel.updateEmotionSelection(it) }
                         )
                     }
@@ -309,7 +316,7 @@ fun DiaryEditScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
-                                Text(text = "블록 추가", color = accent, fontSize = 13.sp)
+                                Text(text = stringResource(R.string.btn_add_block), color = accent, fontSize = 13.sp)
                             }
                         }
                     }
@@ -366,8 +373,8 @@ private fun BlockEditRow(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            BlockIconButton(Icons.Outlined.KeyboardArrowUp, "위로 이동", enabled = !isFirst, onClick = onMoveUp)
-            BlockIconButton(Icons.Outlined.KeyboardArrowDown, "아래로 이동", enabled = !isLast, onClick = onMoveDown)
+            BlockIconButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.block_move_up), enabled = !isFirst, onClick = onMoveUp)
+            BlockIconButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.block_move_down), enabled = !isLast, onClick = onMoveDown)
             Spacer(Modifier.width(2.dp))
             BlockIconButton(Icons.Outlined.Close, stringResource(R.string.btn_delete), onClick = onRemove)
         }
@@ -398,11 +405,12 @@ fun IconSelectChip(
     icon: ImageVector,
     label: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    accentColor: Color? = null
 ) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
-    val accent = wc.Accent
+    val accent = accentColor ?: wc.Accent
     val accentLight = wc.AccentLight
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -480,9 +488,9 @@ private fun DiaryEditScreenPreview() {
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
+                        .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp),
                     color = wc.SurfaceBg,
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(CardCornerRadius),
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
                     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {

@@ -113,4 +113,7 @@ dependencies {
 
     // Health Connect (건강 데이터 수집용 - 걸음 수, 수면 시간)
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+
+    // WorkManager (백그라운드 날씨 수집 스케줄링)
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 }

@@ -2,8 +2,11 @@ package com.smu.daiary.feature.write.screen
 
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.model.*
+import com.smu.daiary.ui.theme.ButtonCornerRadius
+import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -178,7 +181,7 @@ fun ContextQnAScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 28.dp),
+                .padding(horizontal = ScreenPaddingHorizontal),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Spacer(Modifier.height(8.dp))
@@ -290,8 +293,8 @@ fun ContextQnAScreen(
                         }
                     },
                     enabled = customText.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                    shape = RoundedCornerShape(ButtonCornerRadius),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = wc.Accent,
                         disabledContainerColor = wc.Border

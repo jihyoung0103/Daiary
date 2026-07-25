@@ -32,12 +32,14 @@ import androidx.compose.ui.unit.sp
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
@@ -90,7 +92,7 @@ fun PrivacyPolicyScreen(
                 .padding(padding)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+                .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
@@ -149,7 +151,7 @@ internal fun LegalCard(
     content: @Composable () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         color = cardBg,
         border = BorderStroke(0.5.dp, borderColor)
     ) {

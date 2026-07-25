@@ -2,13 +2,16 @@ package com.smu.daiary.feature.retrospect
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,5 +80,58 @@ fun RetrospectLoadingScreen(
             fontSize = 14.sp,
             color = textColor.copy(alpha = 0.8f)
         )
+    }
+}
+
+/**
+ * 저장된 회고 재조회(openSaved) 중 표시하는 전체화면 로딩.
+ * shimmer 디자인 확정 전까지 임시로 스피너만 사용 — 자리는 이후 shimmer로 교체 예정.
+ */
+@Composable
+fun RetrospectSummaryLoadingScreen(modifier: Modifier = Modifier) {
+    val isDark = LocalDarkTheme.current
+    val bg = if (isDark) BackgroundDark else Ivory
+    val accent = if (isDark) SageForestDark else SageForest
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(bg),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator(color = accent)
+    }
+}
+
+/** 저장된 회고 재조회 실패 시 표시하는 안내 + 뒤로가기. */
+@Composable
+fun RetrospectSummaryErrorScreen(
+    message: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = LocalDarkTheme.current
+    val bg = if (isDark) BackgroundDark else Ivory
+    val textColor = if (isDark) TextPrimaryDark else Ink
+    val accent = if (isDark) SageForestDark else SageForest
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(bg)
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = message,
+            fontSize = 15.sp,
+            color = textColor,
+            textAlign = TextAlign.Center
+        )
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+        TextButton(onClick = onBack) {
+            Text(text = "뒤로가기", color = accent)
+        }
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.smu.daiary.feature.write.model.DiaryBodyBlock
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.LocalDarkTheme
 
 /**
@@ -35,7 +36,7 @@ fun DiaryBodyBlocks(
 
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(CardCornerRadius),
         color = wc.SurfaceBg,
         border = BorderStroke(0.5.dp, wc.Border)
     ) {

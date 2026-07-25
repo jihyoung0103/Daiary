@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Ink
@@ -43,7 +44,7 @@ fun RetrospectBanner(
             .fillMaxWidth()
             .clickable(enabled = status != BannerStatus.INSUFFICIENT, onClick = onClick),
         color = background,
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(CardCornerRadius)
     ) {
         Row(
             modifier = Modifier
