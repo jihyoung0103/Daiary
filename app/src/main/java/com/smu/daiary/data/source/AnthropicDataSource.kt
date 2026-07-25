@@ -25,18 +25,6 @@ data class GeneratedBlock(
     val text: String
 )
 
-/**
- * 일기 생성 결과.
- * emotion은 근거가 뚜렷할 때만 채워지며(기쁨/슬픔/평온/화남/설렘), 아니면 null이다.
- */
-data class GeneratedDiary(
-    val blocks: List<GeneratedBlock>,
-    val emotion: String? = null
-)
-
-/** 감정 선택지 — UI 칩(emotionList)과 같은 값이어야 한다 */
-private val EMOTIONS = setOf("기쁨", "슬픔", "평온", "화남", "설렘")
-
 class AnthropicDataSource {
 
     private val client = OkHttpClient.Builder()
@@ -135,9 +123,9 @@ $blocksText
         mbti: String,
         qaAnswers: Map<String, String> = emptyMap(),
         recentDiarySamples: String = ""
-    ): GeneratedDiary =
+    ): List<GeneratedBlock> =
         withContext(Dispatchers.IO) {
-            if (sources.isEmpty()) return@withContext GeneratedDiary(emptyList())
+            if (sources.isEmpty()) return@withContext emptyList()
 
             val sourcesJson = JSONArray().apply {
                 sources.forEach { source ->
@@ -199,11 +187,10 @@ $blocksText
                 .trim()
                 .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
 
-            val json = JSONObject(text)
-            val blocksArray = json.getJSONArray("blocks")
+            val blocksArray = JSONObject(text).getJSONArray("blocks")
             val validIds = sources.map { it.sourceId }.toSet()
 
-            val blocks = (0 until blocksArray.length()).mapNotNull { i ->
+            (0 until blocksArray.length()).mapNotNull { i ->
                 val obj = blocksArray.getJSONObject(i)
                 val sourceId = obj.optString("sourceId").takeIf { it in validIds }
                     ?: return@mapNotNull null   // 모르는 sourceId를 지어냈으면 버린다
@@ -211,12 +198,6 @@ $blocksText
                     ?: return@mapNotNull null
                 GeneratedBlock(sourceId = sourceId, text = blockText)
             }
-
-            GeneratedDiary(
-                blocks = blocks,
-                // 선택지 밖의 값을 지어냈으면 버린다
-                emotion = json.optString("emotion").takeIf { it in EMOTIONS }
-            )
         }
 
     /**
@@ -738,12 +719,6 @@ $followUpAnswerText
 
 □ 쓸 내용이 없는 소스를 억지로 채우지 않고 생략했는가?
 
-[오늘의 감정]
-- 하루 전체의 감정을 "기쁨", "슬픔", "평온", "화남", "설렘" 중 하나로 고르세요.
-- 사용자가 직접 말한 내용에 근거가 있을 때만 고르세요.
-- 근거가 없거나 애매하면 반드시 null로 두세요. 추측해서 고르지 마세요.
-- 이것은 일기에 붙이는 태그일 뿐입니다. 본문에 감정 표현을 새로 만들어 넣지 마세요.
-
 [출력 형식]
 
 반드시 아래 JSON 형식으로만 응답하세요. JSON 외의 텍스트, 설명, 코드펜스를 붙이지 마세요.
@@ -751,8 +726,7 @@ $followUpAnswerText
 {
   "blocks": [
     { "sourceId": "입력 소스의 sourceId", "text": "그 소스로 쓴 일기 문단" }
-  ],
-  "emotion": "기쁨 | 슬픔 | 평온 | 화남 | 설렘 중 하나, 근거 없으면 null"
+  ]
 }
 """.trimIndent()
     }

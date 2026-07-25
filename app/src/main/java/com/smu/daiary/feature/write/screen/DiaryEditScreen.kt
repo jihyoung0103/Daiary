@@ -128,6 +128,7 @@ fun DiaryEditScreen(
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val hasContent = draft?.blocks.orEmpty().any { it.text.isNotBlank() }
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
+    val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
 
     var showExitDialog by remember { mutableStateOf(false) }
@@ -220,23 +221,6 @@ fun DiaryEditScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            ChipSection(label = stringResource(R.string.label_emotion)) {
-                val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    emotionList.forEach { e ->
-                        IconSelectChip(
-                            icon = e.icon,
-                            label = localizedEmotionLabel(e.label),
-                            selected = selectedEmotion == e.label,
-                            onClick = { viewModel.updateEmotionSelection(if (selectedEmotion == e.label) null else e.label) }
-                        )
-                    }
-                }
-            }
-
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -311,6 +295,38 @@ fun DiaryEditScreen(
                 }
             }
 
+            EmotionRow(
+                selected = selectedEmotion,
+                onSelect = { viewModel.updateEmotionSelection(it) }
+            )
+        }
+    }
+}
+
+/** 감정 선택 — 질답에서 이미 고른 값을 고치는 용도라 아이콘만 한 줄로 둔다 */
+@Composable
+private fun EmotionRow(selected: String?, onSelect: (String?) -> Unit) {
+    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        emotionList.forEach { e ->
+            val isSelected = selected == e.label
+            IconButton(
+                onClick = { onSelect(if (isSelected) null else e.label) },
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = e.icon,
+                    contentDescription = localizedEmotionLabel(e.label),
+                    tint = if (isSelected) wc.Accent else wc.TextMuted,
+                    modifier = Modifier.size(if (isSelected) 24.dp else 20.dp)
+                )
+            }
         }
     }
 }
@@ -378,22 +394,6 @@ private fun BlockIconButton(
             tint = if (enabled) wc.TextMuted else wc.Border,
             modifier = Modifier.size(16.dp)
         )
-    }
-}
-
-@Composable
-private fun ChipSection(label: String, content: @Composable () -> Unit) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = wc.TextMuted,
-            modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
-        )
-        content()
     }
 }
 
@@ -515,17 +515,7 @@ private fun DiaryEditScreenPreview() {
                         )
                     }
                 }
-                ChipSection(label = stringResource(R.string.label_emotion)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        emotionList.forEach { e ->
-                            IconSelectChip(
-                                icon = e.icon, label = e.label,
-                                selected = selectedEmotion == e.label,
-                                onClick = { selectedEmotion = if (selectedEmotion == e.label) null else e.label }
-                            )
-                        }
-                    }
-                }
+                EmotionRow(selected = selectedEmotion, onSelect = { selectedEmotion = it })
             }
         }
     }
