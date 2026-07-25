@@ -251,21 +251,11 @@ fun DraftPreviewScreen(
                 }
             }
 
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = wc.SurfaceBg,
-                border = BorderStroke(0.5.dp, wc.Border)
-            ) {
-                Text(
-                    text = displayText,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                    color = wc.TextPrimary
-                )
-            }
+            DiaryBodyBlocks(
+                blocks = draft?.blocks.orEmpty(),
+                fallbackText = displayText,
+                onPhotoClick = { selectedPhotoUri = it; showPhotoDialog = true }
+            )
 
             // [개발용] 일기 생성에 사용된 사진별 분석 내용 확인 (접이식)
             if (photoAnalysisDebug.isNotBlank()) {
