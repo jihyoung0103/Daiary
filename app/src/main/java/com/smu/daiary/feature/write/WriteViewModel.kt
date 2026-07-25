@@ -1173,24 +1173,34 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // (기존 https URL은 재업로드 없이 그대로 유지)
             // 업로드 실패가 일기 저장 자체를 막지 않도록 사진별로 개별 처리한다 —
             // 성공한 사진만 저장하고, 실패한 사진은 로그만 남기고 건너뛴다.
-            val selectedLocalUris = _photos.value
+            // 원본 URI를 키로 남겨야 본문 블록의 사진도 같은 URL로 치환할 수 있다.
+            // (인덱스로 짝지으면 업로드 실패 시 어긋나 엉뚱한 사진이 블록에 붙는다)
+            val uploadedUrlByUri = _photos.value
                 .filter { it.isSelected }
-                .map { it.uri }
-            val uploadedPhotoUrls = selectedLocalUris.mapNotNull { uri ->
-                runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri) }
-                    .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): $uri", it) }
-                    .getOrNull()
+                .mapNotNull { photo ->
+                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, photo.uri) }
+                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): ${photo.uri}", it) }
+                        .getOrNull()?.let { photo.uri to it }
+                }
+                .toMap()
+
+            // 블록의 로컬 URI(content://)는 재설치·기기 변경 시 무효하므로 Storage URL로 바꾼다.
+            // 업로드에 실패한 사진은 블록에서 사진만 떼고 문장은 남긴다.
+            val savedBlocks = d.blocks.map { block ->
+                if (block.imageUri == null) block
+                else block.copy(imageUri = uploadedUrlByUri[block.imageUri])
             }
 
             val entry = DiaryEntry(
                 id = existingId ?: "",
                 title = formattedTitle,
                 content = d.editedContent ?: d.aiContent,
+                blocks = savedBlocks,
                 date = d.date,
                 mood = mood,
                 emotion = _selectedEmotion.value ?: "",
                 weather = _selectedWeather.value ?: "",
-                photos = uploadedPhotoUrls
+                photos = uploadedUrlByUri.values.toList()
             )
             val result = if (existingId != null) {
                 diaryRepository.updateDiary(userId, entry)
@@ -1221,6 +1231,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             date = entry.date,
             aiContent = entry.content,
             editedContent = entry.content,
+            // 옛 일기는 blocks가 비어 있다. 렌더/편집 쪽에서 content로 폴백한다.
+            blocks = entry.blocks,
             photos = entry.photos
         )
         _selectedWeather.value = entry.weather.ifEmpty { null }
