@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -37,6 +39,8 @@ import androidx.compose.material.icons.outlined.BrokenImage
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
@@ -144,15 +148,13 @@ fun DiaryEditScreen(
     val context = LocalContext.current
 
     val draft by viewModel.draft.collectAsStateWithLifecycle()
-    var text by remember(draft?.date) {
-        mutableStateOf(draft?.editedContent ?: draft?.aiContent ?: "")
-    }
+    val hasContent = draft?.blocks.orEmpty().any { it.text.isNotBlank() }
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
 
     var showExitDialog by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = text.isNotEmpty()) {
+    BackHandler(enabled = hasContent) {
         showExitDialog = true
     }
     BackHandler(enabled = isSaving) {}
@@ -209,7 +211,7 @@ fun DiaryEditScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (text.isNotEmpty()) showExitDialog = true else onBack()
+                        if (hasContent) showExitDialog = true else onBack()
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -221,7 +223,6 @@ fun DiaryEditScreen(
                 actions = {
                     Button(
                         onClick = {
-                            viewModel.updateEditedContent(text)
                             onDone()
                         },
                         enabled = !isSaving,
@@ -320,28 +321,26 @@ fun DiaryEditScreen(
                             Text(text = localizedWeatherLabel(selectedWeather!!), fontSize = 13.sp, color = accent)
                         }
                     }
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        if (text.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.hint_write_diary),
-                                color = wc.TextMuted,
-                                fontSize = 15.sp,
-                                lineHeight = 24.sp
+                    val blocks = draft?.blocks.orEmpty()
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        itemsIndexed(blocks, key = { _, block -> block.id }) { index, block ->
+                            BlockEditRow(
+                                block = block,
+                                isFirst = index == 0,
+                                isLast = index == blocks.lastIndex,
+                                onTextChange = { viewModel.updateBlockText(block.id, it) },
+                                onMoveUp = { viewModel.moveBlock(block.id, -1) },
+                                onMoveDown = { viewModel.moveBlock(block.id, 1) },
+                                onRemove = { viewModel.removeBlock(block.id) },
+                                modifier = Modifier.animateItem()
                             )
                         }
-                        BasicTextField(
-                            value = text,
-                            onValueChange = { text = it },
-                            modifier = Modifier.fillMaxSize(),
-                            textStyle = TextStyle(
-                                fontSize = 15.sp,
-                                lineHeight = 24.sp,
-                                color = wc.TextPrimary
-                            )
-                        )
                     }
                     Text(
-                        text = stringResource(R.string.char_count, text.length),
+                        text = stringResource(R.string.char_count, blocks.sumOf { it.text.length }),
                         fontSize = 11.sp,
                         color = wc.TextMuted,
                         textAlign = TextAlign.End,
@@ -410,6 +409,68 @@ fun DiaryEditScreen(
                 }
             }
         }
+    }
+}
+
+/** 본문 블록 1개 — 사진(있으면) + 편집 가능한 문단 + 우측 ↑↓·삭제 버튼 */
+@Composable
+private fun BlockEditRow(
+    block: DiaryBodyBlock,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onTextChange: (String) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        Column(modifier = Modifier.weight(1f)) {
+            block.imageUri?.let { uri ->
+                AsyncImage(
+                    model = uri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+            BasicTextField(
+                value = block.text,
+                onValueChange = onTextChange,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = wc.TextPrimary)
+            )
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            BlockIconButton(Icons.Outlined.KeyboardArrowUp, "위로 이동", enabled = !isFirst, onClick = onMoveUp)
+            BlockIconButton(Icons.Outlined.KeyboardArrowDown, "아래로 이동", enabled = !isLast, onClick = onMoveDown)
+            BlockIconButton(Icons.Outlined.Close, stringResource(R.string.btn_delete), onClick = onRemove)
+        }
+    }
+}
+
+@Composable
+private fun BlockIconButton(
+    icon: ImageVector,
+    description: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(32.dp)) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = if (enabled) wc.TextMuted else wc.Border,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 

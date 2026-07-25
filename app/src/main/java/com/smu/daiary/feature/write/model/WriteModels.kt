@@ -50,11 +50,10 @@ data class DiarySource(
 data class DiaryBodyBlock(
     /** 리스트 key / 재배치용 고유 id */
     val id: String = "",
-    val sourceType: BlockType = BlockType.PHOTO,
-    /** 대응하는 DiarySource.sourceId. 사용자가 직접 추가한 블록이면 null */
+    /** 대응하는 DiarySource.sourceId("photo_1", "weather"…). 옛 일기·수동 블록이면 null */
     val sourceId: String? = null,
     val text: String = "",
-    /** PHOTO 블록이면 본문에 함께 표시할 사진. 저장 시 Storage URL로 치환됨 */
+    /** 사진 블록이면 본문에 함께 표시할 사진. 저장 시 Storage URL로 치환됨 */
     val imageUri: String? = null
 )
 

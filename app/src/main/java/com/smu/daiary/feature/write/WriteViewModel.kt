@@ -41,6 +41,7 @@ import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.data.source.EncodedImage
 import com.smu.daiary.data.source.GeneratedBlock
+import java.util.Collections
 import java.util.UUID
 
 
@@ -944,6 +945,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 date = today,
                 aiContent = "오늘 하루를 기록해보세요.",
                 editedContent = "오늘 하루를 기록해보세요.",
+                // 빈 블록을 하나 깔아둬야 편집 화면에서 직접 쓸 수 있다
+                blocks = listOf(DiaryBodyBlock(id = UUID.randomUUID().toString(), text = "")),
                 photos = emptyList()
             )
             return@launch
@@ -1074,7 +1077,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     val source = sourceById[gen.sourceId] ?: return@mapNotNull null
                     DiaryBodyBlock(
                         id = UUID.randomUUID().toString(),
-                        sourceType = source.type,
                         sourceId = source.sourceId,
                         text = gen.text,
                         imageUri = source.imageUri
@@ -1132,6 +1134,35 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** DraftPreviewScreen에서 텍스트 수정 시 초안 content 업데이트 */
     fun updateEditedContent(content: String) {
         _draft.update { it?.copy(editedContent = content) }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 본문 블록 편집 — 수정 / 순서 이동 / 삭제
+    // ─────────────────────────────────────────────────────────────
+
+    fun updateBlockText(blockId: String, text: String) {
+        _draft.update { draft ->
+            draft?.copy(blocks = draft.blocks.map {
+                if (it.id == blockId) it.copy(text = text) else it
+            })
+        }
+    }
+
+    fun removeBlock(blockId: String) {
+        _draft.update { draft ->
+            draft?.copy(blocks = draft.blocks.filterNot { it.id == blockId })
+        }
+    }
+
+    /** 블록을 한 칸 위(offset=-1) 또는 아래(offset=+1)로 이동. 경계 밖이면 무시 */
+    fun moveBlock(blockId: String, offset: Int) {
+        _draft.update { draft ->
+            draft ?: return@update null
+            val from = draft.blocks.indexOfFirst { it.id == blockId }
+            val to = from + offset
+            if (from < 0 || to !in draft.blocks.indices) return@update draft
+            draft.copy(blocks = draft.blocks.toMutableList().apply { Collections.swap(this, from, to) })
+        }
     }
 
     /** 초안에 사진 URI 추가 (DraftPreviewScreen에서 추가 첨부 시) */
@@ -1194,7 +1225,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val entry = DiaryEntry(
                 id = existingId ?: "",
                 title = formattedTitle,
-                content = d.editedContent ?: d.aiContent,
+                // 블록이 있으면 블록이 원본. 편집 결과가 content에 반영되도록 여기서 파생한다.
+                content = if (savedBlocks.isNotEmpty()) savedBlocks.joinToString("\n\n") { it.text }
+                          else d.editedContent ?: d.aiContent,
                 blocks = savedBlocks,
                 date = d.date,
                 mood = mood,
@@ -1231,8 +1264,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             date = entry.date,
             aiContent = entry.content,
             editedContent = entry.content,
-            // 옛 일기는 blocks가 비어 있다. 렌더/편집 쪽에서 content로 폴백한다.
-            blocks = entry.blocks,
+            // 블록화 이전에 저장된 일기는 본문 전체를 블록 1개로 승격해 편집 경로를 하나로 유지한다.
+            blocks = entry.blocks.ifEmpty {
+                listOf(DiaryBodyBlock(id = UUID.randomUUID().toString(), text = entry.content))
+            },
             photos = entry.photos
         )
         _selectedWeather.value = entry.weather.ifEmpty { null }
