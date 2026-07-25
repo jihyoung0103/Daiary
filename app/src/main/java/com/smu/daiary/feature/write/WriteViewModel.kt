@@ -945,6 +945,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 수집된 answers를 포함해 일기 초안 생성을 시작.
      */
     fun submitAnswers(answers: Map<String, String>) {
+        // 사용자가 선택지로 직접 고른 감정이 최우선. 먼저 반영해서 AI 판단이 덮어쓰지 않게 한다.
+        // ("기타" 자유입력은 선택지 밖의 표현이라 AI가 5개 중 가까운 값으로 매핑한다)
+        answers["emotion"]?.takeIf { it != "기타" && it in EMOTION_QUESTION.quickOptions }
+            ?.let { _selectedEmotion.value = it }
         generateDraft(qaAnswers = answers)
     }
 
@@ -1072,10 +1076,12 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
             result.exceptionOrNull()?.let { Log.e(TAG, "❌ 블록 생성 실패", it) }
 
-            // 근거가 뚜렷할 때만 채워진다. 사용자는 편집 화면에서 바꿀 수 있다.
-            result.getOrNull()?.emotion?.let {
-                Log.d(TAG, "🙂 감정 분석 결과: $it")
-                _selectedEmotion.value = it
+            // 사용자가 선택지로 답했으면 그 값이 이미 들어있다. AI 판단은 빈 경우에만 채운다.
+            if (_selectedEmotion.value == null) {
+                result.getOrNull()?.emotion?.let {
+                    Log.d(TAG, "🙂 감정 분석 결과: $it")
+                    _selectedEmotion.value = it
+                }
             }
 
             // AI 호출이 실패했거나, 응답은 왔지만 쓸 만한 블록이 하나도 없으면 폴백
