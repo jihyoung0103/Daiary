@@ -46,6 +46,7 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -138,7 +139,8 @@ fun DraftPreviewScreen(
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
     val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
-    val photoAnalysis by viewModel.photoAnalysis.collectAsStateWithLifecycle()
+    val photoAnalysisDebug by viewModel.photoAnalysisDebug.collectAsStateWithLifecycle()
+    val selectedPhotos = photos.filter { it.isSelected }
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
@@ -237,82 +239,75 @@ fun DraftPreviewScreen(
                 )
             }
 
-            if (selectedWeather != null || selectedEmotion != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    selectedWeather?.let { key ->
-                        weatherIconMap[key]?.let { icon ->
-                            MetaChip(icon = icon, label = localizedWeatherLabel(key))
-                        }
-                    }
-                    selectedEmotion?.let { key ->
-                        emotionIconMap[key]?.let { icon ->
-                            MetaChip(icon = icon, label = localizedEmotionLabel(key), tint = emotionColor(key, isDark))
-                        }
-                    }
-                }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MetaPickerChip(
+                    selected = selectedWeather,
+                    options = weatherIconMap,
+                    placeholder = stringResource(R.string.label_weather),
+                    placeholderIcon = Icons.Outlined.WbSunny,
+                    labelOf = { localizedWeatherLabel(it) },
+                    tintOf = { wc.Accent },
+                    onSelect = { viewModel.updateWeatherSelection(it) }
+                )
+                MetaPickerChip(
+                    selected = selectedEmotion,
+                    options = emotionIconMap,
+                    placeholder = stringResource(R.string.label_emotion),
+                    placeholderIcon = Icons.Outlined.SentimentNeutral,
+                    labelOf = { localizedEmotionLabel(it) },
+                    tintOf = { emotionColor(it, isDark) },
+                    onSelect = { viewModel.updateEmotionSelection(it) }
+                )
             }
 
-            val photoAnalysisSnapshot = photoAnalysis
-            if (!photoAnalysisSnapshot.isNullOrBlank()) {
-                val materials = extractDiaryMaterials(photoAnalysisSnapshot)
-                if (materials != null) {
-                    var photoCardExpanded by remember { mutableStateOf(false) }
-                    val summaryText = materials.lines().filter { it.isNotBlank() }.take(3).joinToString("\n")
-                    Surface(
-                        shape = RoundedCornerShape(CardCornerRadius),
-                        color = wc.SurfaceBg,
-                        border = BorderStroke(0.5.dp, wc.Border)
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { photoCardExpanded = !photoCardExpanded },
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.photo_analysis_card_title),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = wc.TextPrimary
-                                )
-                                Icon(
-                                    imageVector = if (photoCardExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = wc.TextMuted,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
+            DiaryBodyBlocks(
+                blocks = draft?.blocks.orEmpty(),
+                fallbackText = displayText,
+                onPhotoClick = { selectedPhotoUri = it; showPhotoDialog = true }
+            )
+
+            // [개발용] 일기 생성에 사용된 사진별 분석 내용 확인 (접이식)
+            if (photoAnalysisDebug.isNotBlank()) {
+                var showAnalysis by remember { mutableStateOf(false) }
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = wc.SurfaceBg,
+                    border = BorderStroke(0.5.dp, wc.Border)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showAnalysis = !showAnalysis },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = if (photoCardExpanded) materials else summaryText,
-                                fontSize = 14.sp,
-                                lineHeight = 22.sp,
+                                text = "사진 분석 내용 (개발용)",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
                                 color = wc.TextMuted
+                            )
+                            Text(
+                                text = if (showAnalysis) "숨기기" else "보기",
+                                fontSize = 13.sp,
+                                color = wc.Accent
+                            )
+                        }
+                        if (showAnalysis) {
+                            Text(
+                                text = photoAnalysisDebug,
+                                modifier = Modifier.padding(top = 8.dp),
+                                fontSize = 13.sp,
+                                lineHeight = 20.sp,
+                                color = wc.TextPrimary
                             )
                         }
                     }
                 }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(CardCornerRadius),
-                color = wc.SurfaceBg,
-                border = BorderStroke(0.5.dp, wc.Border)
-            ) {
-                Text(
-                    text = displayText,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(20.dp),
-                    fontSize = 15.sp,
-                    lineHeight = 24.sp,
-                    color = wc.TextPrimary
-                )
             }
 
             val photos = draft?.photos.orEmpty()
@@ -392,32 +387,70 @@ fun DraftPreviewScreen(
     }
 }
 
-private fun extractDiaryMaterials(text: String): String? {
-    val headerPattern = Regex("##\\s*일기 작성에 활용하기 좋은 소재")
-    val startIdx = headerPattern.find(text)?.range?.last?.plus(1) ?: return null
-    val nextHeaderIdx = text.indexOf("\n##", startIdx).let { if (it == -1) text.length else it }
-    return text.substring(startIdx, nextHeaderIdx).trim().ifBlank { null }
-}
-
+/**
+ * 날짜 아래의 날씨·감정 표시. 탭하면 말풍선이 열려 선택지를 바로 고를 수 있다.
+ * 미리보기와 편집 화면이 함께 쓴다(편집은 상세에서 바로 진입해 미리보기를 거치지 않는다).
+ */
 @Composable
-private fun MetaChip(icon: ImageVector, label: String, tint: Color? = null) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint ?: wc.Accent,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = wc.TextMuted
-        )
+internal fun MetaPickerChip(
+    selected: String?,
+    options: Map<String, ImageVector>,
+    placeholder: String,
+    placeholderIcon: ImageVector,
+    labelOf: @Composable (String) -> String,
+    /** 선택된 값의 아이콘 색. 감정은 5색 체계(emotionColor), 날씨는 accent */
+    tintOf: @Composable (String) -> Color,
+    onSelect: (String?) -> Unit
+) {
+    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = options[selected] ?: placeholderIcon,
+                contentDescription = null,
+                tint = selected?.let { tintOf(it) } ?: wc.TextMuted,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = selected?.let { labelOf(it) } ?: placeholder,
+                fontSize = 13.sp,
+                color = wc.TextMuted
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = wc.SurfaceBg
+        ) {
+            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                options.forEach { (key, icon) ->
+                    val isSelected = selected == key
+                    IconButton(
+                        onClick = {
+                            onSelect(if (isSelected) null else key)
+                            expanded = false
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = labelOf(key),
+                            tint = if (isSelected) tintOf(key) else wc.TextMuted,
+                            modifier = Modifier.size(if (isSelected) 24.dp else 20.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -482,8 +515,16 @@ private fun DraftPreviewScreenPreview() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    MetaChip(icon = Icons.Outlined.WbSunny, label = "맑음")
-                    MetaChip(icon = Icons.Outlined.SentimentVerySatisfied, label = "기쁨")
+                    MetaPickerChip(
+                        selected = "맑음", options = weatherIconMap,
+                        placeholder = "날씨", placeholderIcon = Icons.Outlined.WbSunny,
+                        labelOf = { it }, tintOf = { wc.Accent }, onSelect = {}
+                    )
+                    MetaPickerChip(
+                        selected = "기쁨", options = emotionIconMap,
+                        placeholder = "감정", placeholderIcon = Icons.Outlined.SentimentNeutral,
+                        labelOf = { it }, tintOf = { emotionColor(it, false) }, onSelect = {}
+                    )
                 }
                 Surface(
                     shape = RoundedCornerShape(CardCornerRadius),

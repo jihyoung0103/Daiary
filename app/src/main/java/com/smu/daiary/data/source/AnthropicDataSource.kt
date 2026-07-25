@@ -19,6 +19,12 @@ data class EncodedImage(
     val mediaType: String
 )
 
+/** AI가 소스 하나당 작성한 일기 문단. sourceId로 원래 소스와 다시 이어붙인다. */
+data class GeneratedBlock(
+    val sourceId: String,
+    val text: String
+)
+
 class AnthropicDataSource {
 
     private val client = OkHttpClient.Builder()
@@ -106,16 +112,31 @@ $blocksText
             }
         }
 
-    suspend fun generateDiary(
-        blocks: List<ContentBlock>,
+    /**
+     * 소스별로 일기 문단을 생성한다. 소스 1개 → 블록 1개(엄격한 1:1).
+     * 쓸 내용이 마땅치 않은 소스는 AI가 응답에서 생략할 수 있다(없는 사실 창작 방지).
+     * 호출은 1회 — 전체를 함께 보되 출력만 소스별로 쪼갠다.
+     */
+    suspend fun generateDiaryBlocks(
+        sources: List<DiarySource>,
         locale: String,
         mbti: String,
-        photoSummary: String? = null,
         qaAnswers: Map<String, String> = emptyMap(),
         recentDiarySamples: String = ""
-    ): String =
+    ): List<GeneratedBlock> =
         withContext(Dispatchers.IO) {
-            val blocksText = blocks.joinToString("\n") { "- [${it.type.label}] ${it.content}" }
+            if (sources.isEmpty()) return@withContext emptyList()
+
+            val sourcesJson = JSONArray().apply {
+                sources.forEach { source ->
+                    put(
+                        JSONObject()
+                            .put("sourceId", source.sourceId)
+                            .put("type", source.type.label)
+                            .put("content", source.content)
+                    )
+                }
+            }.toString(2)
 
             val followUpAnswerText =
                 qaAnswers
@@ -125,19 +146,8 @@ $blocksText
                         "- $question: $answer"
                     }
 
-            val photoText = photoSummary
-                ?.takeIf { it.isNotBlank() }
-                ?.let {
-                    if (locale == "en") {
-                        "\n\nPhoto analysis result:\n$it"
-                    } else {
-                        "\n\n사진 분석 결과:\n$it"
-                    }
-                }
-                ?: ""
-
             val prompt = buildPrompt(
-                blocksText = blocksText + photoText,
+                sourcesJson = sourcesJson,
                 locale = locale,
                 mbti = mbti,
                 recentDiarySamples = recentDiarySamples,
@@ -146,7 +156,8 @@ $blocksText
 
             val body = JSONObject().apply {
                 put("model", "claude-haiku-4-5-20251001")
-                put("max_tokens", 1024)
+                // 소스 수만큼 문단이 나오므로 통짜 일기(1024)보다 여유를 둔다
+                put("max_tokens", 2048)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -165,110 +176,95 @@ $blocksText
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string() ?: throw Exception("빈 응답")
 
-
-
             if (!response.isSuccessful) {
                 throw Exception("API 오류 (${response.code}): $responseBody")
             }
 
-            JSONObject(responseBody)
+            val text = JSONObject(responseBody)
                 .getJSONArray("content")
                 .getJSONObject(0)
                 .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            val blocksArray = JSONObject(text).getJSONArray("blocks")
+            val validIds = sources.map { it.sourceId }.toSet()
+
+            (0 until blocksArray.length()).mapNotNull { i ->
+                val obj = blocksArray.getJSONObject(i)
+                val sourceId = obj.optString("sourceId").takeIf { it in validIds }
+                    ?: return@mapNotNull null   // 모르는 sourceId를 지어냈으면 버린다
+                val blockText = obj.optString("text").trim().takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                GeneratedBlock(sourceId = sourceId, text = blockText)
+            }
         }
 
-    suspend fun analyzePhotos(images: List<EncodedImage>): String =
+    /**
+     * 사진 1장을 분석해 관찰 가능한 사실만 요약한다.
+     * 여러 장은 호출부에서 각 사진마다 병렬로 호출한다 (배치 분석 아님).
+     */
+    suspend fun analyzePhoto(image: EncodedImage, isCameraPhoto: Boolean): String =
         withContext(Dispatchers.IO) {
-            if (images.isEmpty()) return@withContext ""
+            val promptText = if (isCameraPhoto) {
+                """
+이 사진은 카메라로 직접 촬영한 사진이야. 실제로 보이는 사실만 짧게 정리해줘. 일기를 쓰지 말고 관찰만 하면 돼.
 
+[규칙]
+- "오늘은", "나는", "~했다" 같은 일기체 표현 금지.
+- 사진에 실제로 보이는 것만 작성. 감정, 의도, 이동 경로, 시간, 전후 맥락은 추측 금지.
+- 확실하지 않은 장소·음식·사물은 "~처럼 보임"으로 표시.
+- 집·학교·회사·외출·귀가 같은 생활 맥락은 단정하지 말 것.
+- 감정 표현 금지. 분위기는 시각적으로 확인 가능한 범위로만.
+- 3~5개의 짧은 bullet로만 작성.
+
+[출력 형식] (해당 없는 항목은 생략)
+- 음식/음료:
+- 장소/풍경:
+- 사람/동물:
+- 사물:
+- 특이사항:
+""".trimIndent()
+            } else {
+                """
+이 이미지는 직접 촬영한 사진이 아니라 화면 캡처(스크린샷)이거나 받은 이미지야.
+화면에 보이는 내용만 정리해줘. 사용자가 실제 그 장소에 있었거나 무엇을 했다고 해석하지 마.
+
+[규칙]
+- "오늘은", "나는", "~했다" 같은 일기체 표현 금지.
+- 화면에 보이는 텍스트를 정확히 읽어서 핵심만 적을 것 (앱 이름, 제목, 날짜, 금액, 종목명 등).
+- 이 이미지를 근거로 사용자의 장소·행동·이동·감정을 추측하지 말 것.
+- 확실하지 않은 것은 "~처럼 보임"으로 표시.
+- 3~5개의 짧은 bullet로만 작성.
+
+[출력 형식] (해당 없는 항목은 생략)
+- 화면 종류: (예: 공연 티켓, 주식 알림, 메신저, 웹페이지 등)
+- 핵심 텍스트/정보:
+- 특이사항:
+""".trimIndent()
+            }
             val contentArray = JSONArray().apply {
                 put(
                     JSONObject()
                         .put("type", "text")
+                        .put("text", promptText)
+                )
+                put(
+                    JSONObject()
+                        .put("type", "image")
                         .put(
-                            "text",
-                            """
-다음 이미지는 사용자가 오늘 하루의 일기 생성을 위해 선택한 사진들입니다.
-너의 역할은 일기를 직접 쓰는 것이 아니라, 사진에서 확인 가능한 정보를 구조화해서 정리하는 것입니다.
-
-[핵심 원칙]
-- 절대 일기 본문을 작성하지 마세요.
-- "오늘은", "나는", "~했다" 같은 일기체 표현을 사용하지 마세요.
-- 사진에서 실제로 보이는 사실만 작성하세요.
-- 사용자의 감정, 의도, 이동 경로, 시간 순서는 추측하지 마세요.
-- 여러 장의 사진에서 공통적으로 관찰되는 요소는 함께 요약하되, 사진 사이의 시간 흐름이나 인과관계는 추측하지 마세요.
-- 사진 순서를 하루의 시간 순서로 단정하지 마세요.
-- 장소는 명확히 식별될 때만 작성하세요.
-- 확실하지 않은 장소, 음식, 사물은 "~처럼 보임", "~계열로 보임"이라고 표시하세요.
-- 집, 학교, 회사, 외출, 귀가 같은 생활 맥락은 사진만으로 단정하지 마세요.
-- 사진에 없는 행동이나 일정을 새로 만들지 마세요.
-- 감정 표현은 사용하지 말고, 분위기 표현도 시각적으로 확인 가능한 범위로 제한하세요.
-- 각 항목은 짧은 키워드 또는 짧은 문장으로 작성하세요.
-
-[여러 장 사진 분석 규칙]
-- 사진이 여러 장이면 개별 사진의 요소뿐 아니라 공통적으로 보이는 소재도 정리하세요.
-- 단, 공통점은 "반복적으로 보이는 시각 요소"만 작성하세요.
-- 사진 간 관계가 불확실하면 "동일 장소 가능성 있음", "관련성 불확실"처럼 표시하세요.
-- "그 후", "이후", "마지막으로", "집에 돌아와서" 같은 시간 연결 표현은 사용하지 마세요.
-- 서로 관련 없어 보이는 사물이나 장면은 같은 카테고리 안이라도 하나로 합치지 말고 각각 구분된 bullet로 작성하세요.
-- 예: 서로 다른 두 개의 피규어가 있으면 "미니어처 피규어들"처럼 뭉뚱그리지 말고, "캐릭터 피규어 1개", "드래곤 모양 미니어처 1개"처럼 각각 무엇인지 구분해서 작성하세요.
-
-[출력 형식]
-
-# 사진 분석 결과
-
-## 확실히 보이는 사실
-### 음식/음료
-- ...
-
-### 장소/풍경
-- ...
-
-### 동물/사람
-- ...
-
-### 사물
-- ...
-
-## 여러 사진을 함께 봤을 때
-- 공통 소재:
-- 반복되는 분위기:
-- 장소/상황의 관련성:
-
-## 일기에 활용 가능한 관찰 요약
-- 여러 사진을 종합했을 때 일기 작성에 참고할 수 있는 객관적 관찰을 2~4개 작성하세요.
-- 단, 사용자의 감정, 이동 경로, 시간 순서, 사진에 없는 행동은 포함하지 마세요.
-
-## 일기 작성에 활용하기 좋은 소재
-- ...
-
-## 단정하면 안 되는 내용
-- 사용자의 감정
-- 사용자의 이동 경로
-- 사진 촬영 순서
-- 집/귀가 여부
-- 사진에 보이지 않는 일정이나 행동
-""".trimIndent()
+                            "source",
+                            JSONObject()
+                                .put("type", "base64")
+                                .put("media_type", image.mediaType)
+                                .put("data", image.base64)
                         )
                 )
-                images.forEach { image ->
-                    put(
-                        JSONObject()
-                            .put("type", "image")
-                            .put(
-                                "source",
-                                JSONObject()
-                                    .put("type", "base64")
-                                    .put("media_type", image.mediaType)
-                                    .put("data", image.base64)
-                            )
-                    )
-                }
             }
 
             val body = JSONObject().apply {
                 put("model", "claude-sonnet-4-6")
-                put("max_tokens", 700)
+                put("max_tokens", 400)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -288,15 +284,9 @@ $blocksText
                 val response = client.newCall(request).execute()
                 val responseBody = response.body?.string().orEmpty()
 
-                android.util.Log.e("AnthropicDataSource", "사진 분석 응답 코드 = ${response.code}")
-                android.util.Log.e("AnthropicDataSource", "사진 분석 응답 본문 = $responseBody")
-
-                if (responseBody.isBlank()) {
-                    return@withContext ""
-                }
+                if (responseBody.isBlank()) return@withContext ""
 
                 val json = JSONObject(responseBody)
-
                 if (!json.has("content")) {
                     android.util.Log.e("AnthropicDataSource", "사진 분석 응답에 content 없음 = $responseBody")
                     return@withContext ""
@@ -411,7 +401,7 @@ $periodInstruction
         }
 
     private fun buildPrompt(
-        blocksText: String,
+        sourcesJson: String,
         locale: String,
         mbti: String,
         recentDiarySamples: String = "",
@@ -421,7 +411,9 @@ $periodInstruction
         return """
 당신은 사용자를 대신해 하루 일기를 쓰는 AI입니다.
 마치 사용자 본인이 직접 작성한 것 같은 느낌으로 일기를 작성해야 합니다.
-제공된 사용자의 데이터를 바탕으로 오늘 하루를 돌아보는 1인칭 일기를 작성해 주세요.
+제공된 데이터 소스를 바탕으로 오늘 하루를 돌아보는 1인칭 일기를 작성해 주세요.
+
+일기는 하나의 긴 글이 아니라, 소스별로 나뉜 여러 개의 문단(블록)으로 작성합니다.
 
 [가장 중요한 출력 규칙]
 - 반드시 한국어로만 작성할 것
@@ -429,7 +421,15 @@ $periodInstruction
 - 데이터가 부족해도 사용자에게 추가 정보를 요청하지 말 것
 - "사진을 제공해 주세요", "결제 정보를 제공해 주세요", "정보가 부족합니다" 같은 안내문을 쓰지 말 것
 - 주어진 데이터만으로 자연스러운 일기 초안을 완성할 것
-- 일기 본문만 출력할 것
+- 아래 [출력 형식]의 JSON만 출력할 것. JSON 밖에 어떤 텍스트도 쓰지 말 것
+
+[블록 작성 규칙 — 가장 중요]
+- 블록 1개는 정확히 소스 1개에 대응합니다. 각 블록의 sourceId는 그 블록이 근거로 삼은 소스의 sourceId입니다.
+- 각 블록은 자기 소스의 내용만 다루세요. 다른 소스의 내용을 그 블록에 끌어오지 마세요.
+- 입력에 없는 sourceId를 새로 만들지 마세요.
+- 한 소스에 대해 블록을 2개 이상 만들지 마세요.
+- 쓸 내용이 마땅치 않은 소스는 blocks 배열에서 아예 빼세요. 억지로 문단을 만들어 없는 사실을 지어내는 것보다 생략하는 것이 항상 낫습니다.
+- 블록 순서는 입력된 소스 순서를 그대로 따르세요. (사진은 촬영 시각 순으로 이미 정렬되어 있습니다)
 
 [사진 해석 원칙]
 
@@ -440,7 +440,6 @@ $periodInstruction
 
 - 이동 경로
 - 장소 이동
-- 시간 순서
 - 원인과 결과
 - 누구와 있었는지
 - 사용자의 행동
@@ -453,8 +452,18 @@ $periodInstruction
 ❌ 고양이 사진 → 집에 돌아와 고양이를 봤다.
 ❌ 음식 사진 → 점심으로 먹었다.
 
-사진은 서로 이어지는 하나의 이야기라고 가정하지 마세요.
-여러 장의 사진은 각각 독립적인 장면일 수 있습니다.
+[사진 종류 구분]
+- 각 사진은 "[촬영 사진]" 또는 "[화면 캡처/수신 이미지]"로 표시됩니다.
+- "촬영 사진"은 사용자가 직접 찍은 실제 장면입니다. 보이는 사물·풍경·음식 등을 그대로 재료로 쓰세요.
+- "화면 캡처/수신 이미지"(스크린샷·받은 이미지)는 실제로 가 본 장소나 한 행동이 아닙니다. 화면에 담긴 내용(받은 것·확인한 것)으로만 다루세요.
+  - 예: 공연 티켓 캡처 → "공연 티켓이 도착했다" / 주식 알림 캡처 → "주가를 확인했다" 정도로만.
+  - 캡처 속 장소·앱 화면을 사용자가 실제로 방문했다고 쓰지 마세요.
+
+[촬영 시각]
+- 사진 라벨에 "촬영 HH:mm"이 있으면 그 시각은 실제 데이터이므로, 여러 사진을 그 시각 순서로 언급해도 됩니다.
+- 촬영 시각이 표시되지 않은 사진은 시간 순서를 임의로 추측하지 마세요.
+- 시각 순서를 참고하더라도, 사진들 사이에 없는 행동·이동·인과를 만들어 하나의 이야기로 엮지는 마세요.
+
 사진에서는 실제로 보이는 사실만 자연스럽게 언급하세요.
 - "걸었다", "걸으며", "산책했다", "머물렀다", "둘러봤다", "다녀왔다", "보내고 왔다"처럼 사용자의 행동을 나타내는 표현은 사용자가 직접 말했을 때만 사용하세요.
 
@@ -479,25 +488,25 @@ $mbtiStyle
 - 사진 분석 결과는 반드시 활용하세요.
 - 사진은 보이는 사실만 사용하세요.
 - 사진만으로 행동, 감정, 이동 경로를 단정하지 마세요.
-- 사진 여러 장을 하나의 이야기나 시간 순서로 연결하지 마세요.
+- 촬영 시각이 표시된 사진은 그 시각 순서를 참고할 수 있으나, 사진들 사이에 없는 행동·이동·인과를 지어내 하나의 이야기로 엮지 마세요.
+- "화면 캡처/수신 이미지"로 표시된 사진은 실제 방문한 장소나 한 행동으로 쓰지 말고 화면 내용으로만 다루세요.
 - 사진은 일기의 재료로만 활용하고 새로운 사실을 만들지 마세요.
 - 서로 관련 없는 사진이 여러 장이면, 모든 사진을 한 문장에 나열하듯 욱여넣지 마세요.
 - 서로 관련 없는 장면이나 사물마다 문장을 하나씩 배정해서 각각 구체적으로 쓰세요.
 - 사진에 등장하는 구체적인 이름이나 특징(예: 캐릭터 이름, 브랜드, 물건 종류)은 뭉뚱그리지 말고 사진 분석 결과에 있는 그대로 유지하세요.
 
 [분량]
-- 기본 범위: 5~8문장
-- 오늘 데이터가 충분하면 5~8문장으로 작성
-- 오늘 데이터가 날씨만 있거나 매우 적으면 2~4문장으로 짧게 작성해도 됨
-- 데이터가 적을수록 짧고 담백하게 작성할 것
+- 블록 하나는 1~3문장.
+- 소스의 내용이 풍부하면 3문장까지, 담백하면 1문장으로 충분합니다.
 - 억지로 문장을 늘리기 위해 새로운 행동, 감정, 계획, 사건을 만들지 말 것
-- 서로 관련 없는 사진이나 사건이 여러 개 있어서 5~8문장에 모두 담으면 한 문장에 여러 개를 나열해야 하는 경우, 기본 범위를 넘기더라도 각 장면에 문장을 하나씩 배정해 압축하지 말고 구체적으로 쓰세요.
+- 소스가 여러 개일 때 각 소스를 한 문장에 몰아 나열하지 말고, 소스마다 자기 블록에서 구체적으로 쓰세요.
 
 [작성 방식]
 
 - 반말 일기체로 작성하세요.
-- 사진이나 구체적인 장면 데이터가 있으면 첫 문장은 가장 구체적인 장면으로 시작하세요.
-- 날씨처럼 추상적인 데이터만 있을 때는 해당 데이터만 담백하게 언급하며 시작하세요.
+- 각 블록은 그 자체로 자연스럽게 읽히는 문단이어야 합니다.
+- 블록들을 이어 읽었을 때 전체가 하나의 일기처럼 읽히도록 문체를 통일하세요.
+- 단, 블록 사이를 "그리고", "그 후에", "이어서"처럼 인과나 시간 순서로 억지로 연결하지 마세요. 사용자가 블록 순서를 자유롭게 바꿀 수 있습니다.
 - 단순 나열보다 자연스럽게 연결하세요.
 - 마지막은 하루를 돌아보는 짧은 문장으로 마무리하세요.
 - 문장을 자연스럽게 다듬되 새로운 사실은 만들지 마세요.
@@ -663,8 +672,11 @@ ${if (recentDiarySamples.isNotBlank()) """
 $recentDiarySamples
 """ else ""}
 
-[오늘의 데이터]
-$blocksText
+[오늘의 데이터 소스]
+아래 JSON 배열의 각 원소가 소스 1개입니다. type은 소스의 종류, content는 그 소스에서 확인된 사실입니다.
+사진 소스(sourceId가 photo_로 시작)의 content는 그 사진 1장의 분석 결과입니다.
+
+$sourcesJson
 
 ${if (followUpAnswerText.isNotBlank()) """
 [사용자의 추가 답변]
@@ -683,13 +695,15 @@ $followUpAnswerText
 
 □ 사용자가 직접 말하지 않은 평가나 의미를 새로 만들지 않았는가?
 
-□ 사진들을 하나의 이야기로 연결하지 않았는가?
+□ 사진들 사이에 없는 행동·이동·인과를 지어내 하나의 이야기로 엮지 않았는가?
+
+□ "화면 캡처/수신 이미지"를 실제 방문한 장소나 한 행동으로 쓰지 않았는가?
 
 □ 사용자가 직접 입력한 답변을 충분히 반영했는가?
 
 □ 감정을 새로 만들어 쓰지 않았는가?
 
-□ 하루의 시간 순서를 임의로 구성하지 않았는가?
+□ 촬영 시각이 없는 사진의 시간 순서를 임의로 구성하지 않았는가?
 
 □ 사용자가 "모르겠다", "기억 안 난다", "특별히 없다", "딱히 없다"라고 답한 내용을 억지로 해석하거나 의미를 부여하지 않았는가?
 
@@ -698,6 +712,22 @@ $followUpAnswerText
 □ 사진 속 사물을 근거로 새로운 행동이나 사건을 만들어내지 않았는가?
 
 □ "오늘도 별거 없는 하루였다.", "평범한 하루였다."처럼 반복적인 시작 문장을 사용하지 않았는가?
+
+□ 각 블록의 sourceId가 입력 소스에 실제로 존재하는 값인가?
+
+□ 한 소스에 블록을 2개 이상 만들지 않았는가?
+
+□ 쓸 내용이 없는 소스를 억지로 채우지 않고 생략했는가?
+
+[출력 형식]
+
+반드시 아래 JSON 형식으로만 응답하세요. JSON 외의 텍스트, 설명, 코드펜스를 붙이지 마세요.
+
+{
+  "blocks": [
+    { "sourceId": "입력 소스의 sourceId", "text": "그 소스로 쓴 일기 문단" }
+  ]
+}
 """.trimIndent()
     }
 

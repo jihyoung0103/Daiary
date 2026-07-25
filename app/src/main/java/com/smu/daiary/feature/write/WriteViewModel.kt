@@ -19,6 +19,8 @@ import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
 import com.smu.daiary.R
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -38,9 +40,15 @@ import android.util.Base64
 import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.data.source.EncodedImage
+import com.smu.daiary.data.source.GeneratedBlock
+import java.util.Collections
+import java.util.UUID
 
 
 private const val TAG = "WriteViewModel"
+
+/** 감정 선택지. 답변 키로 그대로 쓰이는 canonical 값이라 번역하지 않는다(emotionList와 동일) */
+private val EMOTION_OPTIONS = listOf("기쁨", "설렘", "평온", "슬픔", "화남", "기타")
 
 /**
  * 일기 작성 화면 전체의 상태와 비즈니스 로직을 담당하는 ViewModel.
@@ -158,9 +166,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
-    /** 사진 다중 분석 결과 요약 (analyzePhotos 호출 결과) */
-    private val _photoAnalysis = MutableStateFlow<String?>(null)
-    val photoAnalysis: StateFlow<String?> = _photoAnalysis.asStateFlow()
+    /** [개발용] 일기 생성에 사용된 사진별 분석 결과(photoSummary). UI에서 확인용 */
+    private val _photoAnalysisDebug = MutableStateFlow("")
+    val photoAnalysisDebug: StateFlow<String> = _photoAnalysisDebug.asStateFlow()
 
     // ─────────────────────────────────────────────────────────────
     // 이벤트
@@ -215,7 +223,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
             // --- 날씨, 캘린더, 사진, 건강 병렬 수집 ---
-            // 오늘 날씨는 백그라운드 워커(WeatherCollectionWorker)가 하루 2회 수집해 Firestore에 append 해둠.
+            // 오늘 날씨는 백그라운드 워커(WeatherCollectionWorker)가 하루 1회(14시경) 수집해 Firestore에 append 해둠.
             // 여기서는 내일 예보만 API로 조회. 과거 날짜(target != null) 편집 시엔 날씨 API 호출 없음.
             val weatherDeferred = async {
                 runCatching {
@@ -238,6 +246,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             if (snapshots.isNotEmpty()) {
                 val latest = snapshots.last()
                 Log.d(TAG, "🌤️ 오늘 날씨 스냅샷 ${snapshots.size}개 로드 | 최신=${latest.description} ${latest.temperature}°C")
+                // 수집된 오늘 날씨를 일기 날씨로 쓴다 (canonical 값이 선택지와 동일).
+                // 스냅샷이 없으면 비워두고, 사용자가 날짜 옆 칩에서 직접 고른다.
+                _selectedWeather.value = latest.description
                 blocks.add(ContentBlock(
                     id = "weather", type = BlockType.WEATHER,
                     content = localizedContext().getString(
@@ -366,9 +377,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     _photos.value = photos.map { photo ->
                         PhotoSelectableItem(
                             uri = photo.uri,
+                            isSelected = true,
+                            takenAt = photo.takenAt,
                             latitude = photo.latitude,
                             longitude = photo.longitude,
-                            isSelected = true
+                            isCameraPhoto = photo.isCameraPhoto
                         )
                     }
 
@@ -667,23 +680,30 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         syncPhotoBlockSelection()
     }
 
-    /** 갤러리에서 직접 고른 사진을 목록에 추가 (중복 방지 포함) */
+    /** 갤러리에서 직접 고른 사진을 목록에 추가 (중복 방지 + EXIF 메타데이터 읽기) */
     fun addSelectablePhoto(uri: String) {
-        val alreadyExists =
-            _photos.value.any {
-                it.uri == uri
+        if (_photos.value.any { it.uri == uri }) return
+
+        viewModelScope.launch {
+            // EXIF에서 촬영 시각·위치를 읽어 자동 수집 사진과 동일한 데이터로 채움
+            val meta = photoDataSource.readPhotoMeta(uri)
+
+            // 비동기 사이에 중복 추가됐을 수 있으니 재확인
+            if (_photos.value.any { it.uri == uri }) return@launch
+
+            _photos.update { list ->
+                list + PhotoSelectableItem(
+                    uri = uri,
+                    isSelected = true,
+                    takenAt = meta.takenAt,
+                    latitude = meta.latitude,
+                    longitude = meta.longitude,
+                    isCameraPhoto = meta.isCameraPhoto
+                )
             }
 
-        if (alreadyExists) return
-
-        _photos.update { list ->
-            list + PhotoSelectableItem(
-                uri = uri,
-                isSelected = true
-            )
+            syncPhotoBlockSelection()
         }
-
-        syncPhotoBlockSelection()
     }
 
     /** 향후 일정 개별 선택 토글 → 완료 후 향후 일정 블록 요약 텍스트 자동 갱신 */
@@ -916,8 +936,18 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 완료되면 _contextQuestions에 결과를 세팅하고 UI가 ContextQnAScreen으로 이동.
      * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
      */
+    /**
+     * 항상 마지막에 붙는 고정 질문. 감정은 추측할 게 아니라 사용자에게 묻는 것이 정확하고,
+     * 이 답변이 프롬프트의 [사용자의 추가 답변]으로 들어가 초안 작성의 근거가 된다.
+     */
+    private fun emotionQuestion() = ContextQuestion(
+        blockId = "emotion",
+        question = localizedContext().getString(R.string.question_emotion),
+        quickOptions = EMOTION_OPTIONS
+    )
+
     fun prepareGeneration() = viewModelScope.launch {
-        _photoAnalysis.value = null
+        _photoAnalysisDebug.value = ""
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
             _contextQuestions.value = emptyList()
@@ -927,10 +957,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _contextQuestions.value = null
         try {
             val questions = aiRepository.generateContextQuestions(selected)
-            _contextQuestions.value = questions
+            _contextQuestions.value = questions + emotionQuestion()
         } catch (e: Exception) {
-            Log.e(TAG, "❌ 질문 생성 실패 — 질답 단계 스킵", e)
-            _contextQuestions.value = emptyList()
+            Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
+            _contextQuestions.value = listOf(emotionQuestion())
         } finally {
             _isGeneratingQuestions.value = false
         }
@@ -941,6 +971,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 수집된 answers를 포함해 일기 초안 생성을 시작.
      */
     fun submitAnswers(answers: Map<String, String>) {
+        // 질답에서 고른 감정을 그대로 쓴다. "기타" 자유입력은 선택지 밖이라 무시하고
+        // 사용자가 편집 화면에서 직접 고르게 둔다.
+        answers["emotion"]?.takeIf { it != "기타" && it in EMOTION_OPTIONS }
+            ?.let { _selectedEmotion.value = it }
         generateDraft(qaAnswers = answers)
     }
 
@@ -953,6 +987,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 date = today,
                 aiContent = "오늘 하루를 기록해보세요.",
                 editedContent = "오늘 하루를 기록해보세요.",
+                // 빈 블록을 하나 깔아둬야 편집 화면에서 직접 쓸 수 있다
+                blocks = listOf(DiaryBodyBlock(id = UUID.randomUUID().toString(), text = "")),
                 photos = emptyList()
             )
             return@launch
@@ -977,23 +1013,76 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val locale = if (savedLang == "English") "en" else "ko"
             android.util.Log.d(TAG, "🌐 저장된 언어: $savedLang → locale: $locale")
 
-            val selectedEncodedImages =
-                _photos.value
-                    .filter { it.isSelected }
-                    .mapNotNull { encodeImage(it.uri) }
+            // 선택된 사진을 장별로 병렬 분석 (결과는 각 사진 객체 analysis에 캐싱)
+            val selectedPhotos = _photos.value.filter { it.isSelected }
+            Log.d(TAG, "📸 선택된 사진 수: ${selectedPhotos.size}")
 
-            Log.d(TAG, "📸 선택된 사진 수: ${_photos.value.count { it.isSelected }}")
-            Log.d(TAG, "📦 인코딩 성공 수: ${selectedEncodedImages.size}")
-
-            val photoSummary = try {
-                aiRepository.analyzePhotos(selectedEncodedImages)
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ 사진 분석 실패", e)
-                "사진 ${selectedEncodedImages.size}장이 선택됨"
+            val analyzedPhotos = coroutineScope {
+                selectedPhotos.map { photo ->
+                    async {
+                        // 이미 분석된 사진은 재사용 (세션 캐시 → 중복 Vision 호출 방지)
+                        if (!photo.analysis.isNullOrBlank()) return@async photo
+                        val encoded = encodeImage(photo.uri) ?: return@async photo
+                        val result = try {
+                            aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
+                            ""
+                        }
+                        photo.copy(analysis = result.ifBlank { null })
+                    }
+                }.awaitAll()
             }
 
-            Log.d(TAG, "📸 사진 분석 결과: $photoSummary")
-            _photoAnalysis.value = photoSummary
+            // 분석 결과를 _photos에 반영해 캐싱
+            _photos.update { list ->
+                list.map { p -> analyzedPhotos.firstOrNull { it.uri == p.uri } ?: p }
+            }
+
+            // 사진을 촬영 시각 순으로 정렬해 장별 소스(photo_1..N)로 전개.
+            // 사진 1장 = 소스 1개 = 본문 블록 1개가 되도록 여기서 경계를 만든다.
+            val photoTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+            val photoSources = analyzedPhotos
+                .filter { !it.analysis.isNullOrBlank() }
+                .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
+                .mapIndexed { index, photo ->
+                    val kindLabel = if (photo.isCameraPhoto) "촬영 사진" else "화면 캡처/수신 이미지"
+                    // 촬영 시각은 직접 촬영한 사진에서만 의미가 있으므로 그 경우에만 표시
+                    val timeLabel = if (photo.isCameraPhoto && photo.takenAt > 0L) {
+                        val t = Instant.ofEpochMilli(photo.takenAt)
+                            .atZone(ZoneId.systemDefault())
+                            .format(photoTimeFormatter)
+                        ", 촬영 $t"
+                    } else ""
+                    DiarySource(
+                        sourceId = "photo_${index + 1}",
+                        type = BlockType.PHOTO,
+                        content = "[$kindLabel$timeLabel]\n${photo.analysis}",
+                        imageUri = photo.uri
+                    )
+                }
+
+            // 사진 외 블록은 1:1로 소스가 된다. PHOTO 블록("N장 · 선택 M장")은
+            // 장별 소스로 대체되었으므로 제외한다.
+            val otherSources = selected
+                .filter { it.type != BlockType.PHOTO }
+                .map { block ->
+                    DiarySource(
+                        sourceId = block.id,
+                        type = block.type,
+                        content = block.content
+                    )
+                }
+
+            // 사진(구체적 장면)을 앞에 두고 나머지 데이터가 뒤따르게 한다.
+            val sources = photoSources + otherSources
+
+            _photoAnalysisDebug.value = photoSources
+                .joinToString("\n\n") { "${it.sourceId} ${it.content}" }
+
+            Log.d(TAG, "===== DIARY SOURCES (${sources.size}) =====")
+            sources.forEach { Log.d(TAG, "- ${it.sourceId} [${it.type.label}] ${it.content}") }
+            Log.d(TAG, "======================================")
 
             val mbti = getApplication<Application>()
                 .getSharedPreferences(
@@ -1002,32 +1091,41 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 .getString("mbti", "INFP") ?: "INFP"
 
-            val selectedDebugText = selected.joinToString("\n") {
-                "- [${it.type.label}] ${it.content}"
-            }
-
-            Log.d(TAG, "===== SELECTED BLOCKS =====")
-            Log.d(TAG, selectedDebugText)
-            Log.d(TAG, "===========================")
-
-
             val result =
-                aiRepository.generateDraft(
-                    blocks = selected,
+                aiRepository.generateDiaryBlocks(
+                    sources = sources,
                     locale = locale,
                     mbti = mbti,
-                    photoSummary = photoSummary,
                     recentDiarySamples = recentDiarySamples,
                     qaAnswers = qaAnswers
                 )
 
-            val content = result.getOrElse { fallbackTemplate(selected) }
-            if (result.isFailure) {
+            result.exceptionOrNull()?.let { Log.e(TAG, "❌ 블록 생성 실패", it) }
+
+            // AI 호출이 실패했거나, 응답은 왔지만 쓸 만한 블록이 하나도 없으면 폴백
+            val generated = result.getOrNull().orEmpty()
+            val usedFallback = generated.isEmpty()
+            if (usedFallback) {
                 _generateError.value = if (locale == "en")
                     "AI generation failed. Using default template."
                 else
                     "초안 생성에 실패했습니다. 기본 템플릿으로 대체합니다."
             }
+
+            // sourceId로 소스와 다시 이어붙여 사진 URI·출처 타입을 블록에 부착
+            val sourceById = sources.associateBy { it.sourceId }
+            val bodyBlocks = (if (usedFallback) fallbackBlocks(sources) else generated)
+                .mapNotNull { gen ->
+                    val source = sourceById[gen.sourceId] ?: return@mapNotNull null
+                    DiaryBodyBlock(
+                        id = UUID.randomUUID().toString(),
+                        sourceId = source.sourceId,
+                        text = gen.text,
+                        imageUri = source.imageUri
+                    )
+                }
+
+            Log.d(TAG, "✅ 본문 블록 ${bodyBlocks.size}개 생성 (소스 ${sources.size}개)")
 
             val selectedPhotoUris =
                 _photos.value
@@ -1036,7 +1134,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
             _draft.value = DiaryDraft(
                 date = today,
-                aiContent = content,
+                // 블록 렌더링/편집 전까지 기존 화면이 그대로 동작하도록 평문도 함께 유지
+                aiContent = bodyBlocks.joinToString("\n\n") { it.text },
+                blocks = bodyBlocks,
                 photos = selectedPhotoUris
             )
 
@@ -1047,47 +1147,24 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
 
-    private fun encodeImage(uri: Uri): EncodedImage? {
-        return try {
-            val mimeTypeFromResolver = context.contentResolver.getType(uri)
-
-            val bytes = context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                inputStream.readBytes()
-            } ?: return null
-
-            val mediaType = detectImageMediaType(bytes, mimeTypeFromResolver)
-            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-
-            EncodedImage(
-                base64 = base64,
-                mediaType = mediaType
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
-
-
-    /** AI 생성 실패 시 블록 내용을 단순 나열한 기본 초안 반환 */
-    private fun fallbackTemplate(selected: List<ContentBlock>): String = buildString {
-        appendLine(localizedContext().getString(R.string.draft_intro))
-        appendLine()
-        selected.forEach { block ->
-            when (block.type) {
-                BlockType.PAYMENT  -> appendLine(localizedContext().getString(R.string.draft_block_payment, block.content))
-                BlockType.PHOTO    -> appendLine(localizedContext().getString(R.string.draft_block_photo, block.content))
-                BlockType.CALENDAR          -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
-                BlockType.CALENDAR_UPCOMING -> appendLine(localizedContext().getString(R.string.draft_block_calendar, block.content))
-                BlockType.HEALTH            -> appendLine(localizedContext().getString(R.string.draft_block_health, block.content))
-                BlockType.WEATHER  -> appendLine(localizedContext().getString(R.string.draft_block_weather, block.content))
-                BlockType.WEATHER_TOMORROW -> appendLine(localizedContext().getString(R.string.draft_block_weather_tomorrow, block.content))
-                BlockType.PHOTO_LOCATION   -> appendLine(localizedContext().getString(R.string.draft_block_photo_location, block.content))
+    /**
+     * AI 생성/파싱 실패 시 소스 내용을 그대로 문단화한 폴백 블록.
+     * 블록 구조는 유지되므로 편집·재배치는 정상 동작한다.
+     */
+    private fun fallbackBlocks(sources: List<DiarySource>): List<GeneratedBlock> =
+        sources.map { source ->
+            val text = when (source.type) {
+                BlockType.PAYMENT  -> localizedContext().getString(R.string.draft_block_payment, source.content)
+                BlockType.PHOTO    -> localizedContext().getString(R.string.draft_block_photo, source.content)
+                BlockType.CALENDAR          -> localizedContext().getString(R.string.draft_block_calendar, source.content)
+                BlockType.CALENDAR_UPCOMING -> localizedContext().getString(R.string.draft_block_calendar, source.content)
+                BlockType.HEALTH            -> localizedContext().getString(R.string.draft_block_health, source.content)
+                BlockType.WEATHER  -> localizedContext().getString(R.string.draft_block_weather, source.content)
+                BlockType.WEATHER_TOMORROW -> localizedContext().getString(R.string.draft_block_weather_tomorrow, source.content)
+                BlockType.PHOTO_LOCATION   -> localizedContext().getString(R.string.draft_block_photo_location, source.content)
             }
+            GeneratedBlock(sourceId = source.sourceId, text = text)
         }
-        appendLine()
-        append(localizedContext().getString(R.string.draft_outro))
-    }
 
     // ─────────────────────────────────────────────────────────────
     // 초안 편집 & 저장
@@ -1101,14 +1178,40 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _draft.update { it?.copy(editedContent = content) }
     }
 
-    /** 초안에 사진 URI 추가 (DraftPreviewScreen에서 추가 첨부 시) */
-    fun addPhoto(uri: String) {
-        _draft.update { it?.copy(photos = it.photos + uri) }
+    // ─────────────────────────────────────────────────────────────
+    // 본문 블록 편집 — 수정 / 순서 이동 / 삭제
+    // ─────────────────────────────────────────────────────────────
+
+    fun updateBlockText(blockId: String, text: String) {
+        _draft.update { draft ->
+            draft?.copy(blocks = draft.blocks.map {
+                if (it.id == blockId) it.copy(text = text) else it
+            })
+        }
     }
 
-    /** 초안에서 사진 URI 제거 */
-    fun removePhoto(uri: String) {
-        _draft.update { it?.copy(photos = it.photos.filter { p -> p != uri }) }
+    fun removeBlock(blockId: String) {
+        _draft.update { draft ->
+            draft?.copy(blocks = draft.blocks.filterNot { it.id == blockId })
+        }
+    }
+
+    /** 블록을 한 칸 위(offset=-1) 또는 아래(offset=+1)로 이동. 경계 밖이면 무시 */
+    fun moveBlock(blockId: String, offset: Int) {
+        _draft.update { draft ->
+            draft ?: return@update null
+            val from = draft.blocks.indexOfFirst { it.id == blockId }
+            val to = from + offset
+            if (from < 0 || to !in draft.blocks.indices) return@update draft
+            draft.copy(blocks = draft.blocks.toMutableList().apply { Collections.swap(this, from, to) })
+        }
+    }
+
+    /** 빈 블록을 맨 끝에 추가. 위치는 ↑↓로 옮긴다 */
+    fun addBlock() {
+        _draft.update { draft ->
+            draft?.copy(blocks = draft.blocks + DiaryBodyBlock(id = UUID.randomUUID().toString()))
+        }
     }
 
     /**
@@ -1133,23 +1236,35 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // (기존 https URL은 재업로드 없이 그대로 유지)
             // 업로드 실패가 일기 저장 자체를 막지 않도록 사진별로 개별 처리한다 —
             // 성공한 사진만 저장하고, 실패한 사진은 로그만 남기고 건너뛴다.
-            val selectedLocalUris = _photos.value
+            // 원본 URI를 키로 남겨야 본문 블록의 사진도 같은 URL로 치환할 수 있다.
+            // (인덱스로 짝지으면 업로드 실패 시 어긋나 엉뚱한 사진이 블록에 붙는다)
+            val uploadedUrlByUri = _photos.value
                 .filter { it.isSelected }
-                .map { it.uri }
-            val uploadedPhotoUrls = selectedLocalUris.mapNotNull { uri ->
-                runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri) }
-                    .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): $uri", it) }
-                    .getOrNull()
+                .mapNotNull { photo ->
+                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, photo.uri) }
+                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): ${photo.uri}", it) }
+                        .getOrNull()?.let { photo.uri to it }
+                }
+                .toMap()
+
+            // 블록의 로컬 URI(content://)는 재설치·기기 변경 시 무효하므로 Storage URL로 바꾼다.
+            // 업로드에 실패한 사진은 블록에서 사진만 떼고 문장은 남긴다.
+            val savedBlocks = d.blocks.map { block ->
+                if (block.imageUri == null) block
+                else block.copy(imageUri = uploadedUrlByUri[block.imageUri])
             }
 
             val entry = DiaryEntry(
                 id = existingId ?: "",
                 title = formattedTitle,
-                content = d.editedContent ?: d.aiContent,
+                // 블록이 있으면 블록이 원본. 편집 결과가 content에 반영되도록 여기서 파생한다.
+                content = if (savedBlocks.isNotEmpty()) savedBlocks.joinToString("\n\n") { it.text }
+                          else d.editedContent ?: d.aiContent,
+                blocks = savedBlocks,
                 date = d.date,
                 emotion = _selectedEmotion.value ?: "",
                 weather = _selectedWeather.value ?: "",
-                photos = uploadedPhotoUrls
+                photos = uploadedUrlByUri.values.toList()
             )
             val result = if (existingId != null) {
                 diaryRepository.updateDiary(userId, entry)
@@ -1180,6 +1295,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             date = entry.date,
             aiContent = entry.content,
             editedContent = entry.content,
+            // 블록화 이전에 저장된 일기는 본문 전체를 블록 1개로 승격해 편집 경로를 하나로 유지한다.
+            blocks = entry.blocks.ifEmpty {
+                listOf(DiaryBodyBlock(id = UUID.randomUUID().toString(), text = entry.content))
+            },
             photos = entry.photos
         )
         _selectedWeather.value = entry.weather.ifEmpty { null }
@@ -1190,7 +1309,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun clearDraftOnly() {
         _draft.value = null
         _contextQuestions.value = null
-        _photoAnalysis.value = null
+        _photoAnalysisDebug.value = ""
     }
 
     /**
@@ -1236,5 +1355,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _existingEntryId.value = null
+        _photoAnalysisDebug.value = ""
     }
 }

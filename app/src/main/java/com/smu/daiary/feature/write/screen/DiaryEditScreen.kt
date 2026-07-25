@@ -3,11 +3,7 @@ package com.smu.daiary.feature.write.screen
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.model.*
 
-import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,20 +23,26 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Umbrella
+import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -72,8 +74,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import coil.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.CardCornerRadius
@@ -87,16 +90,18 @@ import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 
-private data class Weather(val label: String, val icon: ImageVector)
 private data class Emotion(val label: String, val icon: ImageVector)
 
-private val weatherList = listOf(
-    Weather("맑음", Icons.Outlined.WbSunny),
-    Weather("흐림", Icons.Outlined.Cloud),
-    Weather("비",   Icons.Outlined.Umbrella),
-    Weather("눈",   Icons.Outlined.AcUnit),
-    Weather("바람", Icons.Outlined.Air)
+private val weatherPickerOptions: Map<String, ImageVector> = mapOf(
+    "맑음" to Icons.Outlined.WbSunny,
+    "흐림" to Icons.Outlined.Cloud,
+    "비"   to Icons.Outlined.Umbrella,
+    "눈"   to Icons.Outlined.AcUnit,
+    "바람" to Icons.Outlined.Air
 )
+
+private val emotionPickerOptions: Map<String, ImageVector>
+    get() = emotionList.associate { it.label to it.icon }
 
 private val emotionList = listOf(
     Emotion("기쁨", Icons.Outlined.SentimentVerySatisfied),
@@ -140,18 +145,16 @@ fun DiaryEditScreen(
     val accentLight = wc.AccentLight
     val dialogBg = if (isDark) SurfaceDark else White
     val dialogText = if (isDark) TextPrimaryDark else Ink
-    val context = LocalContext.current
 
     val draft by viewModel.draft.collectAsStateWithLifecycle()
-    var text by remember(draft?.date) {
-        mutableStateOf(draft?.editedContent ?: draft?.aiContent ?: "")
-    }
+    val hasContent = draft?.blocks.orEmpty().any { it.text.isNotBlank() }
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
+    val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
 
     var showExitDialog by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = text.isNotEmpty()) {
+    BackHandler(enabled = hasContent) {
         showExitDialog = true
     }
     BackHandler(enabled = isSaving) {}
@@ -178,21 +181,6 @@ fun DiaryEditScreen(
         )
     }
 
-    val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3)
-    ) { uris ->
-        val slots = (3 - (viewModel.draft.value?.photos?.size ?: 0)).coerceAtLeast(0)
-        uris.take(slots).forEach { uri ->
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
-            viewModel.addPhoto(uri.toString())
-        }
-    }
-
     Scaffold(
         modifier = modifier,
         containerColor = wc.Bg,
@@ -208,7 +196,7 @@ fun DiaryEditScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (text.isNotEmpty()) showExitDialog = true else onBack()
+                        if (hasContent) showExitDialog = true else onBack()
                     }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
@@ -220,7 +208,6 @@ fun DiaryEditScreen(
                 actions = {
                     Button(
                         onClick = {
-                            viewModel.updateEditedContent(text)
                             onDone()
                         },
                         enabled = !isSaving,
@@ -255,40 +242,6 @@ fun DiaryEditScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            ChipSection(label = stringResource(R.string.label_weather)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    weatherList.forEach { w ->
-                        IconSelectChip(
-                            icon = w.icon,
-                            label = localizedWeatherLabel(w.label),
-                            selected = selectedWeather == w.label,
-                            onClick = { viewModel.updateWeatherSelection(if (selectedWeather == w.label) null else w.label) }
-                        )
-                    }
-                }
-            }
-
-            ChipSection(label = stringResource(R.string.label_emotion)) {
-                val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    emotionList.forEach { e ->
-                        IconSelectChip(
-                            icon = e.icon,
-                            label = localizedEmotionLabel(e.label),
-                            selected = selectedEmotion == e.label,
-                            onClick = { viewModel.updateEmotionSelection(if (selectedEmotion == e.label) null else e.label) },
-                            accentColor = emotionColor(e.label, isDark)
-                        )
-                    }
-                }
-            }
-
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -315,33 +268,60 @@ fun DiaryEditScreen(
                             fontWeight = FontWeight.Medium,
                             color = accent
                         )
-                        if (selectedWeather != null) {
-                            Text(text = "·", fontSize = 13.sp, color = accent)
-                            Text(text = localizedWeatherLabel(selectedWeather!!), fontSize = 13.sp, color = accent)
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                        if (text.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.hint_write_diary),
-                                color = wc.TextMuted,
-                                fontSize = 15.sp,
-                                lineHeight = 24.sp
-                            )
-                        }
-                        BasicTextField(
-                            value = text,
-                            onValueChange = { text = it },
-                            modifier = Modifier.fillMaxSize(),
-                            textStyle = TextStyle(
-                                fontSize = 15.sp,
-                                lineHeight = 24.sp,
-                                color = wc.TextPrimary
-                            )
+                        MetaPickerChip(
+                            selected = selectedWeather,
+                            options = weatherPickerOptions,
+                            placeholder = stringResource(R.string.label_weather),
+                            placeholderIcon = Icons.Outlined.WbSunny,
+                            labelOf = { localizedWeatherLabel(it) },
+                            tintOf = { accent },
+                            onSelect = { viewModel.updateWeatherSelection(it) }
+                        )
+                        MetaPickerChip(
+                            selected = selectedEmotion,
+                            options = emotionPickerOptions,
+                            placeholder = stringResource(R.string.label_emotion),
+                            placeholderIcon = Icons.Outlined.SentimentNeutral,
+                            labelOf = { localizedEmotionLabel(it) },
+                            tintOf = { emotionColor(it, isDark) },
+                            onSelect = { viewModel.updateEmotionSelection(it) }
                         )
                     }
+                    val blocks = draft?.blocks.orEmpty()
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        itemsIndexed(blocks, key = { _, block -> block.id }) { index, block ->
+                            BlockEditRow(
+                                block = block,
+                                isFirst = index == 0,
+                                isLast = index == blocks.lastIndex,
+                                onTextChange = { viewModel.updateBlockText(block.id, it) },
+                                onMoveUp = { viewModel.moveBlock(block.id, -1) },
+                                onMoveDown = { viewModel.moveBlock(block.id, 1) },
+                                onRemove = { viewModel.removeBlock(block.id) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
+                        item {
+                            TextButton(
+                                onClick = { viewModel.addBlock() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Add,
+                                    contentDescription = null,
+                                    tint = accent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(text = stringResource(R.string.btn_add_block), color = accent, fontSize = 13.sp)
+                            }
+                        }
+                    }
                     Text(
-                        text = stringResource(R.string.char_count, text.length),
+                        text = stringResource(R.string.char_count, blocks.sumOf { it.text.length }),
                         fontSize = 11.sp,
                         color = wc.TextMuted,
                         textAlign = TextAlign.End,
@@ -350,82 +330,73 @@ fun DiaryEditScreen(
                 }
             }
 
-            HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(accentLight)
-                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp)
-            ) {
-                val photos = draft?.photos.orEmpty()
-                if (photos.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        TextButton(
-                            onClick = {
-                                photoPicker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.AddPhotoAlternate,
-                                contentDescription = stringResource(R.string.add_photo_desc),
-                                tint = accent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
-                        }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp, bottom = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.align(Alignment.CenterStart),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            photos.forEach { uri ->
-                                RemovablePhotoThumbnail(uri = uri, onRemove = { viewModel.removePhoto(uri) })
-                            }
-                        }
-                        if (photos.size < 3) {
-                            TextButton(
-                                modifier = Modifier.align(Alignment.Center),
-                                onClick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
-                            ) {
-                                Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = stringResource(R.string.add_photo_desc), tint = accent, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
 
+/** 본문 블록 1개 — 사진(있으면) + 편집 가능한 문단 + 하단 우측 조작 줄 */
 @Composable
-private fun ChipSection(label: String, content: @Composable () -> Unit) {
+private fun BlockEditRow(
+    block: DiaryBodyBlock,
+    isFirst: Boolean,
+    isLast: Boolean,
+    onTextChange: (String) -> Unit,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = wc.TextMuted,
-            modifier = Modifier.padding(start = 24.dp, bottom = 8.dp)
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        block.imageUri?.let { uri ->
+            AsyncImage(
+                model = uri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        BasicTextField(
+            value = block.text,
+            onValueChange = onTextChange,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = TextStyle(fontSize = 15.sp, lineHeight = 24.sp, color = wc.TextPrimary)
         )
-        content()
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BlockIconButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.block_move_up), enabled = !isFirst, onClick = onMoveUp)
+            BlockIconButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.block_move_down), enabled = !isLast, onClick = onMoveDown)
+            Spacer(Modifier.width(2.dp))
+            BlockIconButton(Icons.Outlined.Close, stringResource(R.string.btn_delete), onClick = onRemove)
+        }
+        HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
+    }
+}
+
+@Composable
+private fun BlockIconButton(
+    icon: ImageVector,
+    description: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(28.dp)) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = if (enabled) wc.TextMuted else wc.Border,
+            modifier = Modifier.size(16.dp)
+        )
     }
 }
 
@@ -471,37 +442,6 @@ fun IconSelectChip(
             color = if (selected) accent else wc.TextMuted,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
         )
-    }
-}
-
-@Composable
-private fun RemovablePhotoThumbnail(uri: String, onRemove: () -> Unit) {
-    Box(contentAlignment = Alignment.Center) {
-        PhotoThumbnail(
-            model = uri,
-            contentDescription = null,
-            modifier = Modifier.size(60.dp),
-            shape = RoundedCornerShape(10.dp),
-            errorIconSize = 20.dp
-        )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(3.dp)
-                .size(18.dp)
-                .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable { onRemove() },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.delete_photo_desc),
-                tint = Color.White,
-                modifier = Modifier.size(11.dp)
-            )
-        }
     }
 }
 
@@ -577,44 +517,6 @@ private fun DiaryEditScreenPreview() {
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                         )
-                    }
-                }
-                ChipSection(label = stringResource(R.string.label_weather)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        weatherList.forEach { w ->
-                            IconSelectChip(
-                                icon = w.icon, label = w.label,
-                                selected = selectedWeather == w.label,
-                                onClick = { selectedWeather = if (selectedWeather == w.label) null else w.label }
-                            )
-                        }
-                    }
-                }
-                ChipSection(label = stringResource(R.string.label_emotion)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        emotionList.forEach { e ->
-                            IconSelectChip(
-                                icon = e.icon, label = e.label,
-                                selected = selectedEmotion == e.label,
-                                onClick = { selectedEmotion = if (selectedEmotion == e.label) null else e.label }
-                            )
-                        }
-                    }
-                }
-                HorizontalDivider(color = wc.Border, thickness = 0.5.dp)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(92.dp)
-                        .background(wc.AccentLight)
-                        .padding(horizontal = ScreenPaddingHorizontal, vertical = 12.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        TextButton(onClick = {}) {
-                            Icon(imageVector = Icons.Outlined.AddPhotoAlternate, contentDescription = stringResource(R.string.add_photo_desc), tint = accent, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = stringResource(R.string.btn_add_photo), color = accent, fontSize = 13.sp)
-                        }
                     }
                 }
             }

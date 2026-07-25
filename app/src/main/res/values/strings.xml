@@ -284,4 +284,8 @@
     <string name="retrospect_schedule_count_label">📅 총 일정</string>
     <string name="retrospect_schedule_count_value">%1$d건</string>
     <string name="retrospect_schedule_busiest_day">가장 바빴던 날: %1$s</string>
+    <string name="btn_add_block">블록 추가</string>
+    <string name="block_move_up">위로 이동</string>
+    <string name="block_move_down">아래로 이동</string>
+    <string name="question_emotion">오늘 기분은 어땠나요?</string>
 </resources>

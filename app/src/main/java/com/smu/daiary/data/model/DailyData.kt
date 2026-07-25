@@ -56,7 +56,9 @@ data class PhotoMeta(
     val uri: String = "",
     val takenAt: Long = 0L,         // epoch millis
     val latitude: Double = 0.0,
-    val longitude: Double = 0.0
+    val longitude: Double = 0.0,
+    /** EXIF 카메라 정보(Make/Model)가 있으면 직접 촬영한 사진. 없으면 스크린샷/수신 이미지 */
+    val isCameraPhoto: Boolean = false
 )
 
 /** 건강 정보 (Health Connect API) */

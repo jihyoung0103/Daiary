@@ -1,5 +1,7 @@
 package com.smu.daiary.data.model
 
+import com.smu.daiary.feature.write.model.DiaryBodyBlock
+
 /**
  * Firestore에 저장되는 일기 데이터 모델.
  * 필드 기본값은 Firestore 역직렬화를 위해 반드시 필요합니다.
@@ -7,7 +9,10 @@ package com.smu.daiary.data.model
 data class DiaryEntry(
     val id: String = "",
     val title: String = "",
+    /** 본문 평문 — blocks의 텍스트를 이어붙인 값. 회고·검색이 이 필드를 읽는다 */
     val content: String = "",
+    /** 소스별 본문 블록. 옛 일기는 비어 있으며, 그때는 content를 쓴다 */
+    val blocks: List<DiaryBodyBlock> = emptyList(),
     val emotion: String = "",                  // "기쁨" | "슬픔" | "평온" | "화남" | "설렘"
     val weather: String = "",                  // "맑음" | "흐림" | "비" | "눈" | "바람"
     val photos: List<String> = emptyList(),    // 첨부 사진 URI 목록

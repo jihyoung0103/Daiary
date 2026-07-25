@@ -306,7 +306,8 @@ fun ContextQnAScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // 건너뛰기
+            // 건너뛰기 — 감정은 반드시 답해야 하므로 감정 카드에서는 숨긴다
+            if (question.blockId != "emotion") {
             TextButton(
                 onClick = {
                     val nextIndex = currentIndex + 1
@@ -327,6 +328,7 @@ fun ContextQnAScreen(
                     color = wc.TextMuted,
                     textAlign = TextAlign.Center
                 )
+            }
             }
         }
     }

@@ -337,21 +337,11 @@ private fun DiaryDayContent(
             }
         }
 
-        Surface(
-            shape = RoundedCornerShape(CardCornerRadius),
-            color = wc.SurfaceBg,
-            border = BorderStroke(0.5.dp, wc.Border)
-        ) {
-            Text(
-                text = entry.content,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp),
-                fontSize = 15.sp,
-                lineHeight = 24.sp,
-                color = wc.TextPrimary
-            )
-        }
+        DiaryBodyBlocks(
+            blocks = entry.blocks,
+            fallbackText = entry.content,
+            onPhotoClick = onImageClick
+        )
 
         if (entry.photos.isNotEmpty()) {
             Text(

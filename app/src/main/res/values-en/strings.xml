@@ -282,4 +282,8 @@
     <string name="retrospect_schedule_count_label">📅 Total Events</string>
     <string name="retrospect_schedule_count_value">%1$d events</string>
     <string name="retrospect_schedule_busiest_day">Busiest day: %1$s</string>
+    <string name="btn_add_block">Add block</string>
+    <string name="block_move_up">Move up</string>
+    <string name="block_move_down">Move down</string>
+    <string name="question_emotion">How did you feel today?</string>
 </resources>
