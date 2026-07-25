@@ -37,6 +37,11 @@ import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
+import androidx.compose.material.icons.outlined.Air
+import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.Umbrella
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -81,6 +86,17 @@ import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 
 private data class Emotion(val label: String, val icon: ImageVector)
+
+private val weatherPickerOptions: Map<String, ImageVector> = mapOf(
+    "맑음" to Icons.Outlined.WbSunny,
+    "흐림" to Icons.Outlined.Cloud,
+    "비"   to Icons.Outlined.Umbrella,
+    "눈"   to Icons.Outlined.AcUnit,
+    "바람" to Icons.Outlined.Air
+)
+
+private val emotionPickerOptions: Map<String, ImageVector>
+    get() = emotionList.associate { it.label to it.icon }
 
 private val emotionList = listOf(
     Emotion("기쁨", Icons.Outlined.SentimentVerySatisfied),
@@ -247,10 +263,22 @@ fun DiaryEditScreen(
                             fontWeight = FontWeight.Medium,
                             color = accent
                         )
-                        if (selectedWeather != null) {
-                            Text(text = "·", fontSize = 13.sp, color = accent)
-                            Text(text = localizedWeatherLabel(selectedWeather!!), fontSize = 13.sp, color = accent)
-                        }
+                        MetaPickerChip(
+                            selected = selectedWeather,
+                            options = weatherPickerOptions,
+                            placeholder = stringResource(R.string.label_weather),
+                            placeholderIcon = Icons.Outlined.WbSunny,
+                            labelOf = { localizedWeatherLabel(it) },
+                            onSelect = { viewModel.updateWeatherSelection(it) }
+                        )
+                        MetaPickerChip(
+                            selected = selectedEmotion,
+                            options = emotionPickerOptions,
+                            placeholder = stringResource(R.string.label_emotion),
+                            placeholderIcon = Icons.Outlined.SentimentNeutral,
+                            labelOf = { localizedEmotionLabel(it) },
+                            onSelect = { viewModel.updateEmotionSelection(it) }
+                        )
                     }
                     val blocks = draft?.blocks.orEmpty()
                     LazyColumn(
@@ -295,38 +323,6 @@ fun DiaryEditScreen(
                 }
             }
 
-            EmotionRow(
-                selected = selectedEmotion,
-                onSelect = { viewModel.updateEmotionSelection(it) }
-            )
-        }
-    }
-}
-
-/** 감정 선택 — 질답에서 이미 고른 값을 고치는 용도라 아이콘만 한 줄로 둔다 */
-@Composable
-private fun EmotionRow(selected: String?, onSelect: (String?) -> Unit) {
-    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        emotionList.forEach { e ->
-            val isSelected = selected == e.label
-            IconButton(
-                onClick = { onSelect(if (isSelected) null else e.label) },
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = e.icon,
-                    contentDescription = localizedEmotionLabel(e.label),
-                    tint = if (isSelected) wc.Accent else wc.TextMuted,
-                    modifier = Modifier.size(if (isSelected) 24.dp else 20.dp)
-                )
-            }
         }
     }
 }
@@ -515,7 +511,6 @@ private fun DiaryEditScreenPreview() {
                         )
                     }
                 }
-                EmotionRow(selected = selectedEmotion, onSelect = { selectedEmotion = it })
             }
         }
     }

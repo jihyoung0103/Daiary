@@ -46,6 +46,7 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -233,22 +234,26 @@ fun DraftPreviewScreen(
                 )
             }
 
-            if (selectedWeather != null || selectedEmotion != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    selectedWeather?.let { key ->
-                        weatherIconMap[key]?.let { icon ->
-                            MetaChip(icon = icon, label = localizedWeatherLabel(key))
-                        }
-                    }
-                    selectedEmotion?.let { key ->
-                        emotionIconMap[key]?.let { icon ->
-                            MetaChip(icon = icon, label = localizedEmotionLabel(key))
-                        }
-                    }
-                }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MetaPickerChip(
+                    selected = selectedWeather,
+                    options = weatherIconMap,
+                    placeholder = stringResource(R.string.label_weather),
+                    placeholderIcon = Icons.Outlined.WbSunny,
+                    labelOf = { localizedWeatherLabel(it) },
+                    onSelect = { viewModel.updateWeatherSelection(it) }
+                )
+                MetaPickerChip(
+                    selected = selectedEmotion,
+                    options = emotionIconMap,
+                    placeholder = stringResource(R.string.label_emotion),
+                    placeholderIcon = Icons.Outlined.SentimentNeutral,
+                    labelOf = { localizedEmotionLabel(it) },
+                    onSelect = { viewModel.updateEmotionSelection(it) }
+                )
             }
 
             DiaryBodyBlocks(
@@ -380,25 +385,68 @@ fun DraftPreviewScreen(
     }
 }
 
+/**
+ * 날짜 아래의 날씨·감정 표시. 탭하면 말풍선이 열려 선택지를 바로 고를 수 있다.
+ * 미리보기와 편집 화면이 함께 쓴다(편집은 상세에서 바로 진입해 미리보기를 거치지 않는다).
+ */
 @Composable
-private fun MetaChip(icon: ImageVector, label: String) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = wc.Accent,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = wc.TextMuted
-        )
+internal fun MetaPickerChip(
+    selected: String?,
+    options: Map<String, ImageVector>,
+    placeholder: String,
+    placeholderIcon: ImageVector,
+    labelOf: @Composable (String) -> String,
+    onSelect: (String?) -> Unit
+) {
+    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = options[selected] ?: placeholderIcon,
+                contentDescription = null,
+                tint = if (selected != null) wc.Accent else wc.TextMuted,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = selected?.let { labelOf(it) } ?: placeholder,
+                fontSize = 13.sp,
+                color = wc.TextMuted
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = wc.SurfaceBg
+        ) {
+            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+                options.forEach { (key, icon) ->
+                    val isSelected = selected == key
+                    IconButton(
+                        onClick = {
+                            onSelect(if (isSelected) null else key)
+                            expanded = false
+                        },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = labelOf(key),
+                            tint = if (isSelected) wc.Accent else wc.TextMuted,
+                            modifier = Modifier.size(if (isSelected) 24.dp else 20.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -463,8 +511,16 @@ private fun DraftPreviewScreenPreview() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    MetaChip(icon = Icons.Outlined.WbSunny, label = "맑음")
-                    MetaChip(icon = Icons.Outlined.SentimentVerySatisfied, label = "기쁨")
+                    MetaPickerChip(
+                        selected = "맑음", options = weatherIconMap,
+                        placeholder = "날씨", placeholderIcon = Icons.Outlined.WbSunny,
+                        labelOf = { it }, onSelect = {}
+                    )
+                    MetaPickerChip(
+                        selected = "기쁨", options = emotionIconMap,
+                        placeholder = "감정", placeholderIcon = Icons.Outlined.SentimentNeutral,
+                        labelOf = { it }, onSelect = {}
+                    )
                 }
                 Surface(
                     shape = RoundedCornerShape(28.dp),
