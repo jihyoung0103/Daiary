@@ -1062,8 +1062,14 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
             result.exceptionOrNull()?.let { Log.e(TAG, "❌ 블록 생성 실패", it) }
 
+            // 근거가 뚜렷할 때만 채워진다. 사용자는 편집 화면에서 바꿀 수 있다.
+            result.getOrNull()?.emotion?.let {
+                Log.d(TAG, "🙂 감정 분석 결과: $it")
+                _selectedEmotion.value = it
+            }
+
             // AI 호출이 실패했거나, 응답은 왔지만 쓸 만한 블록이 하나도 없으면 폴백
-            val generated = result.getOrNull().orEmpty()
+            val generated = result.getOrNull()?.blocks.orEmpty()
             val usedFallback = generated.isEmpty()
             if (usedFallback) {
                 _generateError.value = if (locale == "en")

@@ -3,7 +3,7 @@ package com.smu.daiary.data.repository
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.data.source.AnthropicDataSource
 import com.smu.daiary.data.source.EncodedImage
-import com.smu.daiary.data.source.GeneratedBlock
+import com.smu.daiary.data.source.GeneratedDiary
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 
@@ -22,7 +22,7 @@ class AiRepository(
         mbti: String,
         recentDiarySamples: String = "",
         qaAnswers: Map<String, String> = emptyMap()
-    ): Result<List<GeneratedBlock>> =
+    ): Result<GeneratedDiary> =
         runCatching {
             dataSource.generateDiaryBlocks(
                 sources = sources,
