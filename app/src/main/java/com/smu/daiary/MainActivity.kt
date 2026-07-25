@@ -178,7 +178,7 @@ class MainActivity : ComponentActivity() {
                             LaunchedEffect(userId) {
                                 homeViewModel.loadDiaries(userId)
                                 retrospectViewModel.loadBannerStatuses(userId)
-                                // 오늘 날씨 백그라운드 수집 예약 (09:00, 15:00). 이미 등록돼 있으면 KEEP.
+                                // 오늘 날씨 백그라운드 수집 예약 (14:00). 이미 등록돼 있으면 KEEP.
                                 com.smu.daiary.data.source.weather.WeatherScheduler.scheduleAll(applicationContext)
                             }
 
