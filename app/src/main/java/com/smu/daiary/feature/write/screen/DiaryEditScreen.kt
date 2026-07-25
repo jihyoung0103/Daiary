@@ -28,11 +28,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -40,8 +37,6 @@ import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
-import androidx.compose.material.icons.outlined.Umbrella
-import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -85,16 +80,7 @@ import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 
-private data class Weather(val label: String, val icon: ImageVector)
 private data class Emotion(val label: String, val icon: ImageVector)
-
-private val weatherList = listOf(
-    Weather("맑음", Icons.Outlined.WbSunny),
-    Weather("흐림", Icons.Outlined.Cloud),
-    Weather("비",   Icons.Outlined.Umbrella),
-    Weather("눈",   Icons.Outlined.AcUnit),
-    Weather("바람", Icons.Outlined.Air)
-)
 
 private val emotionList = listOf(
     Emotion("기쁨", Icons.Outlined.SentimentVerySatisfied),
@@ -234,22 +220,6 @@ fun DiaryEditScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            ChipSection(label = stringResource(R.string.label_weather)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    weatherList.forEach { w ->
-                        IconSelectChip(
-                            icon = w.icon,
-                            label = localizedWeatherLabel(w.label),
-                            selected = selectedWeather == w.label,
-                            onClick = { viewModel.updateWeatherSelection(if (selectedWeather == w.label) null else w.label) }
-                        )
-                    }
-                }
-            }
-
             ChipSection(label = stringResource(R.string.label_emotion)) {
                 val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
                 Row(
@@ -543,17 +513,6 @@ private fun DiaryEditScreenPreview() {
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
                         )
-                    }
-                }
-                ChipSection(label = stringResource(R.string.label_weather)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        weatherList.forEach { w ->
-                            IconSelectChip(
-                                icon = w.icon, label = w.label,
-                                selected = selectedWeather == w.label,
-                                onClick = { selectedWeather = if (selectedWeather == w.label) null else w.label }
-                            )
-                        }
                     }
                 }
                 ChipSection(label = stringResource(R.string.label_emotion)) {

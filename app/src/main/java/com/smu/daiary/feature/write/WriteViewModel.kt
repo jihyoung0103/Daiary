@@ -236,6 +236,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { weather ->
                     Log.d(TAG, "🌤️ 날씨 수집 완료: ${weather.description} ${weather.temperature}°C")
                     dailyDataRepository.updateWeather(userId, date, weather)
+                    // 수집한 날씨를 그대로 일기 날씨로 쓴다 (canonical 값이 선택지와 동일)
+                    _selectedWeather.value = weather.description
                     blocks.add(ContentBlock(
                         id = "weather", type = BlockType.WEATHER,
                         content = localizedContext().getString(
