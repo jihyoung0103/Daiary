@@ -48,6 +48,16 @@ import java.util.UUID
 private const val TAG = "WriteViewModel"
 
 /**
+ * 항상 마지막에 붙는 고정 질문. 감정은 추측할 게 아니라 사용자에게 묻는 것이 정확하고,
+ * 이 답변이 프롬프트의 [사용자의 추가 답변]으로 들어가 AI 감정 판단의 근거가 된다.
+ */
+private val EMOTION_QUESTION = ContextQuestion(
+    blockId = "emotion",
+    question = "오늘 기분은 어땠나요?",
+    quickOptions = listOf("기쁨", "설렘", "평온", "슬픔", "화남", "기타")
+)
+
+/**
  * 일기 작성 화면 전체의 상태와 비즈니스 로직을 담당하는 ViewModel.
  *
  * 주요 책임:
@@ -921,10 +931,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _contextQuestions.value = null
         try {
             val questions = aiRepository.generateContextQuestions(selected)
-            _contextQuestions.value = questions
+            _contextQuestions.value = questions + EMOTION_QUESTION
         } catch (e: Exception) {
-            Log.e(TAG, "❌ 질문 생성 실패 — 질답 단계 스킵", e)
-            _contextQuestions.value = emptyList()
+            Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
+            _contextQuestions.value = listOf(EMOTION_QUESTION)
         } finally {
             _isGeneratingQuestions.value = false
         }
