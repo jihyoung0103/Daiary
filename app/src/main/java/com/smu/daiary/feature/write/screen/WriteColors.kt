@@ -1,6 +1,7 @@
 package com.smu.daiary.feature.write.screen
 
 import androidx.compose.ui.graphics.Color
+import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.SageForestDark
 
 internal data class WriteColorScheme(
@@ -15,7 +16,7 @@ internal data class WriteColorScheme(
 )
 
 internal val WriteColors = WriteColorScheme(
-    Bg          = Color(0xFFFFFFFF),
+    Bg          = Ivory,
     SurfaceBg   = Color(0xFFF7F7F7),
     TextPrimary = Color(0xFF1C1C1E),
     TextMuted   = Color(0xFF6C6C70),

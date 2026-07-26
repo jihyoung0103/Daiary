@@ -167,12 +167,12 @@ fun BlockSelectionScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
         },
         bottomBar = {
-            Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
+            Surface(color = wc.Bg, shadowElevation = 0.dp) {
                 Button(
                     onClick = { viewModel.prepareGeneration() },
                     enabled = !isLoading && !isGeneratingQuestions,
