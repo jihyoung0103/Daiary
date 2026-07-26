@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -88,9 +89,11 @@ import com.smu.daiary.R
 import com.smu.daiary.ui.theme.ButtonCornerRadius
 import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.CardCornerRadius
+import com.smu.daiary.ui.theme.CardPaddingVertical
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.White
 import com.smu.daiary.ui.theme.emotionColor
 import java.time.LocalDate
@@ -139,6 +142,8 @@ fun DraftPreviewScreen(
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
     val selectedWeather by viewModel.selectedWeather.collectAsStateWithLifecycle()
     val selectedEmotion by viewModel.selectedEmotion.collectAsStateWithLifecycle()
+    val customWeatherText by viewModel.customWeatherText.collectAsStateWithLifecycle()
+    val customEmotionText by viewModel.customEmotionText.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val photoAnalysisDebug by viewModel.photoAnalysisDebug.collectAsStateWithLifecycle()
     val selectedPhotos = photos.filter { it.isSelected }
@@ -202,12 +207,12 @@ fun DraftPreviewScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
         },
         bottomBar = {
-            Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
+            Surface(color = wc.Bg, shadowElevation = 0.dp) {
                 Button(
                     onClick = onEdit,
                     modifier = Modifier
@@ -228,7 +233,7 @@ fun DraftPreviewScreen(
                 .padding(padding)
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp),
+                .padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             draft?.let {
@@ -251,7 +256,8 @@ fun DraftPreviewScreen(
                     placeholderIcon = Icons.Outlined.WbSunny,
                     labelOf = { localizedWeatherLabel(it) },
                     tintOf = { wc.Accent },
-                    onSelect = { viewModel.updateWeatherSelection(it) }
+                    onSelect = { viewModel.updateWeatherSelection(it) },
+                    customText = customWeatherText
                 )
                 MetaPickerChip(
                     selected = selectedEmotion,
@@ -260,7 +266,8 @@ fun DraftPreviewScreen(
                     placeholderIcon = Icons.Outlined.SentimentNeutral,
                     labelOf = { localizedEmotionLabel(it) },
                     tintOf = { emotionColor(it, isDark) },
-                    onSelect = { viewModel.updateEmotionSelection(it) }
+                    onSelect = { viewModel.updateEmotionSelection(it) },
+                    customText = customEmotionText
                 )
             }
 
@@ -278,7 +285,7 @@ fun DraftPreviewScreen(
                     color = wc.SurfaceBg,
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(CardPaddingVertical)) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -401,7 +408,9 @@ internal fun MetaPickerChip(
     labelOf: @Composable (String) -> String,
     /** 선택된 값의 아이콘 색. 감정은 5색 체계(emotionColor), 날씨는 accent */
     tintOf: @Composable (String) -> Color,
-    onSelect: (String?) -> Unit
+    onSelect: (String?) -> Unit,
+    /** QnA "기타" 자유입력 원문. selected가 없을 때 placeholder 대신 이 텍스트를 보여준다(아이콘은 미선택 톤 유지) */
+    customText: String? = null
 ) {
     val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
     var expanded by remember { mutableStateOf(false) }
@@ -422,7 +431,7 @@ internal fun MetaPickerChip(
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text = selected?.let { labelOf(it) } ?: placeholder,
+                text = selected?.let { labelOf(it) } ?: customText?.takeIf { it.isNotBlank() } ?: placeholder,
                 fontSize = 13.sp,
                 color = wc.TextMuted
             )
@@ -432,21 +441,35 @@ internal fun MetaPickerChip(
             onDismissRequest = { expanded = false },
             containerColor = wc.SurfaceBg
         ) {
-            Row(modifier = Modifier.padding(horizontal = 8.dp)) {
+            Row(
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 options.forEach { (key, icon) ->
                     val isSelected = selected == key
-                    IconButton(
-                        onClick = {
-                            onSelect(if (isSelected) null else key)
-                            expanded = false
-                        },
-                        modifier = Modifier.size(40.dp)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .width(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                onSelect(if (isSelected) null else key)
+                                expanded = false
+                            }
+                            .padding(vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector = icon,
-                            contentDescription = labelOf(key),
+                            contentDescription = null,
                             tint = if (isSelected) tintOf(key) else wc.TextMuted,
-                            modifier = Modifier.size(if (isSelected) 24.dp else 20.dp)
+                            modifier = Modifier.size(if (isSelected) 22.dp else 18.dp)
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = labelOf(key),
+                            fontSize = 10.sp,
+                            color = if (isSelected) tintOf(key) else wc.TextMuted,
+                            maxLines = 1
                         )
                     }
                 }
@@ -483,11 +506,11 @@ private fun DraftPreviewScreenPreview() {
                             Text(stringResource(R.string.btn_save), color = wc.Accent, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg)
                 )
             },
             bottomBar = {
-                Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
+                Surface(color = wc.Bg, shadowElevation = 0.dp) {
                     Button(
                         onClick = {},
                         modifier = Modifier
@@ -508,7 +531,7 @@ private fun DraftPreviewScreenPreview() {
                     .padding(padding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp),
+                    .padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(text = formatDate(sampleDraft.date), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Accent)

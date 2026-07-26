@@ -7,6 +7,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,6 +82,8 @@ import coil.compose.AsyncImage
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 import com.smu.daiary.ui.theme.CardCornerRadius
+import com.smu.daiary.ui.theme.CardPaddingVertical
+import com.smu.daiary.ui.theme.CompactButtonHeight
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
@@ -220,7 +224,7 @@ fun DiaryEditScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                         modifier = Modifier
                             .padding(end = 12.dp)
-                            .height(36.dp)
+                            .height(CompactButtonHeight)
                     ) {
                         if (isSaving) {
                             CircularProgressIndicator(
@@ -233,7 +237,7 @@ fun DiaryEditScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
         }
@@ -243,6 +247,34 @@ fun DiaryEditScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            val dateToShow = draft?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
+            Row(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 8.dp)) {
+                Text(
+                    text = stringResource(R.string.date_format_full, dateToShow.year, dateToShow.monthValue, dateToShow.dayOfMonth),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = accent
+                )
+            }
+            InlineOptionRow(
+                options = weatherPickerOptions,
+                selected = selectedWeather,
+                labelOf = { localizedWeatherLabel(it) },
+                tintOf = { accent },
+                onSelect = { viewModel.updateWeatherSelection(it) },
+                wc = wc,
+                modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal)
+            )
+            Spacer(Modifier.height(6.dp))
+            InlineOptionRow(
+                options = emotionPickerOptions,
+                selected = selectedEmotion,
+                labelOf = { localizedEmotionLabel(it) },
+                tintOf = { emotionColor(it, isDark) },
+                onSelect = { viewModel.updateEmotionSelection(it) },
+                wc = wc,
+                modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal)
+            )
             Surface(
                 modifier = Modifier
                     .weight(1f)
@@ -255,39 +287,8 @@ fun DiaryEditScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(CardPaddingVertical)
                 ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    ) {
-                        val dateToShow = draft?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
-                        Text(
-                            text = stringResource(R.string.date_format_full, dateToShow.year, dateToShow.monthValue, dateToShow.dayOfMonth),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = accent
-                        )
-                        MetaPickerChip(
-                            selected = selectedWeather,
-                            options = weatherPickerOptions,
-                            placeholder = stringResource(R.string.label_weather),
-                            placeholderIcon = Icons.Outlined.WbSunny,
-                            labelOf = { localizedWeatherLabel(it) },
-                            tintOf = { accent },
-                            onSelect = { viewModel.updateWeatherSelection(it) }
-                        )
-                        MetaPickerChip(
-                            selected = selectedEmotion,
-                            options = emotionPickerOptions,
-                            placeholder = stringResource(R.string.label_emotion),
-                            placeholderIcon = Icons.Outlined.SentimentNeutral,
-                            labelOf = { localizedEmotionLabel(it) },
-                            tintOf = { emotionColor(it, isDark) },
-                            onSelect = { viewModel.updateEmotionSelection(it) }
-                        )
-                    }
                     val blocks = draft?.blocks.orEmpty()
                     LazyColumn(
                         modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -331,6 +332,54 @@ fun DiaryEditScreen(
                 }
             }
 
+        }
+    }
+}
+
+/**
+ * 날씨/감정 옵션을 드롭다운 없이 항상 펼친 채로 한 줄 나열하는 편집 화면 전용 선택 UI.
+ * DraftPreviewScreen의 MetaPickerChip(드롭다운 방식)과는 별개 — 그쪽은 그대로 둔다.
+ */
+@Composable
+private fun InlineOptionRow(
+    options: Map<String, ImageVector>,
+    selected: String?,
+    labelOf: @Composable (String) -> String,
+    tintOf: @Composable (String) -> Color,
+    onSelect: (String) -> Unit,
+    wc: WriteColorScheme,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
+    ) {
+        options.forEach { (key, icon) ->
+            val isSelected = selected == key
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .width(48.dp)
+                    .clickable { onSelect(key) }
+                    .padding(vertical = 8.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isSelected) tintOf(key) else wc.TextMuted,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = labelOf(key),
+                    fontSize = 11.sp,
+                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                    color = if (isSelected) tintOf(key) else wc.TextMuted,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
@@ -475,12 +524,12 @@ private fun DiaryEditScreenPreview() {
                             shape = RoundedCornerShape(PillButtonCornerRadius),
                             colors = ButtonDefaults.buttonColors(containerColor = accent),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-                            modifier = Modifier.padding(end = 12.dp).height(36.dp)
+                            modifier = Modifier.padding(end = 12.dp).height(CompactButtonHeight)
                         ) {
                             Text(stringResource(R.string.btn_done), color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg)
                 )
             }
         ) { padding ->
@@ -494,7 +543,7 @@ private fun DiaryEditScreenPreview() {
                     shape = RoundedCornerShape(CardCornerRadius),
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
-                    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                    Column(modifier = Modifier.fillMaxSize().padding(CardPaddingVertical)) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,

@@ -15,6 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -227,38 +229,39 @@ fun ContextQnAScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // 빠른 선택 버튼 (2개씩 Row로 배치)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                question.quickOptions.chunked(2).forEach { rowOptions ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowOptions.forEach { option ->
-                            val isSelected = selectedOption == option
-                            Surface(
-                                shape = RoundedCornerShape(ButtonCornerRadius),
-                                color = if (isSelected) wc.Accent else wc.SurfaceBg,
-                                onClick = {
-                                    answers[question.blockId] = option
-                                    if (option != "기타") {
-                                        val finalAnswers = answers.toMap()
-                                            .filterKeys { !it.endsWith("_custom") }
-                                        val nextIndex = currentIndex + 1
-                                        if (nextIndex >= questionList.size) {
-                                            viewModel.submitAnswers(finalAnswers)
-                                        } else {
-                                            currentIndex = nextIndex
-                                        }
-                                    }
+            // 빠른 선택 버튼 (한 줄 배치, 다 안 들어가면 가로 스크롤)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+            ) {
+                question.quickOptions.forEach { option ->
+                    val isSelected = selectedOption == option
+                    Surface(
+                        shape = RoundedCornerShape(ButtonCornerRadius),
+                        color = if (isSelected) wc.Accent else wc.SurfaceBg,
+                        onClick = {
+                            answers[question.blockId] = option
+                            if (option != "기타") {
+                                val finalAnswers = answers.toMap()
+                                    .filterKeys { !it.endsWith("_custom") }
+                                val nextIndex = currentIndex + 1
+                                if (nextIndex >= questionList.size) {
+                                    viewModel.submitAnswers(finalAnswers)
+                                } else {
+                                    currentIndex = nextIndex
                                 }
-                            ) {
-                                Text(
-                                    text = option,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                    fontSize = 14.sp,
-                                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                                    color = if (isSelected) White else wc.TextPrimary
-                                )
                             }
                         }
+                    ) {
+                        Text(
+                            text = option,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                            color = if (isSelected) White else wc.TextPrimary
+                        )
                     }
                 }
             }
