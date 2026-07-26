@@ -17,7 +17,9 @@ data class ContentBlock(
     val id: String,
     val type: BlockType,
     val content: String,
-    val isSelected: Boolean = false
+    val isSelected: Boolean = false,
+    /** 날씨/일정 등 실제 데이터가 없어 안내 문구만 담긴 폴백 블록인지. true면 선택 불가(초안 생성 소스로 안 씀) */
+    val isFallback: Boolean = false
 )
 
 data class DiaryDraft(

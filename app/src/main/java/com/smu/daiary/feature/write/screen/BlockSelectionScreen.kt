@@ -323,7 +323,7 @@ fun BlockSelectionScreen(
                             // WEATHER, WEATHER_TOMORROW, PHOTO_LOCATION, HEALTH — 단일 블록, 체크박스 유지
                             SingleBlockItem(
                                 block = block,
-                                enabled = !isGeneratingQuestions,
+                                enabled = !isGeneratingQuestions && !block.isFallback,
                                 onClick = { viewModel.toggleBlock(block.id) }
                             )
                         }
@@ -444,6 +444,7 @@ private fun SingleBlockItem(
             Checkbox(
                 checked = block.isSelected,
                 onCheckedChange = { if (enabled) onClick() },
+                enabled = enabled,
                 colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
             )
         }
