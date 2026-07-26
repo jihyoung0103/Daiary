@@ -276,7 +276,7 @@ fun DiaryDetailScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "닫기",
+                            contentDescription = stringResource(R.string.close_desc),
                             tint = Color.White
                         )
                     }
@@ -305,14 +305,14 @@ private fun DiaryDayContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "아직 일기가 없어요...", fontSize = 15.sp, color = wc.TextMuted)
+            Text(text = stringResource(R.string.empty_diary_placeholder), fontSize = 15.sp, color = wc.TextMuted)
             if (!date.isAfter(LocalDate.now())) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onWrite,
                     colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
                 ) {
-                    Text(text = "생성하기", color = White, fontWeight = FontWeight.Medium)
+                    Text(text = stringResource(R.string.btn_create_diary), color = White, fontWeight = FontWeight.Medium)
                 }
             }
         }

@@ -57,11 +57,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smu.daiary.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,7 +125,7 @@ fun ContextQnAScreen(
                     IconButton(onClick = onBack, enabled = !isGenerating) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
+                            contentDescription = stringResource(R.string.back),
                             tint = if (isGenerating) wc.Border else wc.TextPrimary
                         )
                     }
@@ -148,7 +150,7 @@ fun ContextQnAScreen(
                 ) {
                     CircularProgressIndicator(color = wc.Accent, strokeWidth = 3.dp)
                     Text(
-                        text = "일기를 작성하고 있어요...",
+                        text = stringResource(R.string.generating_diary),
                         fontSize = 15.sp,
                         color = wc.TextMuted
                     )
@@ -266,7 +268,7 @@ fun ContextQnAScreen(
                     value = customText,
                     onValueChange = { answers[question.blockId + "_custom"] = it },
                     placeholder = {
-                        Text("직접 입력...", color = wc.TextMuted, fontSize = 14.sp)
+                        Text(stringResource(R.string.hint_custom_answer), color = wc.TextMuted, fontSize = 14.sp)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -300,7 +302,7 @@ fun ContextQnAScreen(
                         disabledContainerColor = wc.Border
                     )
                 ) {
-                    Text("다음", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.btn_next), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
             }
 
@@ -323,7 +325,7 @@ fun ContextQnAScreen(
                     .padding(bottom = 24.dp)
             ) {
                 Text(
-                    text = "건너뛰기",
+                    text = stringResource(R.string.btn_skip),
                     fontSize = 14.sp,
                     color = wc.TextMuted,
                     textAlign = TextAlign.Center

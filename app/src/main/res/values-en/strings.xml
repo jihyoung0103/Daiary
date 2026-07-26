@@ -40,6 +40,9 @@
     <string name="attached_photos">Attached Photos</string>
     <string name="photo_analysis_card_title">Here\'s what I found in your photos</string>
     <string name="photo_load_error">Unable to load photo</string>
+    <string name="photo_analysis_debug_title">Photo Analysis (Dev)</string>
+    <string name="btn_hide">Hide</string>
+    <string name="btn_show">Show</string>
 
     <!-- DiaryEditScreen -->
     <string name="screen_diary_edit">Edit Diary</string>
@@ -54,6 +57,15 @@
     <!-- DiaryDetailScreen -->
     <string name="screen_diary">Diary</string>
     <string name="btn_edit_diary">Edit</string>
+    <string name="empty_diary_placeholder">No diary yet...</string>
+    <string name="btn_create_diary">Create</string>
+    <string name="close_desc">Close</string>
+
+    <!-- ContextQnAScreen -->
+    <string name="generating_diary">Writing your diary...</string>
+    <string name="hint_custom_answer">Type your own...</string>
+    <string name="btn_next">Next</string>
+    <string name="btn_skip">Skip</string>
 
     <!-- ProfileScreen -->
     <string name="screen_profile">Profile</string>

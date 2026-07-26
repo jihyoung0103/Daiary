@@ -42,6 +42,9 @@
     <string name="attached_photos">첨부 사진</string>
     <string name="photo_analysis_card_title">사진에서 이런 걸 확인했어요</string>
     <string name="photo_load_error">사진을 불러올 수 없습니다</string>
+    <string name="photo_analysis_debug_title">사진 분석 내용 (개발용)</string>
+    <string name="btn_hide">숨기기</string>
+    <string name="btn_show">보기</string>
 
     <!-- DiaryEditScreen -->
     <string name="screen_diary_edit">일기 편집</string>
@@ -56,6 +59,15 @@
     <!-- DiaryDetailScreen -->
     <string name="screen_diary">일기</string>
     <string name="btn_edit_diary">편집</string>
+    <string name="empty_diary_placeholder">아직 일기가 없어요...</string>
+    <string name="btn_create_diary">생성하기</string>
+    <string name="close_desc">닫기</string>
+
+    <!-- ContextQnAScreen -->
+    <string name="generating_diary">일기를 작성하고 있어요...</string>
+    <string name="hint_custom_answer">직접 입력...</string>
+    <string name="btn_next">다음</string>
+    <string name="btn_skip">건너뛰기</string>
 
     <!-- ProfileScreen -->
     <string name="screen_profile">프로필</string>

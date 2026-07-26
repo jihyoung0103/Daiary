@@ -286,13 +286,13 @@ fun DraftPreviewScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "사진 분석 내용 (개발용)",
+                                text = stringResource(R.string.photo_analysis_debug_title),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = wc.TextMuted
                             )
                             Text(
-                                text = if (showAnalysis) "숨기기" else "보기",
+                                text = stringResource(if (showAnalysis) R.string.btn_hide else R.string.btn_show),
                                 fontSize = 13.sp,
                                 color = wc.Accent
                             )
@@ -376,7 +376,7 @@ fun DraftPreviewScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "닫기",
+                                contentDescription = stringResource(R.string.close_desc),
                                 tint = Color.White
                             )
                         }
