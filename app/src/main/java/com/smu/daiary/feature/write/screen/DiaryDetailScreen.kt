@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
+import com.smu.daiary.ui.theme.Black
 import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Error
@@ -236,7 +237,7 @@ fun DiaryDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f)),
+                .background(Black.copy(alpha = 0.35f)),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
@@ -272,12 +273,12 @@ fun DiaryDetailScreen(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            .background(Black.copy(alpha = 0.5f), CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close_desc),
-                            tint = Color.White
+                            tint = White
                         )
                     }
                 }

@@ -7,6 +7,7 @@ import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.White
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -115,7 +116,7 @@ fun ContextQnAScreen(
         containerColor = wc.Bg,
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
-                Snackbar(snackbarData = data, containerColor = if (isDark) ErrorDark else Error, contentColor = Color.White)
+                Snackbar(snackbarData = data, containerColor = if (isDark) ErrorDark else Error, contentColor = White)
             }
         },
         topBar = {
@@ -253,7 +254,7 @@ fun ContextQnAScreen(
                                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                                     fontSize = 14.sp,
                                     fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                                    color = if (isSelected) Color.White else wc.TextPrimary
+                                    color = if (isSelected) White else wc.TextPrimary
                                 )
                             }
                         }

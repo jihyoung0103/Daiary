@@ -91,6 +91,7 @@ import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.White
 import com.smu.daiary.ui.theme.emotionColor
 import java.time.LocalDate
 
@@ -377,7 +378,7 @@ fun DraftPreviewScreen(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = stringResource(R.string.close_desc),
-                                tint = Color.White
+                                tint = White
                             )
                         }
                     }

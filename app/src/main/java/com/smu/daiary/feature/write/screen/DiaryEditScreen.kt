@@ -224,12 +224,12 @@ fun DiaryEditScreen(
                     ) {
                         if (isSaving) {
                             CircularProgressIndicator(
-                                color = Color.White,
+                                color = White,
                                 strokeWidth = 2.dp,
                                 modifier = Modifier.size(16.dp)
                             )
                         } else {
-                            Text(stringResource(R.string.btn_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(stringResource(R.string.btn_done), color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     }
                 },
@@ -432,7 +432,7 @@ fun IconSelectChip(
             Icon(
                 imageVector = icon,
                 contentDescription = label,
-                tint = if (selected) Color.White else accent,
+                tint = if (selected) White else accent,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -477,7 +477,7 @@ private fun DiaryEditScreenPreview() {
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                             modifier = Modifier.padding(end = 12.dp).height(36.dp)
                         ) {
-                            Text(stringResource(R.string.btn_done), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(stringResource(R.string.btn_done), color = White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg)
