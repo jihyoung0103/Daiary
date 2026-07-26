@@ -79,6 +79,7 @@ fun ContextQnAScreen(
 
     val questions by viewModel.contextQuestions.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
+    val isGeneratingQuestions by viewModel.isGeneratingQuestions.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val generateError by viewModel.generateError.collectAsStateWithLifecycle()
 
@@ -137,8 +138,8 @@ fun ContextQnAScreen(
         }
     ) { padding ->
 
-        // 일기 생성 중 — 로딩 화면
-        if (isGenerating || (questions != null && questionList.isEmpty())) {
+        // 질문 생성 중이거나 일기 생성 중 — 로딩 화면
+        if (isGenerating || isGeneratingQuestions || (questions != null && questionList.isEmpty())) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
