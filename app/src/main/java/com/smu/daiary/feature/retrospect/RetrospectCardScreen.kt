@@ -54,6 +54,7 @@ import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.ButtonCornerRadius
 import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
@@ -91,7 +92,7 @@ fun RetrospectCardScreen(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
 
@@ -182,7 +183,7 @@ fun RetrospectCardScreen(
             if (pagerState.currentPage == pages.lastIndex) {
                 Button(
                     onClick = onSave,
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = White),
                     modifier = Modifier.fillMaxWidth().height(ButtonHeight),
                     shape = RoundedCornerShape(ButtonCornerRadius)
                 ) { Text("저장하기", fontWeight = FontWeight.Medium) }
@@ -191,11 +192,11 @@ fun RetrospectCardScreen(
                     onClick = { scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) } },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = accentColor,
-                        contentColor = Color.White
+                        contentColor = White
                     ),
                     modifier = Modifier.fillMaxWidth().height(ButtonHeight),
                     shape = RoundedCornerShape(ButtonCornerRadius)
-                ) { Text("다음 →", fontWeight = FontWeight.Medium) }
+                ) { Text("다음", fontWeight = FontWeight.Medium) }
             }
         }
     }
@@ -217,7 +218,7 @@ private fun CardContainer(background: Color, content: @Composable ColumnScope.()
 @Composable
 private fun OpeningCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Icon(imageVector = Icons.Outlined.AutoAwesome, contentDescription = null, tint = textColor, modifier = Modifier.size(40.dp))
@@ -253,7 +254,7 @@ private fun emotionIcon(emotion: String): ImageVector = when (emotion) {
 @Composable
 private fun EmotionCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
     CardContainer(cardBg) {
@@ -294,7 +295,13 @@ private fun EmotionCard(report: RetrospectReport) {
                             )
                         }
                         Spacer(Modifier.width(8.dp))
-                        Text("${count}일", fontSize = 12.sp, color = textColor.copy(alpha = 0.6f))
+                        Text(
+                            "${count}일",
+                            fontSize = 12.sp,
+                            color = textColor.copy(alpha = 0.6f),
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.width(90.dp)
+                        )
                     }
                 }
             }
@@ -312,7 +319,7 @@ private fun EmotionCard(report: RetrospectReport) {
 @Composable
 private fun NarrativeCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Text(
@@ -335,7 +342,7 @@ private fun NarrativeCard(report: RetrospectReport) {
 @Composable
 private fun ActivityCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Text("${periodWord(report)} 몸은 어땠나요", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = textColor)
@@ -359,7 +366,7 @@ private fun ActivityCard(report: RetrospectReport) {
 @Composable
 private fun SpendingCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
     CardContainer(cardBg) {
@@ -403,7 +410,7 @@ private fun SpendingCard(report: RetrospectReport) {
 @Composable
 private fun ScheduleCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
     CardContainer(cardBg) {
@@ -441,7 +448,7 @@ private fun ScheduleCard(report: RetrospectReport) {
 @Composable
 private fun KeywordsCard(report: RetrospectReport) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
     CardContainer(cardBg) {
@@ -463,7 +470,7 @@ private fun KeywordsCard(report: RetrospectReport) {
 @Composable
 private fun MemorableCard(report: RetrospectReport, onViewDiary: (String) -> Unit) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     CardContainer(cardBg) {
         Text("${periodWord(report)} 가장 기억에 남는 날", fontSize = 15.sp, color = textColor.copy(alpha = 0.6f))
@@ -540,7 +547,7 @@ fun RetrospectSummaryScreen(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val cardBg = if (isDark) BackgroundDark else White
+    val cardBg = if (isDark) BackgroundDark else Ivory
     val textColor = if (isDark) TextPrimaryDark else Ink
     val accentColor = if (isDark) SageForestDark else SageForest
 
@@ -549,14 +556,21 @@ fun RetrospectSummaryScreen(
             .fillMaxSize()
             .background(cardBg)
     ) {
-        Box(
+        // 카드 리캡 화면(RetrospectCardScreen)의 상단바와 동일한 여백 패턴
+        Row(
             modifier = Modifier
-                .size(40.dp)
-                .padding(8.dp)
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로", tint = textColor)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable(onClick = onBack),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "뒤로", tint = textColor)
+            }
         }
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
             SummaryContent(report, textColor = textColor, accentColor = accentColor)
@@ -564,7 +578,7 @@ fun RetrospectSummaryScreen(
         Box(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
             Button(
                 onClick = onViewFull,
-                colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = accentColor, contentColor = White),
                 modifier = Modifier.fillMaxWidth().height(ButtonHeight),
                 shape = RoundedCornerShape(ButtonCornerRadius)
             ) { Text("전체 다시 보기", fontWeight = FontWeight.Medium) }
