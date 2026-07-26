@@ -159,9 +159,10 @@ fun DiaryDetailScreen(
         )
     }
 
-    Box(modifier = modifier) {
+    // isDeleting 오버레이와 사진 확대 Dialog가 TopAppBar까지 덮도록 Scaffold의 형제로 겹쳐 쌓는다.
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier,
         containerColor = wc.Bg,
         topBar = {
             TopAppBar(
