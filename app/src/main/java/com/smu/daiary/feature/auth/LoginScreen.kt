@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -49,16 +48,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.ButtonCornerRadius
 import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.CardCornerRadius
-import com.smu.daiary.ui.theme.Dew
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
@@ -106,7 +104,7 @@ private data class LoginColorScheme(
 private val LoginColors = LoginColorScheme(
     Background   = Ivory,
     Surface      = White,
-    InputBg      = Dew,
+    InputBg      = Ivory,
     TextPrimary  = Ink,
     TextMuted    = Stone,
     AccentPurple = SageForest,
@@ -450,12 +448,12 @@ fun LoginScreen(
                         contentColor = lc.TextPrimary
                     )
                 ) {
-                    Box(
-                        modifier         = Modifier.size(20.dp).clip(CircleShape).background(Color(0xFF4285F4)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("G", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
+                    Icon(
+                        painter            = painterResource(id = R.drawable.ic_google_logo),
+                        contentDescription = null,
+                        modifier           = Modifier.size(20.dp),
+                        tint               = Color.Unspecified
+                    )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(stringResource(R.string.google_signin), fontSize = 15.sp, color = lc.TextPrimary)
                 }
@@ -620,12 +618,12 @@ private fun LoginScreenPreview() {
                         border = BorderStroke(1.dp, lc.Border),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = lc.TextPrimary)
                     ) {
-                        Box(
-                            modifier = Modifier.size(20.dp).clip(CircleShape).background(Color(0xFF4285F4)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("G", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
+                        Icon(
+                            painter            = painterResource(id = R.drawable.ic_google_logo),
+                            contentDescription = null,
+                            modifier           = Modifier.size(20.dp),
+                            tint               = Color.Unspecified
+                        )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text("Google로 계속하기", fontSize = 15.sp, color = lc.TextPrimary)
                     }

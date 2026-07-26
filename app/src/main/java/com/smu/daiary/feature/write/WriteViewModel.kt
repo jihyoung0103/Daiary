@@ -50,6 +50,9 @@ private const val TAG = "WriteViewModel"
 /** 감정 선택지. 답변 키로 그대로 쓰이는 canonical 값이라 번역하지 않는다(emotionList와 동일) */
 private val EMOTION_OPTIONS = listOf("기쁨", "설렘", "평온", "슬픔", "화남", "기타")
 
+/** 날씨 선택지. weatherIconMap(DiaryEditScreen/DraftPreviewScreen)과 동일한 canonical 값 */
+private val WEATHER_OPTIONS = listOf("맑음", "흐림", "비", "눈", "바람")
+
 /**
  * 일기 작성 화면 전체의 상태와 비즈니스 로직을 담당하는 ViewModel.
  *
@@ -145,6 +148,14 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 사용자가 직접 선택한 감정 이모지/텍스트 */
     private val _selectedEmotion = MutableStateFlow<String?>(null)
     val selectedEmotion: StateFlow<String?> = _selectedEmotion.asStateFlow()
+
+    /** 질답에서 "기타"로 자유입력한 날씨 원문. 고정 5종 밖의 값이라 selectedWeather와 별도 보관 */
+    private val _customWeatherText = MutableStateFlow<String?>(null)
+    val customWeatherText: StateFlow<String?> = _customWeatherText.asStateFlow()
+
+    /** 질답에서 "기타"로 자유입력한 감정 원문. 고정 5종 밖의 값이라 selectedEmotion과 별도 보관 */
+    private val _customEmotionText = MutableStateFlow<String?>(null)
+    val customEmotionText: StateFlow<String?> = _customEmotionText.asStateFlow()
 
     // ─────────────────────────────────────────────────────────────
     // UI State — AI 초안 생성
@@ -261,9 +272,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 ))
             } else {
                 Log.w(TAG, "⚠️ 오늘 날씨 스냅샷 없음 (백그라운드 수집 아직 미실행)")
-                // 캘린더 빈 상태(block_calendar_empty)와 동일한 컨벤션: 블록은 보여주되 기본 미선택 처리해
-                // 초안 생성 시 "날씨는 날씨 정보를 가져올 수 없습니다이었다" 같은 어색한 문장이 자동 포함되지 않도록 함.
-                blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable), isSelected = false))
+                // 캘린더 빈 상태(block_calendar_empty)와 동일한 컨벤션: 블록은 보여주되 선택 자체를 막아
+                // 초안 생성 시 "날씨는 날씨 정보를 가져올 수 없습니다이었다" 같은 어색한 문장이 포함될 수 없도록 함.
+                blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable), isSelected = false, isFallback = true))
             }
 
             // 날씨 내일 — 사용자 작성 시점에 예보 API 호출한 결과 사용
@@ -300,7 +311,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         blocks.add(ContentBlock(
                             id = "calendar_summary", type = BlockType.CALENDAR,
                             content = localizedContext().getString(R.string.block_calendar_empty),
-                            isSelected = false
+                            isSelected = false, isFallback = true
                         ))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
@@ -600,7 +611,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 블록 선택 토글 — 날씨·캘린더 등 단일 블록 on/off */
     fun toggleBlock(id: String) {
         _blocks.update { list ->
-            list.map { if (it.id == id) it.copy(isSelected = !it.isSelected) else it }
+            list.map {
+                if (it.id == id && !it.isFallback) it.copy(isSelected = !it.isSelected) else it
+            }
         }
     }
 
@@ -956,7 +969,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _isGeneratingQuestions.value = true
         _contextQuestions.value = null
         try {
+            // 날씨 질문은 AI가 만든 question 텍스트는 유지하되, quickOptions는 감정처럼
+            // 앱 고정 리스트(WEATHER_OPTIONS)로 덮어써서 편집 화면 드롭다운과 항상 일치시킨다.
             val questions = aiRepository.generateContextQuestions(selected)
+                .map { q -> if (q.blockId == "weather") q.copy(quickOptions = WEATHER_OPTIONS + "기타") else q }
             _contextQuestions.value = questions + emotionQuestion()
         } catch (e: Exception) {
             Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
@@ -975,6 +991,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         // 사용자가 편집 화면에서 직접 고르게 둔다.
         answers["emotion"]?.takeIf { it != "기타" && it in EMOTION_OPTIONS }
             ?.let { _selectedEmotion.value = it }
+        // "기타" 자유입력 원문은 감정/날씨 칩 선택과는 별개로, 미리보기·편집 화면에 보조 텍스트로만 노출한다.
+        _customEmotionText.value = answers["emotion"]?.takeIf { it !in EMOTION_OPTIONS }
+        _customWeatherText.value = answers["weather"]?.takeIf { it !in WEATHER_OPTIONS }
         generateDraft(qaAnswers = answers)
     }
 
@@ -1264,6 +1283,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 date = d.date,
                 emotion = _selectedEmotion.value ?: "",
                 weather = _selectedWeather.value ?: "",
+                customEmotionText = _customEmotionText.value ?: "",
+                customWeatherText = _customWeatherText.value ?: "",
                 photos = uploadedUrlByUri.values.toList()
             )
             val result = if (existingId != null) {
@@ -1282,8 +1303,14 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // 날씨·감정 선택 / 편집 모드 진입 / 초기화
     // ─────────────────────────────────────────────────────────────
 
-    fun updateWeatherSelection(weather: String?) { _selectedWeather.value = weather }
-    fun updateEmotionSelection(emotion: String?) { _selectedEmotion.value = emotion }
+    fun updateWeatherSelection(weather: String?) {
+        _selectedWeather.value = weather
+        _customWeatherText.value = null
+    }
+    fun updateEmotionSelection(emotion: String?) {
+        _selectedEmotion.value = emotion
+        _customEmotionText.value = null
+    }
 
     /**
      * 홈 화면에서 기존 일기를 편집하러 들어올 때 호출.
@@ -1303,6 +1330,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         )
         _selectedWeather.value = entry.weather.ifEmpty { null }
         _selectedEmotion.value = entry.emotion.ifEmpty { null }
+        _customWeatherText.value = entry.customWeatherText.ifEmpty { null }
+        _customEmotionText.value = entry.customEmotionText.ifEmpty { null }
     }
 
     /** DraftPreviewScreen 재진입 시 이전 초안만 날리고 블록은 유지 */
@@ -1354,6 +1383,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _contextQuestions.value = null
         _selectedWeather.value = null
         _selectedEmotion.value = null
+        _customWeatherText.value = null
+        _customEmotionText.value = null
         _existingEntryId.value = null
         _photoAnalysisDebug.value = ""
     }

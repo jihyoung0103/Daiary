@@ -7,6 +7,7 @@ import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.White
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -14,6 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,11 +60,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.smu.daiary.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +81,7 @@ fun ContextQnAScreen(
 
     val questions by viewModel.contextQuestions.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
+    val isGeneratingQuestions by viewModel.isGeneratingQuestions.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
     val generateError by viewModel.generateError.collectAsStateWithLifecycle()
 
@@ -113,7 +119,7 @@ fun ContextQnAScreen(
         containerColor = wc.Bg,
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
-                Snackbar(snackbarData = data, containerColor = if (isDark) ErrorDark else Error, contentColor = Color.White)
+                Snackbar(snackbarData = data, containerColor = if (isDark) ErrorDark else Error, contentColor = White)
             }
         },
         topBar = {
@@ -123,7 +129,7 @@ fun ContextQnAScreen(
                     IconButton(onClick = onBack, enabled = !isGenerating) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = "뒤로",
+                            contentDescription = stringResource(R.string.back),
                             tint = if (isGenerating) wc.Border else wc.TextPrimary
                         )
                     }
@@ -134,8 +140,8 @@ fun ContextQnAScreen(
         }
     ) { padding ->
 
-        // 일기 생성 중 — 로딩 화면
-        if (isGenerating || (questions != null && questionList.isEmpty())) {
+        // 질문 생성 중이거나 일기 생성 중 — 로딩 화면
+        if (isGenerating || isGeneratingQuestions || (questions != null && questionList.isEmpty())) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -148,7 +154,7 @@ fun ContextQnAScreen(
                 ) {
                     CircularProgressIndicator(color = wc.Accent, strokeWidth = 3.dp)
                     Text(
-                        text = "일기를 작성하고 있어요...",
+                        text = stringResource(R.string.generating_diary),
                         fontSize = 15.sp,
                         color = wc.TextMuted
                     )
@@ -223,38 +229,39 @@ fun ContextQnAScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // 빠른 선택 버튼 (2개씩 Row로 배치)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                question.quickOptions.chunked(2).forEach { rowOptions ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        rowOptions.forEach { option ->
-                            val isSelected = selectedOption == option
-                            Surface(
-                                shape = RoundedCornerShape(20.dp),
-                                color = if (isSelected) wc.Accent else wc.SurfaceBg,
-                                onClick = {
-                                    answers[question.blockId] = option
-                                    if (option != "기타") {
-                                        val finalAnswers = answers.toMap()
-                                            .filterKeys { !it.endsWith("_custom") }
-                                        val nextIndex = currentIndex + 1
-                                        if (nextIndex >= questionList.size) {
-                                            viewModel.submitAnswers(finalAnswers)
-                                        } else {
-                                            currentIndex = nextIndex
-                                        }
-                                    }
+            // 빠른 선택 버튼 (한 줄 배치, 다 안 들어가면 가로 스크롤)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+            ) {
+                question.quickOptions.forEach { option ->
+                    val isSelected = selectedOption == option
+                    Surface(
+                        shape = RoundedCornerShape(ButtonCornerRadius),
+                        color = if (isSelected) wc.Accent else wc.SurfaceBg,
+                        onClick = {
+                            answers[question.blockId] = option
+                            if (option != "기타") {
+                                val finalAnswers = answers.toMap()
+                                    .filterKeys { !it.endsWith("_custom") }
+                                val nextIndex = currentIndex + 1
+                                if (nextIndex >= questionList.size) {
+                                    viewModel.submitAnswers(finalAnswers)
+                                } else {
+                                    currentIndex = nextIndex
                                 }
-                            ) {
-                                Text(
-                                    text = option,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                                    fontSize = 14.sp,
-                                    fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                                    color = if (isSelected) Color.White else wc.TextPrimary
-                                )
                             }
                         }
+                    ) {
+                        Text(
+                            text = option,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                            color = if (isSelected) White else wc.TextPrimary
+                        )
                     }
                 }
             }
@@ -266,7 +273,7 @@ fun ContextQnAScreen(
                     value = customText,
                     onValueChange = { answers[question.blockId + "_custom"] = it },
                     placeholder = {
-                        Text("직접 입력...", color = wc.TextMuted, fontSize = 14.sp)
+                        Text(stringResource(R.string.hint_custom_answer), color = wc.TextMuted, fontSize = 14.sp)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -300,7 +307,7 @@ fun ContextQnAScreen(
                         disabledContainerColor = wc.Border
                     )
                 ) {
-                    Text("다음", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.btn_next), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
             }
 
@@ -323,7 +330,7 @@ fun ContextQnAScreen(
                     .padding(bottom = 24.dp)
             ) {
                 Text(
-                    text = "건너뛰기",
+                    text = stringResource(R.string.btn_skip),
                     fontSize = 14.sp,
                     color = wc.TextMuted,
                     textAlign = TextAlign.Center

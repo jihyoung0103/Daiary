@@ -42,7 +42,6 @@ import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Nightlight
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
@@ -88,10 +87,6 @@ import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
-import com.smu.daiary.util.DiaryDateUtil
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -129,8 +124,6 @@ fun BlockSelectionScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    val isLateNight = remember { DiaryDateUtil.isLateNight() }
-    val writingDate by viewModel.writingDate.collectAsStateWithLifecycle()
 
     var hasNavigatedToQnA by remember { mutableStateOf(false) }
     LaunchedEffect(contextQuestions) {
@@ -167,12 +160,12 @@ fun BlockSelectionScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
         },
         bottomBar = {
-            Surface(color = wc.SurfaceBg, shadowElevation = 8.dp) {
+            Surface(color = wc.Bg, shadowElevation = 0.dp) {
                 Button(
                     onClick = { viewModel.prepareGeneration() },
                     enabled = !isLoading && !isGeneratingQuestions,
@@ -207,7 +200,6 @@ fun BlockSelectionScreen(
         } else if (blocks.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DateBanner(wc = wc, date = writingDate, isLateNight = isLateNight)
                     Text(text = stringResource(R.string.block_empty_message), fontSize = 15.sp, fontWeight = FontWeight.Medium, color = wc.TextPrimary, textAlign = TextAlign.Center)
                     TextButton(onClick = onRetry) {
                         Text(text = stringResource(R.string.btn_retry), color = wc.Accent, fontWeight = FontWeight.Medium, fontSize = 14.sp)
@@ -224,10 +216,6 @@ fun BlockSelectionScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item {
-                    DateBanner(wc = wc, date = writingDate, isLateNight = isLateNight)
-                }
-
                 items(blocks) { block ->
                     when (block.type) {
 
@@ -323,7 +311,7 @@ fun BlockSelectionScreen(
                             // WEATHER, WEATHER_TOMORROW, PHOTO_LOCATION, HEALTH — 단일 블록, 체크박스 유지
                             SingleBlockItem(
                                 block = block,
-                                enabled = !isGeneratingQuestions,
+                                enabled = !isGeneratingQuestions && !block.isFallback,
                                 onClick = { viewModel.toggleBlock(block.id) }
                             )
                         }
@@ -444,6 +432,7 @@ private fun SingleBlockItem(
             Checkbox(
                 checked = block.isSelected,
                 onCheckedChange = { if (enabled) onClick() },
+                enabled = enabled,
                 colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
             )
         }
@@ -620,51 +609,6 @@ private fun PaymentDetailSelector(
                     onCheckedChange = { onToggle(payment.id) },
                     colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
                 )
-            }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────
-// 야간 배너
-// ─────────────────────────────────────────────────────────────
-
-@Composable
-private fun DateBanner(wc: WriteColorScheme, date: LocalDate, isLateNight: Boolean) {
-    val today = remember { DiaryDateUtil.diaryDate() }
-    val isPastDate = date.isBefore(today)
-    if (!isPastDate && !isLateNight) return
-
-    val formatter = DateTimeFormatter.ofPattern("M월 d일", Locale.KOREAN)
-    val dateText = date.format(formatter)
-    val subtitle = if (isPastDate) "${dateText}의 일기를 작성하고 있어요"
-                   else "자정이 넘었지만 오전 4시까지는 어제 일기로 저장돼요"
-
-    Surface(
-        shape = RoundedCornerShape(CardCornerRadius),
-        color = wc.AccentLight,
-        border = BorderStroke(1.5.dp, wc.Accent),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(wc.Accent),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Nightlight,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "$dateText 일기를 작성하고 있어요", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = wc.Accent)
-                Text(text = subtitle, fontSize = 11.sp, color = wc.Accent.copy(alpha = 0.7f))
             }
         }
     }

@@ -57,7 +57,7 @@ fun DiaryBodyBlocks(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 240.dp)
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(CardCornerRadius))
                             .clickable { onPhotoClick(uri) }
                     )
                 }

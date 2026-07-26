@@ -74,7 +74,6 @@ import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.TextSecondaryDark
-import com.smu.daiary.ui.theme.White
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -94,7 +93,7 @@ private data class MainCalendarColorScheme(
 )
 
 private val MainCalendarColors = MainCalendarColorScheme(
-    backgroundOuter = White,
+    backgroundOuter = Ivory,
     surfacePhone    = Ivory,
     textPrimary     = Ink,
     textMuted       = Stone,

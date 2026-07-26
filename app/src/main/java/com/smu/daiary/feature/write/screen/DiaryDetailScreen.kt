@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
+import com.smu.daiary.ui.theme.Black
 import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Error
@@ -76,6 +77,7 @@ import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -159,9 +161,10 @@ fun DiaryDetailScreen(
         )
     }
 
-    Box(modifier = modifier) {
+    // isDeleting 오버레이와 사진 확대 Dialog가 TopAppBar까지 덮도록 Scaffold의 형제로 겹쳐 쌓는다.
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier,
         containerColor = wc.Bg,
         topBar = {
             TopAppBar(
@@ -208,7 +211,7 @@ fun DiaryDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
         }
@@ -235,7 +238,7 @@ fun DiaryDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.35f)),
+                .background(Black.copy(alpha = 0.35f)),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
@@ -261,7 +264,7 @@ fun DiaryDetailScreen(
                         model = selectedImageUri,
                         contentDescription = null,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(CardCornerRadius),
                         contentScale = ContentScale.Fit,
                         errorIconSize = 32.dp
                     )
@@ -271,12 +274,12 @@ fun DiaryDetailScreen(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            .background(Black.copy(alpha = 0.5f), CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "닫기",
-                            tint = Color.White
+                            contentDescription = stringResource(R.string.close_desc),
+                            tint = White
                         )
                     }
                 }
@@ -304,14 +307,14 @@ private fun DiaryDayContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "아직 일기가 없어요...", fontSize = 15.sp, color = wc.TextMuted)
+            Text(text = stringResource(R.string.empty_diary_placeholder), fontSize = 15.sp, color = wc.TextMuted)
             if (!date.isAfter(LocalDate.now())) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onWrite,
                     colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
                 ) {
-                    Text(text = "생성하기", color = White, fontWeight = FontWeight.Medium)
+                    Text(text = stringResource(R.string.btn_create_diary), color = White, fontWeight = FontWeight.Medium)
                 }
             }
         }
@@ -322,17 +325,27 @@ private fun DiaryDayContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp),
+            .padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty()) {
+        if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty() ||
+            entry.customWeatherText.isNotEmpty() || entry.customEmotionText.isNotEmpty()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = localizedWeatherLabel(entry.weather)) }
-                emotionIcons[entry.emotion]?.let {
-                    DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
+                val weatherIcon = weatherIcons[entry.weather]
+                when {
+                    weatherIcon != null -> DetailMetaChip(icon = weatherIcon, label = localizedWeatherLabel(entry.weather))
+                    entry.customWeatherText.isNotBlank() ->
+                        DetailMetaChip(icon = Icons.Outlined.WbSunny, label = entry.customWeatherText, tint = wc.TextMuted)
+                }
+                val emotionIcon = emotionIcons[entry.emotion]
+                when {
+                    emotionIcon != null ->
+                        DetailMetaChip(icon = emotionIcon, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
+                    entry.customEmotionText.isNotBlank() ->
+                        DetailMetaChip(icon = Icons.Outlined.SentimentNeutral, label = entry.customEmotionText, tint = wc.TextMuted)
                 }
             }
         }
@@ -361,7 +374,7 @@ private fun DiaryDayContent(
                         modifier = Modifier
                             .size(80.dp)
                             .clickable { onImageClick(uri) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(CardCornerRadius),
                         errorIconSize = 32.dp
                     )
                 }
