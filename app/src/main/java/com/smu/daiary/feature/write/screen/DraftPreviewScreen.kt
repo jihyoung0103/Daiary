@@ -273,7 +273,7 @@ fun DraftPreviewScreen(
             if (photoAnalysisDebug.isNotBlank()) {
                 var showAnalysis by remember { mutableStateOf(false) }
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(CardCornerRadius),
                     color = wc.SurfaceBg,
                     border = BorderStroke(0.5.dp, wc.Border)
                 ) {
@@ -332,7 +332,7 @@ fun DraftPreviewScreen(
                                     selectedPhotoUri = photo
                                     showPhotoDialog = true
                                 },
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(CardCornerRadius)
                         )
                     }
                 }

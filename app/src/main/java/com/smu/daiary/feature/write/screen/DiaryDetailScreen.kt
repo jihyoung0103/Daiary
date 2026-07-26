@@ -262,7 +262,7 @@ fun DiaryDetailScreen(
                         model = selectedImageUri,
                         contentDescription = null,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(CardCornerRadius),
                         contentScale = ContentScale.Fit,
                         errorIconSize = 32.dp
                     )
@@ -362,7 +362,7 @@ private fun DiaryDayContent(
                         modifier = Modifier
                             .size(80.dp)
                             .clickable { onImageClick(uri) },
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(CardCornerRadius),
                         errorIconSize = 32.dp
                     )
                 }

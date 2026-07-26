@@ -83,6 +83,7 @@ import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.PillButtonCornerRadius
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.SurfaceDark
@@ -211,7 +212,7 @@ fun DiaryEditScreen(
                             onDone()
                         },
                         enabled = !isSaving,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(PillButtonCornerRadius),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = accent,
                             disabledContainerColor = accent
@@ -358,7 +359,7 @@ private fun BlockEditRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(160.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(CardCornerRadius))
             )
             Spacer(Modifier.height(8.dp))
         }
@@ -471,7 +472,7 @@ private fun DiaryEditScreenPreview() {
                     actions = {
                         Button(
                             onClick = {},
-                            shape = RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(PillButtonCornerRadius),
                             colors = ButtonDefaults.buttonColors(containerColor = accent),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                             modifier = Modifier.padding(end = 12.dp).height(36.dp)

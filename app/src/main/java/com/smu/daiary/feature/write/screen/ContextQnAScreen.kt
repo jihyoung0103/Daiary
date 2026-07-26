@@ -230,7 +230,7 @@ fun ContextQnAScreen(
                         rowOptions.forEach { option ->
                             val isSelected = selectedOption == option
                             Surface(
-                                shape = RoundedCornerShape(20.dp),
+                                shape = RoundedCornerShape(ButtonCornerRadius),
                                 color = if (isSelected) wc.Accent else wc.SurfaceBg,
                                 onClick = {
                                     answers[question.blockId] = option
