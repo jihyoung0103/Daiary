@@ -77,6 +77,7 @@ import com.smu.daiary.ui.theme.ErrorDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -210,7 +211,7 @@ fun DiaryDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.SurfaceBg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
         }
@@ -324,17 +325,27 @@ private fun DiaryDayContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp),
+            .padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty()) {
+        if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty() ||
+            entry.customWeatherText.isNotEmpty() || entry.customEmotionText.isNotEmpty()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                weatherIcons[entry.weather]?.let { DetailMetaChip(icon = it, label = localizedWeatherLabel(entry.weather)) }
-                emotionIcons[entry.emotion]?.let {
-                    DetailMetaChip(icon = it, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
+                val weatherIcon = weatherIcons[entry.weather]
+                when {
+                    weatherIcon != null -> DetailMetaChip(icon = weatherIcon, label = localizedWeatherLabel(entry.weather))
+                    entry.customWeatherText.isNotBlank() ->
+                        DetailMetaChip(icon = Icons.Outlined.WbSunny, label = entry.customWeatherText, tint = wc.TextMuted)
+                }
+                val emotionIcon = emotionIcons[entry.emotion]
+                when {
+                    emotionIcon != null ->
+                        DetailMetaChip(icon = emotionIcon, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
+                    entry.customEmotionText.isNotBlank() ->
+                        DetailMetaChip(icon = Icons.Outlined.SentimentNeutral, label = entry.customEmotionText, tint = wc.TextMuted)
                 }
             }
         }

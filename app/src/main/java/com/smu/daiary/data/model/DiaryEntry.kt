@@ -15,6 +15,10 @@ data class DiaryEntry(
     val blocks: List<DiaryBodyBlock> = emptyList(),
     val emotion: String = "",                  // "기쁨" | "슬픔" | "평온" | "화남" | "설렘"
     val weather: String = "",                  // "맑음" | "흐림" | "비" | "눈" | "바람"
+    /** 질답에서 "기타"로 자유입력한 감정 원문. 고정 감정 5종 밖의 값이라 emotion과 별도로 보관 */
+    val customEmotionText: String = "",
+    /** 질답에서 "기타"로 자유입력한 날씨 원문. 고정 날씨 5종 밖의 값이라 weather와 별도로 보관 */
+    val customWeatherText: String = "",
     val photos: List<String> = emptyList(),    // 첨부 사진 URI 목록
     val date: String = "",                     // "YYYY-MM-DD"
     val createdAt: Long = System.currentTimeMillis()
