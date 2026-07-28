@@ -6,12 +6,12 @@ import com.google.android.gms.location.LocationServices
 import com.smu.daiary.BuildConfig
 import com.smu.daiary.data.model.WeatherData
 import com.smu.daiary.data.model.WeatherSnapshot
+import com.smu.daiary.util.DiaryDateUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
-import java.time.LocalDate
 
 private val API_KEY get() = BuildConfig.OPENWEATHER_API_KEY
 private const val CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
@@ -98,7 +98,9 @@ class WeatherDataSource(private val context: Context) {
         val json = JSONObject(response)
         val list = json.getJSONArray("list")
 
-        val tomorrow = LocalDate.now().plusDays(1).toString() // "YYYY-MM-DD"
+        // 일기 기준일의 다음 날. LocalDate.now()를 쓰면 새벽 0~4시에 어제 일기를
+        // 쓰는 동안 "내일 날씨"가 모레 예보로 조회된다.
+        val tomorrow = DiaryDateUtil.diaryDate().plusDays(1).toString() // "YYYY-MM-DD"
 
         // 내일 날짜 슬롯 중 정오(12:00)에 가장 가까운 것 선택
         var tomorrowSlot: JSONObject? = null

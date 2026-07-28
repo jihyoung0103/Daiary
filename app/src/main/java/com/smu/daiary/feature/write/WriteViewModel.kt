@@ -228,24 +228,28 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
             // 과거 날짜 지정 시 그 날짜, 아니면 오늘(오전 4시 이전이면 전날) 기준
-            val target = targetDate
-            val date = (target ?: DiaryDateUtil.diaryDate()).toString()
+            val diaryDate = targetDate ?: DiaryDateUtil.diaryDate()
+            val date = diaryDate.toString()
+            // targetDate의 null 여부가 아니라 "실제 대상 날짜가 오늘인지"로 판단한다.
+            // 배너로 오늘을 선택해도 targetDate는 non-null이므로, null 검사로는
+            // FAB 경로와 배너 경로의 블록 구성이 달라진다.
+            val isToday = diaryDate == DiaryDateUtil.diaryDate()
             val blocks = mutableListOf<ContentBlock>()
 
 
             // --- 날씨, 캘린더, 사진, 건강 병렬 수집 ---
             // 오늘 날씨는 백그라운드 워커(WeatherCollectionWorker)가 하루 1회(14시경) 수집해 Firestore에 append 해둠.
-            // 여기서는 내일 예보만 API로 조회. 과거 날짜(target != null) 편집 시엔 날씨 API 호출 없음.
+            // 여기서는 내일 예보만 API로 조회. 과거 날짜 편집 시엔 날씨 API 호출 없음.
             val weatherDeferred = async {
                 runCatching {
-                    if (target != null) null else weatherDataSource.fetchTomorrow()
+                    if (isToday) weatherDataSource.fetchTomorrow() else null
                 }
             }
-            // 과거 날짜면 해당 날짜 일정만 조회, 오늘이면 3일치(오늘/내일/모레) 조회
+            // 오늘이면 3일치(오늘/내일/모레) 조회, 과거 날짜면 해당 날짜 일정만 조회
             val calendarDeferred = async {
                 runCatching {
-                    if (target != null) calendarDataSource.fetchEventsForDate(target)
-                    else calendarDataSource.fetchUpcomingEvents()
+                    if (isToday) calendarDataSource.fetchUpcomingEvents()
+                    else calendarDataSource.fetchEventsForDate(diaryDate)
                 }
             }
             val photoDeferred = async { runCatching { photoDataSource.fetchTodayPhotos() } }
@@ -315,7 +319,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         ))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-                        val diaryDate = target ?: DiaryDateUtil.diaryDate()
                         val zone = ZoneId.systemDefault()
 
                         fun toSelectableItem(event: CalendarEvent, id: Int): CalendarSelectableItem {
@@ -337,11 +340,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             )
                         }
 
-                        // 과거 날짜: 전체가 해당 날짜 일정 / 오늘: 날짜별 분리
-                        val todayEvents = if (target != null) events
-                            else events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() == diaryDate }
-                        val futureEvents = if (target != null) emptyList()
-                            else events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() > diaryDate }
+                        // 오늘: 날짜별 분리 / 과거 날짜: 전체가 해당 날짜 일정
+                        val todayEvents = if (isToday)
+                            events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() == diaryDate }
+                            else events
+                        val futureEvents = if (isToday)
+                            events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() > diaryDate }
+                            else emptyList()
 
                         // 오늘 일정 블록
                         if (todayEvents.isNotEmpty()) {
@@ -786,28 +791,20 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun togglePayment(
         id: Int
     ) {
-
         _payments.update { list ->
-
             list.map { payment ->
-
                 if (
                     payment.id == id
                 ) {
-
                     payment.copy(
                         isSelected =
                             !payment.isSelected
                     )
-
                 }
-
                 else {
                     payment
                 }
-
             }
-
         }
 
         syncPaymentBlockSelection()
@@ -828,36 +825,25 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
         _blocks.update { list ->
-
             list.map { block ->
-
                 if (
                     block.type ==
                     BlockType.PAYMENT
                 ) {
-
                     block.copy(
-
                         content =
                             buildPaymentSummary(
                                 _payments.value
                             ),
-
                         isSelected =
                             selected.isNotEmpty()
-
                     )
-
                 }
-
                 else {
                     block
                 }
-
             }
-
         }
-
     }
 
     /** 선택된 결제 항목으로 "N건 · 총 M원\n- 상세" 형태의 요약 문자열 생성 */
