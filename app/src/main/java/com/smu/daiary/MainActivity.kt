@@ -341,6 +341,9 @@ class MainActivity : ComponentActivity() {
                                         error = homeError,
                                         onRetry = { homeViewModel.loadDiaries(userId) },
                                         onStartDiary = {
+                                            // 직전 편집이 저장 없이 끝났으면 플래그가 true로 남아
+                                            // 신규 작성의 "완료"가 미리보기 복귀 대신 저장으로 동작한다
+                                            editFromDetail = false
                                             writeViewModel.setTargetDate(null)
                                             permissionLauncher.launch(requiredPermissions)
                                         },
@@ -350,6 +353,7 @@ class MainActivity : ComponentActivity() {
                                             navController.navigate("diary_detail")
                                         },
                                         onWriteDiary = { dateStr ->
+                                            editFromDetail = false
                                             writeViewModel.setTargetDate(LocalDate.parse(dateStr))
                                             permissionLauncher.launch(requiredPermissions)
                                         },
@@ -593,6 +597,7 @@ class MainActivity : ComponentActivity() {
                                             diaries = diaries,
                                             isDeleting = isDeletingDiary,
                                             onWrite = { writeDate ->
+                                                editFromDetail = false
                                                 writeViewModel.setTargetDate(writeDate)
                                                 permissionLauncher.launch(requiredPermissions)
                                             },

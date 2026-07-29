@@ -11,31 +11,42 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.io.IOException
+import java.net.HttpURLConnection
 import java.net.URL
 
 private val API_KEY get() = BuildConfig.OPENWEATHER_API_KEY
 private const val CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
 private const val FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 
-/** OpenWeatherMap 응답 description을 앱 내부 canonical 이름으로 매핑. */
-private fun mapToCanonical(description: String): String {
-    val d = description.lowercase().trim()
-    return when {
-        d.contains("맑") || d.contains("clear") || d.contains("sunny") -> "맑음"
-        d.contains("비") || d.contains("rain") || d.contains("drizzle") ||
-            d.contains("thunder") || d.contains("뇌우") -> "비"
-        d.contains("눈") || d.contains("snow") || d.contains("sleet") -> "눈"
-        d.contains("바람") || d.contains("wind") -> "바람"
-        d.contains("흐") || d.contains("구름") || d.contains("cloud") -> "흐림"
-        else -> "맑음"
-    }
+/** 모바일 네트워크 기준. 이 값을 넘기면 날씨를 포기하고 나머지 수집을 진행시킨다. */
+private const val CONNECT_TIMEOUT_MS = 5_000
+private const val READ_TIMEOUT_MS = 10_000
+
+/**
+ * OpenWeather condition code를 앱 내부 canonical 이름 5종으로 매핑.
+ *
+ * 분기 순서에 의미가 있다:
+ * - 511(우박)은 5xx지만 성격이 언 비라 눈으로 보낸다. 반드시 비(5xx)보다 위여야 한다.
+ * - 7xx(박무·안개·황사·돌풍)는 5종 어디에도 안 맞아 흐림으로 흡수한다.
+ * - 801(구름 조금, 11~25%)까지는 맑음으로 본다. 체감상 맑은 날이다.
+ *
+ */
+internal fun mapToCanonical(id: Int): String = when (id) {
+    in 200..232      -> "뇌우"
+    511, in 600..622 -> "눈"
+    in 300..321, in 500..531 -> "비"
+    in 700..781      -> "흐림"
+    800, 801         -> "맑음"
+    in 802..804      -> "흐림"
+    else             -> "흐림"
 }
 
 /**
  * 날씨 데이터 수집 소스.
  *
  * 사용 패턴:
- * - 오늘 스냅샷 ([fetchTodaySnapshot]): WeatherCollectionWorker가 하루 2번(9시, 15시) 호출
+ * - 오늘 스냅샷 ([fetchTodaySnapshot]): WeatherCollectionWorker가 하루 1번 호출
  * - 내일 예보 ([fetchTomorrow]): 사용자 일기 작성 시점에 WriteViewModel이 호출
  *
  * 위치는 [FusedLocationProviderClient.lastLocation] 캐시로 얻는다.
@@ -74,17 +85,43 @@ class WeatherDataSource(private val context: Context) {
         return loc.latitude to loc.longitude
     }
 
+    /**
+     * 날씨 API 공통 호출. 두 가지를 반드시 여기서 처리한다.
+     *
+     * 1. **타임아웃** — HttpURLConnection 기본값은 0(무제한)이다. 응답 없는 네트워크에서
+     *    URL.readText()가 영영 매달리면 loadBlocks의 await 사슬이 멈춰 블록 선택 화면
+     *    로딩 스피너가 끝나지 않는다.
+     * 2. **상태 코드** — 200을 확인하지 않으면 OpenWeather의 에러 본문
+     *    ({"cod":401,"message":"Invalid API key"})을 그대로 파싱하다 엉뚱한
+     *    JSONException이 나서, 키 만료나 rate limit이 "날씨 정보 없음"으로 조용히 묻힌다.
+     */
+    private suspend fun fetchJson(url: String): JSONObject = withContext(Dispatchers.IO) {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+        }
+        try {
+            if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                // 원인을 로그에 남긴다. 여기가 비면 키 만료를 추적할 방법이 없다.
+                val detail = conn.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                throw IOException("날씨 API 실패 (${conn.responseCode}) $detail")
+            }
+            JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+        } finally {
+            conn.disconnect()
+        }
+    }
+
     /** 현재 날씨 API 호출 → 스냅샷 반환. */
     private suspend fun fetchCurrent(lat: Double, lon: Double): WeatherSnapshot {
         val url = "$CURRENT_URL?lat=$lat&lon=$lon&appid=$API_KEY&units=metric&lang=kr"
-        val response = withContext(Dispatchers.IO) { URL(url).readText() }
-        val json = JSONObject(response)
+        val json = fetchJson(url)
         val weatherObj = json.getJSONArray("weather").getJSONObject(0)
         val main = json.getJSONObject("main")
 
         return WeatherSnapshot(
             timestamp = System.currentTimeMillis(),
-            description = mapToCanonical(weatherObj.getString("description")),
+            description = mapToCanonical(weatherObj.getInt("id")),
             temperature = main.getDouble("temp"),
             humidity = main.getInt("humidity"),
             city = json.getString("name")
@@ -94,8 +131,7 @@ class WeatherDataSource(private val context: Context) {
     /** 내일 정오 슬롯 예보. WeatherData에 tomorrow* 필드만 채워 반환. */
     private suspend fun fetchTomorrowSlot(lat: Double, lon: Double): WeatherData {
         val url = "$FORECAST_URL?lat=$lat&lon=$lon&appid=$API_KEY&units=metric&lang=kr"
-        val response = withContext(Dispatchers.IO) { URL(url).readText() }
-        val json = JSONObject(response)
+        val json = fetchJson(url)
         val list = json.getJSONArray("list")
 
         // 일기 기준일의 다음 날. LocalDate.now()를 쓰면 새벽 0~4시에 어제 일기를
@@ -117,7 +153,9 @@ class WeatherDataSource(private val context: Context) {
         val main = tomorrowSlot?.getJSONObject("main")
 
         return WeatherData(
-            tomorrowDescription = weatherObj?.getString("description")?.let { mapToCanonical(it) } ?: "",
+            // 슬롯을 못 찾으면 빈 문자열. 여기서 else 분기("흐림")로 흘리면
+            // "예보 없음"이 "흐림 예보"로 둔갑한다. 호출부가 isNotBlank()로 거른다.
+            tomorrowDescription = weatherObj?.optInt("id", -1)?.takeIf { it > 0 }?.let { mapToCanonical(it) } ?: "",
             tomorrowTemperature = main?.getDouble("temp") ?: 0.0,
             tomorrowHumidity = main?.getInt("humidity") ?: 0
         )

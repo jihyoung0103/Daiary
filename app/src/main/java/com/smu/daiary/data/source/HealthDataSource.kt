@@ -10,6 +10,7 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.smu.daiary.data.model.HealthData
 import com.smu.daiary.util.DiaryDateUtil
+import java.time.LocalDate
 import java.time.ZoneId
 
 private const val TAG = "HealthDataSource"
@@ -55,17 +56,17 @@ class HealthDataSource(private val context: Context) {
     }
 
     /**
-     * 일기 기준 날짜(오전 4시 이전이면 전날)의 걸음 수 + 수면 시간을 조회합니다.
+     * [date]의 걸음 수 + 수면 시간을 조회합니다. 생략하면 일기 기준일(오전 4시 이전이면 전날).
+     * 과거 날짜 일기를 쓸 때 오늘 걸음 수가 딸려오지 않도록 날짜를 인자로 받는다.
      * 권한 없거나 데이터 없을 시 0으로 채운 HealthData 반환.
      */
-    suspend fun fetchTodayHealth(): HealthData {
+    suspend fun fetchHealth(date: LocalDate = DiaryDateUtil.diaryDate()): HealthData {
         val client = client() ?: return HealthData()
         if (!hasAllPermissions()) {
             Log.w(TAG, "⚠️ Health Connect 권한 미허용")
             return HealthData()
         }
 
-        val date = DiaryDateUtil.diaryDate()
         val zone = ZoneId.systemDefault()
         val dayStart = date.atStartOfDay(zone).toInstant()
         val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant()

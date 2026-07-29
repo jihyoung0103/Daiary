@@ -14,17 +14,20 @@ import com.smu.daiary.util.DiaryDateUtil
 
 class PhotoDataSource(private val context: Context) {
 
-    // 일기 기준 날짜의 사진만 조회. 오전 4시 이전이면 전날 기준으로 조회한다.
-    private fun todayRange(): Pair<Long, Long> {
-        val today = DiaryDateUtil.diaryDate()
+    // 대상 날짜의 사진만 조회. 기본값은 일기 기준일(오전 4시 이전이면 전날).
+    private fun dayRange(date: LocalDate): Pair<Long, Long> {
         val zone = ZoneId.systemDefault()
-        val start = today.atStartOfDay(zone).toInstant().toEpochMilli()
-        val end = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
         return start to end
     }
 
-    suspend fun fetchTodayPhotos(): List<PhotoMeta> = withContext(Dispatchers.IO) {
-        val (start, end) = todayRange()
+    /**
+     * [date]에 찍힌 사진 목록. 과거 날짜 일기를 쓸 때 오늘 사진이 딸려오지 않도록
+     * 날짜를 인자로 받는다. 생략하면 오늘(일기 기준일).
+     */
+    suspend fun fetchPhotos(date: LocalDate = DiaryDateUtil.diaryDate()): List<PhotoMeta> = withContext(Dispatchers.IO) {
+        val (start, end) = dayRange(date)
         val photos = mutableListOf<PhotoMeta>()
 
         val uri = MediaStore.Images.Media.EXTERNAL_CONTENT_URI
@@ -56,7 +59,7 @@ class PhotoDataSource(private val context: Context) {
 
                 val exif = readExif(contentUri.toString())
 
-                // 오늘 여부는 위 MediaStore 쿼리로 이미 필터링됨.
+                // 날짜 필터는 위 MediaStore 쿼리에서 이미 적용됨.
                 // 시간 데이터 활용은 EXIF 촬영 시각을 우선하고, 없으면 MediaStore DATE_TAKEN으로 폴백.
                 val takenAt = exif.takenAt ?: mediaStoreTakenAt
 

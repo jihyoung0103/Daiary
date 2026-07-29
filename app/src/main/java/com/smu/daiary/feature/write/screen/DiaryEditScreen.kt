@@ -32,7 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -41,8 +40,7 @@ import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
 import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
-import androidx.compose.material.icons.outlined.Air
-import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.WbSunny
@@ -90,6 +88,7 @@ import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.PillButtonCornerRadius
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.emotionColor
+import com.smu.daiary.ui.theme.weatherColor
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
@@ -101,8 +100,8 @@ private val weatherPickerOptions: Map<String, ImageVector> = mapOf(
     "맑음" to Icons.Outlined.WbSunny,
     "흐림" to Icons.Outlined.Cloud,
     "비"   to Icons.Outlined.Umbrella,
-    "눈"   to Icons.Outlined.AcUnit,
-    "바람" to Icons.Outlined.Air
+    "뇌우" to Icons.Outlined.Thunderstorm,
+    "눈"   to Icons.Outlined.AcUnit
 )
 
 private val emotionPickerOptions: Map<String, ImageVector>
@@ -122,7 +121,7 @@ internal fun localizedWeatherLabel(key: String) = when (key) {
     "흐림" -> stringResource(R.string.weather_cloudy)
     "비"   -> stringResource(R.string.weather_rain)
     "눈"   -> stringResource(R.string.weather_snow)
-    "바람" -> stringResource(R.string.weather_wind)
+    "뇌우" -> stringResource(R.string.weather_thunderstorm)
     else  -> key
 }
 
@@ -260,7 +259,7 @@ fun DiaryEditScreen(
                 options = weatherPickerOptions,
                 selected = selectedWeather,
                 labelOf = { localizedWeatherLabel(it) },
-                tintOf = { accent },
+                tintOf = { weatherColor(it, isDark) },
                 onSelect = { viewModel.updateWeatherSelection(it) },
                 wc = wc,
                 modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal)

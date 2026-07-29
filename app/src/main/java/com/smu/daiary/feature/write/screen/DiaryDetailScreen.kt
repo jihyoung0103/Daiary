@@ -29,8 +29,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
-import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
 import androidx.compose.material.icons.outlined.SentimentNeutral
@@ -82,6 +82,7 @@ import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
 import com.smu.daiary.ui.theme.emotionColor
+import com.smu.daiary.ui.theme.weatherColor
 import java.time.LocalDate
 import androidx.compose.ui.window.Dialog
 
@@ -89,8 +90,8 @@ private val weatherIcons: Map<String, ImageVector> = mapOf(
     "맑음" to Icons.Outlined.WbSunny,
     "흐림" to Icons.Outlined.Cloud,
     "비"   to Icons.Outlined.Umbrella,
-    "눈"   to Icons.Outlined.AcUnit,
-    "바람" to Icons.Outlined.Air
+    "뇌우" to Icons.Outlined.Thunderstorm,
+    "눈"   to Icons.Outlined.AcUnit
 )
 
 private val emotionIcons: Map<String, ImageVector> = mapOf(
@@ -336,7 +337,11 @@ private fun DiaryDayContent(
             ) {
                 val weatherIcon = weatherIcons[entry.weather]
                 when {
-                    weatherIcon != null -> DetailMetaChip(icon = weatherIcon, label = localizedWeatherLabel(entry.weather))
+                    weatherIcon != null -> DetailMetaChip(
+                        icon = weatherIcon,
+                        label = localizedWeatherLabel(entry.weather),
+                        tint = weatherColor(entry.weather, isDark)
+                    )
                     entry.customWeatherText.isNotBlank() ->
                         DetailMetaChip(icon = Icons.Outlined.WbSunny, label = entry.customWeatherText, tint = wc.TextMuted)
                 }

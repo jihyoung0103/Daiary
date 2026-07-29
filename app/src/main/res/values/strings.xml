@@ -42,9 +42,6 @@
     <string name="attached_photos">첨부 사진</string>
     <string name="photo_analysis_card_title">사진에서 이런 걸 확인했어요</string>
     <string name="photo_load_error">사진을 불러올 수 없습니다</string>
-    <string name="photo_analysis_debug_title">사진 분석 내용 (개발용)</string>
-    <string name="btn_hide">숨기기</string>
-    <string name="btn_show">보기</string>
 
     <!-- DiaryEditScreen -->
     <string name="screen_diary_edit">일기 편집</string>
@@ -160,7 +157,7 @@
     <string name="weather_cloudy">흐림</string>
     <string name="weather_rain">비</string>
     <string name="weather_snow">눈</string>
-    <string name="weather_wind">바람</string>
+    <string name="weather_thunderstorm">뇌우</string>
 
     <!-- 감정 라벨 -->
     <string name="emotion_joy">기쁨</string>
@@ -255,6 +252,8 @@
     <string name="dialog_exit_message">나가시겠습니까?</string>
     <string name="dialog_exit_confirm">나가기</string>
     <string name="dialog_exit_cancel">계속 작성</string>
+    <!-- 미리보기 이탈 — 저장 전이라 나가면 생성된 초안이 폐기된다 -->
+    <string name="dialog_discard_draft_message">나가면 생성된 초안이 삭제됩니다. 나가시겠습니까?</string>
 
     <!-- Task 6: 저장 완료 스낵바 -->
     <string name="save_done">일기가 저장되었습니다</string>

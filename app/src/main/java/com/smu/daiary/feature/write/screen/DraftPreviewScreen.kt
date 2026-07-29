@@ -33,8 +33,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.AcUnit
-import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.SentimentVeryDissatisfied
 import androidx.compose.material.icons.outlined.SentimentVerySatisfied
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -89,21 +90,24 @@ import com.smu.daiary.R
 import com.smu.daiary.ui.theme.ButtonCornerRadius
 import com.smu.daiary.ui.theme.ButtonHeight
 import com.smu.daiary.ui.theme.CardCornerRadius
-import com.smu.daiary.ui.theme.CardPaddingVertical
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
 import com.smu.daiary.ui.theme.ScreenPaddingVertical
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
 import com.smu.daiary.ui.theme.emotionColor
+import com.smu.daiary.ui.theme.weatherColor
 import java.time.LocalDate
 
 private val weatherIconMap: Map<String, ImageVector> = mapOf(
     "맑음" to Icons.Outlined.WbSunny,
     "흐림" to Icons.Outlined.Cloud,
     "비"   to Icons.Outlined.Umbrella,
-    "눈"   to Icons.Outlined.AcUnit,
-    "바람" to Icons.Outlined.Air
+    "뇌우" to Icons.Outlined.Thunderstorm,
+    "눈"   to Icons.Outlined.AcUnit
 )
 
 private val emotionIconMap: Map<String, ImageVector> = mapOf(
@@ -145,18 +149,41 @@ fun DraftPreviewScreen(
     val customWeatherText by viewModel.customWeatherText.collectAsStateWithLifecycle()
     val customEmotionText by viewModel.customEmotionText.collectAsStateWithLifecycle()
     val photos by viewModel.photos.collectAsStateWithLifecycle()
-    val photoAnalysisDebug by viewModel.photoAnalysisDebug.collectAsStateWithLifecycle()
     val selectedPhotos = photos.filter { it.isSelected }
     val displayText = draft?.editedContent ?: draft?.aiContent ?: ""
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
+    var showExitDialog by remember { mutableStateOf(false) }
 
-
+    // 여기서 나가면 onBack이 clearDraftOnly로 초안을 버린다(AI 호출 결과가 통째로 날아감).
+    // 편집 화면과 같은 규칙으로 한 번 묻는다.
     BackHandler {
         if (selectedImageUri != null) {
             selectedImageUri = null
         } else {
-            onBack()
+            showExitDialog = true
         }
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text(stringResource(R.string.dialog_exit_title), color = if (isDark) TextPrimaryDark else Ink) },
+            text  = { Text(stringResource(R.string.dialog_discard_draft_message), color = if (isDark) TextPrimaryDark else Ink) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showExitDialog = false
+                    onBack()
+                }) {
+                    Text(stringResource(R.string.dialog_exit_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text(stringResource(R.string.dialog_exit_cancel))
+                }
+            },
+            containerColor = if (isDark) SurfaceDark else White
+        )
     }
 
     Scaffold(
@@ -173,7 +200,7 @@ fun DraftPreviewScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { showExitDialog = true }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.back),
@@ -255,7 +282,7 @@ fun DraftPreviewScreen(
                     placeholder = stringResource(R.string.label_weather),
                     placeholderIcon = Icons.Outlined.WbSunny,
                     labelOf = { localizedWeatherLabel(it) },
-                    tintOf = { wc.Accent },
+                    tintOf = { weatherColor(it, isDark) },
                     onSelect = { viewModel.updateWeatherSelection(it) },
                     customText = customWeatherText
                 )
@@ -276,47 +303,6 @@ fun DraftPreviewScreen(
                 fallbackText = displayText,
                 onPhotoClick = { selectedPhotoUri = it; showPhotoDialog = true }
             )
-
-            // [개발용] 일기 생성에 사용된 사진별 분석 내용 확인 (접이식)
-            if (photoAnalysisDebug.isNotBlank()) {
-                var showAnalysis by remember { mutableStateOf(false) }
-                Surface(
-                    shape = RoundedCornerShape(CardCornerRadius),
-                    color = wc.SurfaceBg,
-                    border = BorderStroke(0.5.dp, wc.Border)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(CardPaddingVertical)) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { showAnalysis = !showAnalysis },
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.photo_analysis_debug_title),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = wc.TextMuted
-                            )
-                            Text(
-                                text = stringResource(if (showAnalysis) R.string.btn_hide else R.string.btn_show),
-                                fontSize = 13.sp,
-                                color = wc.Accent
-                            )
-                        }
-                        if (showAnalysis) {
-                            Text(
-                                text = photoAnalysisDebug,
-                                modifier = Modifier.padding(top = 8.dp),
-                                fontSize = 13.sp,
-                                lineHeight = 20.sp,
-                                color = wc.TextPrimary
-                            )
-                        }
-                    }
-                }
-            }
 
             val photos = draft?.photos.orEmpty()
             if (photos.isNotEmpty()) {
