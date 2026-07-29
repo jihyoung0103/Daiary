@@ -255,6 +255,9 @@
     <!-- Task 6: Save snackbar -->
     <string name="save_done">Diary saved successfully</string>
 
+    <string name="diary_exists_message">A diary already exists for this date</string>
+    <string name="btn_rewrite">Rewrite</string>
+
     <!-- Loading/Error states -->
     <string name="error_load_failed">Failed to load data</string>
     <string name="btn_retry">Retry</string>

@@ -164,7 +164,6 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(horizontal = 0.dp)
             ) {
-                StatusBarPill()
                 TopBarSection(yearMonth = visibleMonth)
                 Column(
                     modifier = Modifier
@@ -293,27 +292,6 @@ fun HomeScreen(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun StatusBarPill() {
-    val isDark = LocalDarkTheme.current
-    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .padding(top = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .width(120.dp)
-                .height(5.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(mc.textPrimary.copy(alpha = 0.15f))
-        )
     }
 }
 

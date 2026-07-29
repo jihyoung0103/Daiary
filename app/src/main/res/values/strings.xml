@@ -258,6 +258,10 @@
     <!-- Task 6: 저장 완료 스낵바 -->
     <string name="save_done">일기가 저장되었습니다</string>
 
+    <!-- 이미 일기가 있는 날짜에 새로 쓰려 할 때. 날짜 무관하게 쓰이므로 "오늘"이라고 하지 않는다 -->
+    <string name="diary_exists_message">이미 작성한 일기가 있어요</string>
+    <string name="btn_rewrite">다시 쓰기</string>
+
     <!-- 로딩/에러 상태 -->
     <string name="error_load_failed">데이터를 불러오지 못했어요</string>
     <string name="btn_retry">다시 시도</string>
