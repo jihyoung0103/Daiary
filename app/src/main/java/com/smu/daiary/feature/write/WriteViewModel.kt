@@ -304,14 +304,26 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val photoDeferred = async { runCatching { photoDataSource.fetchPhotos(diaryDate) } }
             val healthDeferred = async { runCatching { healthDataSource.fetchHealth(diaryDate) } }
 
-            // 날씨 오늘 — Firestore에 백그라운드 워커가 쌓아둔 snapshots를 읽어 블록 구성
+            // 날씨 오늘 — 워커가 쌓아둔 snapshots 우선, 비어 있으면 즉석 수집으로 보완
             val existingWeather = dailyDataRepository.getDailyData(userId, date).getOrNull()?.weather
             val snapshots = existingWeather?.snapshots ?: emptyList()
-            if (snapshots.isNotEmpty()) {
-                val latest = snapshots.last()
-                Log.d(TAG, "🌤️ 오늘 날씨 스냅샷 ${snapshots.size}개 로드 | 최신=${latest.description} ${latest.temperature}°C")
+
+            // 워커는 하루 1회(14시)라 오전에 쓰면 스냅샷이 비어 있다. 그때는 기다리지 말고
+            // 지금 한 번 직접 받아온다. 받아온 값은 Firestore에 쌓아, 같은 날 다시 들어와도
+            // API를 또 부르지 않게 한다. 과거 날짜는 지금 날씨가 그날 날씨가 아니므로 제외.
+            // (fetchJson에 타임아웃이 있어 최악 15초 안에 실패로 빠진다)
+            val onDemand = if (snapshots.isEmpty() && isToday) {
+                runCatching { weatherDataSource.fetchTodaySnapshot() }
+                    .onFailure { Log.w(TAG, "⚠️ 즉석 날씨 수집 실패 — 사용자가 칩에서 직접 고르게 둔다", it) }
+                    .getOrNull()
+                    ?.also { dailyDataRepository.appendWeatherSnapshot(userId, date, it) }
+            } else null
+
+            val latest = snapshots.lastOrNull() ?: onDemand
+            if (latest != null) {
+                Log.d(TAG, "🌤️ 오늘 날씨: ${latest.description} ${latest.temperature}°C (${if (onDemand != null) "즉석 수집" else "스냅샷 ${snapshots.size}개"})")
                 // 수집된 오늘 날씨를 일기 날씨로 쓴다 (canonical 값이 선택지와 동일).
-                // 스냅샷이 없으면 비워두고, 사용자가 날짜 옆 칩에서 직접 고른다.
+                // 수집도 실패하면 비워두고, 사용자가 날짜 옆 칩에서 직접 고른다.
                 _selectedWeather.value = latest.description
                 blocks.add(ContentBlock(
                     id = "weather", type = BlockType.WEATHER,
@@ -325,7 +337,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     isSelected = true
                 ))
             } else {
-                Log.w(TAG, "⚠️ 오늘 날씨 스냅샷 없음 (백그라운드 수집 아직 미실행)")
+                Log.w(TAG, "⚠️ 날씨 없음 (과거 날짜이거나, 스냅샷도 즉석 수집도 실패)")
                 // 캘린더 빈 상태(block_calendar_empty)와 동일한 컨벤션: 블록은 보여주되 선택 자체를 막아
                 // 초안 생성 시 "날씨는 날씨 정보를 가져올 수 없습니다이었다" 같은 어색한 문장이 포함될 수 없도록 함.
                 blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable), isSelected = false, isFallback = true))
@@ -1152,9 +1164,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // 사진(구체적 장면)을 앞에 두고 나머지 데이터가 뒤따르게 한다.
             val sources = photoSources + otherSources
 
-            Log.d(TAG, "===== DIARY SOURCES (${sources.size}) =====")
-            sources.forEach { Log.d(TAG, "- ${it.sourceId} [${it.type.label}] ${it.content}") }
-            Log.d(TAG, "======================================")
+            // 소스 구성만 남기고 content는 찍지 않는다. content에는 결제 가맹점·금액,
+            // 일정 제목, 사진 분석 결과가 그대로 들어있고 릴리스 빌드도 minify가 꺼져 있어
+            // Log.d가 전부 살아서 실행된다.
+            Log.d(TAG, "📝 소스 ${sources.size}개: ${sources.joinToString { "${it.sourceId}[${it.type.label}]" }}")
 
             val mbti = getApplication<Application>()
                 .getSharedPreferences(
@@ -1312,12 +1325,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // 성공한 사진만 저장하고, 실패한 사진은 로그만 남기고 건너뛴다.
             // 원본 URI를 키로 남겨야 본문 블록의 사진도 같은 URL로 치환할 수 있다.
             // (인덱스로 짝지으면 업로드 실패 시 어긋나 엉뚱한 사진이 블록에 붙는다)
-            val uploadedUrlByUri = _photos.value
-                .filter { it.isSelected }
-                .mapNotNull { photo ->
-                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, photo.uri) }
-                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): ${photo.uri}", it) }
-                        .getOrNull()?.let { photo.uri to it }
+            //
+            // 대상은 _photos(수집 화면의 선택 상태)가 아니라 **지금 저장하는 초안**이다.
+            // _photos를 기준으로 삼으면 (1) 기존 일기 편집 시 블록의 https URI가 매핑에서
+            // 빠져 사진이 통째로 떨어지고 (2) 다른 날짜를 편집·저장할 때 이전 날짜 사진으로
+            // 덮어써진다. 이미 https인 URI는 uploadDiaryPhoto가 재업로드 없이 그대로 돌려준다.
+            val uploadedUrlByUri = d.photoUrisToSave()
+                .mapNotNull { uri ->
+                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri) }
+                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): $uri", it) }
+                        .getOrNull()?.let { uri to it }
                 }
                 .toMap()
 

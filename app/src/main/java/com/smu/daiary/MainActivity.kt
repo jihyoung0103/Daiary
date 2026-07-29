@@ -512,6 +512,12 @@ class MainActivity : ComponentActivity() {
                                             )
                                         },
 
+                                        onSaveFailed = {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(saveFailedMessage)
+                                            }
+                                        },
+
                                         onBack = {
                                             writeViewModel.clearDraftOnly()
 

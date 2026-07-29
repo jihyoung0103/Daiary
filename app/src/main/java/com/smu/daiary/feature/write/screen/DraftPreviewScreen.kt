@@ -134,6 +134,8 @@ fun DraftPreviewScreen(
     userId: String,
     onEdit: () -> Unit,
     onSaved: () -> Unit,
+    /** 저장 실패 알림. 편집 화면(diary_edit)과 같은 스낵바를 쓰도록 호출부에 위임한다 */
+    onSaveFailed: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -221,7 +223,7 @@ fun DraftPreviewScreen(
                         TextButton(
                             onClick = {
                                 viewModel.saveDraft(userId) { success ->
-                                    if (success) onSaved()
+                                    if (success) onSaved() else onSaveFailed()
                                 }
                             }
                         ) {
