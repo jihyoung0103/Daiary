@@ -69,6 +69,7 @@ import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.ui.theme.Silver
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
@@ -163,7 +164,6 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(horizontal = 0.dp)
             ) {
-                StatusBarPill()
                 TopBarSection(yearMonth = visibleMonth)
                 Column(
                     modifier = Modifier
@@ -201,8 +201,15 @@ fun HomeScreen(
                             BannerSkeleton()
                             BannerSkeleton()
                         } else {
-                            val today = LocalDate.now()
+                            // FAB(+ 버튼)와 같은 기준을 쓴다. LocalDate.now()를 쓰면
+                            // 오전 4시 이전에 두 진입점이 서로 다른 날짜를 가리킨다.
+                            val today = DiaryDateUtil.diaryDate()
                             val diaryBannerDate = selectedDate ?: today
+                            val weekDays = stringArrayResource(R.array.week_days_mon_first)
+                            // 제목에 붙일 꼬리표. 달력이 가리키는 실제 날짜(LocalDate.now())를
+                            // 기준으로 계산해야 사용자가 보는 달력과 어긋나지 않는다.
+                            val dateSuffix = if (diaryBannerDate == LocalDate.now().minusDays(1)) "어제"
+                            else weekDays[diaryBannerDate.dayOfWeek.value - 1]
                             val existingDiary = diaries.firstOrNull { it.date == diaryBannerDate.toString() }
                             val diaryBannerState = when {
                                 existingDiary != null -> DiaryBannerState.HAS_DIARY
@@ -210,8 +217,11 @@ fun HomeScreen(
                                 else -> DiaryBannerState.WRITABLE
                             }
                             DiaryBanner(
-                                title = if (diaryBannerDate == today) "오늘의 일기"
-                                else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 일기",
+                                // 새벽 0~4시엔 달력이 가리키는 날(29일)과 일기 기준일(28일)이
+                                // 달라 "오늘의 일기"가 어느 날인지 모호해진다. 이 구간에서는
+                                // 날짜와 꼬리표를 함께 보여 어느 날 일기인지 드러낸다.
+                                title = if (diaryBannerDate == today && !DiaryDateUtil.isLateNight()) "오늘의 일기"
+                                else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 ($dateSuffix) 일기",
                                 subLabel = when (diaryBannerState) {
                                     DiaryBannerState.HAS_DIARY ->
                                         existingDiary?.content?.replace("\n", " ")?.trim()
@@ -282,27 +292,6 @@ fun HomeScreen(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun StatusBarPill() {
-    val isDark = LocalDarkTheme.current
-    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .padding(top = 12.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .width(120.dp)
-                .height(5.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(mc.textPrimary.copy(alpha = 0.15f))
-        )
     }
 }
 

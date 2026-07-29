@@ -10,6 +10,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,7 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DateRange
@@ -43,6 +43,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.Button
@@ -546,34 +547,80 @@ private fun PhotoDetailSelector(
                 )
             }
         } else {
-            photos.forEach { photo ->
-                SubItemBlock(
-                    isSelected = photo.isSelected,
-                    onClick = { onToggle(photo.uri) }
+            // 2열 격자. 이 Selector는 LazyColumn의 item 안에서 호출되므로
+            // LazyVerticalGrid를 중첩할 수 없다(높이 무한 제약). chunked로 직접 행을 만든다.
+            photos.chunked(2).forEach { rowPhotos ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    PhotoThumbnail(
-                        model = photo.uri,
-                        contentDescription = "사진",
-                        modifier = Modifier.size(56.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    Spacer(Modifier.weight(1f))
-                    Checkbox(
-                        checked = photo.isSelected,
-                        onCheckedChange = { onToggle(photo.uri) },
-                        colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
-                    )
-                    IconButton(
-                        onClick = { onRemove(photo.uri) },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = "사진 삭제",
-                            tint = wc.TextMuted,
-                            modifier = Modifier.size(16.dp)
+                    rowPhotos.forEach { photo ->
+                        PhotoGridCell(
+                            photo = photo,
+                            onToggle = { onToggle(photo.uri) },
+                            onRemove = { onRemove(photo.uri) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
+                    // 홀수 장일 때 마지막 칸이 가로로 늘어나지 않도록 빈 칸을 채운다
+                    if (rowPhotos.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 사진 격자 한 칸. 정사각 썸네일 아래에 선택 체크박스와 삭제 버튼을 둔다.
+ * 칸 전체가 선택 토글이라 이미지를 눌러도 켜고 끌 수 있다.
+ */
+@Composable
+private fun PhotoGridCell(
+    photo: PhotoSelectableItem,
+    onToggle: () -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (photo.isSelected) wc.AccentLight else wc.SurfaceBg,
+        border = if (photo.isSelected) BorderStroke(1.dp, wc.Accent.copy(alpha = 0.5f))
+        else BorderStroke(0.5.dp, wc.Border),
+        modifier = modifier.clickable(onClick = onToggle)
+    ) {
+        Column(modifier = Modifier.padding(6.dp)) {
+            PhotoThumbnail(
+                model = photo.uri,
+                contentDescription = "사진",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = photo.isSelected,
+                    onCheckedChange = { onToggle() },
+                    colors = CheckboxDefaults.colors(checkedColor = wc.Accent, uncheckedColor = wc.Border)
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "사진 삭제",
+                        tint = wc.TextMuted,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }
@@ -639,8 +686,8 @@ private fun weatherIconFor(content: String): ImageVector {
         "맑음" to Icons.Outlined.WbSunny,
         "흐림" to Icons.Outlined.Cloud,
         "비" to Icons.Outlined.Umbrella,
-        "눈" to Icons.Outlined.AcUnit,
-        "바람" to Icons.Outlined.Air
+        "뇌우" to Icons.Outlined.Thunderstorm,
+        "눈" to Icons.Outlined.AcUnit
     )
     return weatherIconMap.entries.firstOrNull { content.startsWith(it.key) }?.value
         ?: Icons.Outlined.WbSunny

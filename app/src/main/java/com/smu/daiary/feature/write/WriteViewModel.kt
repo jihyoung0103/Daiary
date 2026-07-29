@@ -51,17 +51,26 @@ private const val TAG = "WriteViewModel"
 private val EMOTION_OPTIONS = listOf("기쁨", "설렘", "평온", "슬픔", "화남", "기타")
 
 /** 날씨 선택지. weatherIconMap(DiaryEditScreen/DraftPreviewScreen)과 동일한 canonical 값 */
-private val WEATHER_OPTIONS = listOf("맑음", "흐림", "비", "눈", "바람")
+private val WEATHER_OPTIONS = listOf("맑음", "흐림", "비", "뇌우", "눈")
 
 /**
- * 일기 작성 화면 전체의 상태와 비즈니스 로직을 담당하는 ViewModel.
+ * 일기 작성 흐름(블록 선택 → 질답 → 초안 → 편집 → 저장) 전체의 상태와 로직을 담당하는 ViewModel.
+ *
+ * 화면 이동 순서와 담당 함수:
+ * ```
+ * BlockSelection ──prepareGeneration()──▶ ContextQnA ──submitAnswers()──▶ DraftPreview ──▶ DiaryEdit
+ *       ▲                                                                                     │
+ *       └────────────────────────── loadBlocks() ────────────────────────── saveDraft() ──────┘
+ * ```
  *
  * 주요 책임:
- * 1. 오늘 데이터 수집 — 날씨·캘린더·사진·결제를 병렬로 수집해 ContentBlock 목록 구성
- * 2. 블록/사진/결제 선택 상태 관리 — 사용자가 AI에 넘길 데이터를 취사선택
- * 3. AI 초안 생성 — 선택된 블록 + MBTI + 사진 분석 결과 + 최근 문체 샘플을 Claude API에 전달
- * 4. 초안 편집 & Firestore 저장 — 사용자가 수정한 내용을 DiaryEntry로 변환해 저장
- * 5. 기존 일기 편집 지원 — 홈에서 넘어온 DiaryEntry를 draft로 복원
+ * 1. **데이터 수집** — 날씨·일정·사진·건강을 병렬 수집하고 결제는 저장된 걸 읽어 ContentBlock 목록 구성
+ * 2. **선택 상태 관리** — 블록/사진/일정/결제를 개별 토글. 자식 선택이 부모 블록 상태와 동기화된다
+ * 3. **AI 초안 생성** — 사진은 장별 분석 후 소스 1:1로 전개, 블록+MBTI+문체 샘플+질답을 Claude에 전달
+ * 4. **초안 편집 & 저장** — 블록 단위 수정/이동/삭제 후 DiaryEntry로 변환해 Firestore에 저장
+ * 5. **기존 일기 편집** — 홈에서 넘어온 DiaryEntry를 draft로 복원
+ *
+ * 날짜 기준은 [DiaryDateUtil]을 따른다 — 오전 4시 이전이면 전날 일기로 취급한다.
  */
 class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -89,14 +98,30 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // Repositories & DataSources
     // ─────────────────────────────────────────────────────────────
 
+    /** 일기 문서 CRUD (users/{uid}/diaries) */
     private val diaryRepository = DiaryRepository()
+
+    /** 날짜별 수집 데이터 — 날씨·사진·건강·결제 (users/{uid}/dailyData/{date}) */
     private val dailyDataRepository = DailyDataRepository()
+
+    /** Claude API — 질문 생성 / 사진 분석 / 본문 생성 */
     private val aiRepository = com.smu.daiary.data.repository.AiRepository()
+
+    /** 내일 예보 조회. 오늘 날씨는 백그라운드 워커가 쌓아둔 걸 Firestore에서 읽는다 */
     private val weatherDataSource = WeatherDataSource(context)
+
+    /** MediaStore에서 대상 날짜 사진 목록 + EXIF 메타데이터 조회 */
     private val photoDataSource = PhotoDataSource(context)
+
+    /** 저장 시 선택된 사진을 Firebase Storage에 업로드 */
     private val photoStorageDataSource = com.smu.daiary.data.source.PhotoStorageDataSource(context)
+
+    /** 기기 캘린더 일정 조회 */
     private val calendarDataSource = CalendarDataSource(context)
+
+    /** Health Connect 걸음 수·수면 조회 */
     private val healthDataSource = com.smu.daiary.data.source.HealthDataSource(context)
+
     // ─────────────────────────────────────────────────────────────
     // UI State — 블록 / 사진 / 결제
     // ─────────────────────────────────────────────────────────────
@@ -177,10 +202,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _generateError = MutableStateFlow<String?>(null)
     val generateError: StateFlow<String?> = _generateError.asStateFlow()
 
-    /** [개발용] 일기 생성에 사용된 사진별 분석 결과(photoSummary). UI에서 확인용 */
-    private val _photoAnalysisDebug = MutableStateFlow("")
-    val photoAnalysisDebug: StateFlow<String> = _photoAnalysisDebug.asStateFlow()
-
     // ─────────────────────────────────────────────────────────────
     // 이벤트
     // ─────────────────────────────────────────────────────────────
@@ -199,21 +220,47 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 과거 날짜 일기 작성 시 대상 날짜. null이면 오늘(DiaryDateUtil.diaryDate()) 기준 */
     private var targetDate: LocalDate? = null
 
+    /**
+     * 지금 작성 중인 일기의 날짜. [targetDate]가 없으면 오늘(4시 규칙 적용) 기준.
+     *
+     * 화면에 날짜를 띄우라고 만들어 뒀지만 **현재 이 StateFlow를 구독하는 화면이 없다.**
+     * 작성 화면에 날짜 표시를 붙일 때 쓰거나, 안 쓸 거면 함께 지운다.
+     */
     private val _writingDate = MutableStateFlow<LocalDate>(DiaryDateUtil.diaryDate())
     val writingDate: StateFlow<LocalDate> = _writingDate.asStateFlow()
 
+    /**
+     * 작성 대상 날짜를 지정한다. 화면 진입 직전에 호출해야 [loadBlocks]가 올바른 날짜로 수집한다.
+     *
+     * @param date 캘린더에서 고른 날짜. **null이면 오늘 기준**(FAB 진입 경로).
+     *             오늘을 명시적으로 넘겨도 동작은 같다 — [loadBlocks]가 null 여부가 아니라
+     *             실제 날짜가 오늘인지로 판단하기 때문이다.
+     */
     fun setTargetDate(date: LocalDate?) {
         targetDate = date
         _writingDate.value = date ?: DiaryDateUtil.diaryDate()
+        // 신규 작성 진입점은 여기 하나뿐이므로, 직전 편집 세션이 저장 없이 끝나 남아 있던
+        // 편집 대상 ID를 여기서 끊는다. 남겨두면 saveDraft가 그 문서를 updateDiary로
+        // 덮어써서 엉뚱한 날짜의 일기가 통째로 사라진다. (resetDraft는 저장 성공 시에만 돈다)
+        _existingEntryId.value = null
     }
 
     /** AI 프롬프트에 문체 참고용으로 넘길 최근 일기 샘플 (최대 2개) */
     private var recentDiarySamples: String = ""
 
+    // ─────────────────────────────────────────────────────────────
+    // 데이터 수집 — 대상 날짜의 블록 목록 구성
+    // ─────────────────────────────────────────────────────────────
+
     /**
-     * 실제 DataSource로부터 오늘 데이터를 수집하고
-     * DailyDataRepository에 저장한 뒤 블록 목록을 구성합니다.
-     * 각 항목은 병렬로 수집되어 실패해도 다른 항목에 영향을 주지 않습니다.
+     * 대상 날짜의 데이터를 수집해 [blocks]를 채우고 DailyDataRepository에 저장한다.
+     *
+     * 날씨·일정·사진·건강을 병렬로 모으고, 한 항목이 실패해도 나머지는 그대로 진행한다
+     * (권한 거부가 흔해서 부분 수집을 정상 경로로 취급한다).
+     * 결제는 NotificationListenerService가 미리 저장해 둔 것을 읽기만 한다.
+     *
+     * 수집 범위는 대상 날짜가 **오늘인지**에 따라 갈린다 — 오늘이면 내일 예보와
+     * 3일치 일정까지 가져오고, 과거 날짜면 그 날 것만 본다.
      */
     fun loadBlocks(userId: String) {
         viewModelScope.launch {
@@ -228,37 +275,55 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
 
             // 과거 날짜 지정 시 그 날짜, 아니면 오늘(오전 4시 이전이면 전날) 기준
-            val target = targetDate
-            val date = (target ?: DiaryDateUtil.diaryDate()).toString()
+            val diaryDate = targetDate ?: DiaryDateUtil.diaryDate()
+            val date = diaryDate.toString()
+            // targetDate의 null 여부가 아니라 "실제 대상 날짜가 오늘인지"로 판단한다.
+            // 배너로 오늘을 선택해도 targetDate는 non-null이므로, null 검사로는
+            // FAB 경로와 배너 경로의 블록 구성이 달라진다.
+            val isToday = diaryDate == DiaryDateUtil.diaryDate()
             val blocks = mutableListOf<ContentBlock>()
 
 
             // --- 날씨, 캘린더, 사진, 건강 병렬 수집 ---
             // 오늘 날씨는 백그라운드 워커(WeatherCollectionWorker)가 하루 1회(14시경) 수집해 Firestore에 append 해둠.
-            // 여기서는 내일 예보만 API로 조회. 과거 날짜(target != null) 편집 시엔 날씨 API 호출 없음.
+            // 여기서는 내일 예보만 API로 조회. 과거 날짜 편집 시엔 날씨 API 호출 없음.
             val weatherDeferred = async {
                 runCatching {
-                    if (target != null) null else weatherDataSource.fetchTomorrow()
+                    if (isToday) weatherDataSource.fetchTomorrow() else null
                 }
-            }
-            // 과거 날짜면 해당 날짜 일정만 조회, 오늘이면 3일치(오늘/내일/모레) 조회
+            }                             
+            // 오늘이면 3일치(오늘/내일/모레) 조회, 과거 날짜면 해당 날짜 일정만 조회
             val calendarDeferred = async {
                 runCatching {
-                    if (target != null) calendarDataSource.fetchEventsForDate(target)
-                    else calendarDataSource.fetchUpcomingEvents()
+                    if (isToday) calendarDataSource.fetchUpcomingEvents()
+                    else calendarDataSource.fetchEventsForDate(diaryDate)
                 }
             }
-            val photoDeferred = async { runCatching { photoDataSource.fetchTodayPhotos() } }
-            val healthDeferred = async { runCatching { healthDataSource.fetchTodayHealth() } }
+            // 사진·건강도 날씨/캘린더와 같이 대상 날짜 기준으로 수집한다.
+            // 오늘 것만 가져오면 과거 날짜 일기에 오늘 사진과 오늘 걸음 수가 붙는다.
+            val photoDeferred = async { runCatching { photoDataSource.fetchPhotos(diaryDate) } }
+            val healthDeferred = async { runCatching { healthDataSource.fetchHealth(diaryDate) } }
 
-            // 날씨 오늘 — Firestore에 백그라운드 워커가 쌓아둔 snapshots를 읽어 블록 구성
+            // 날씨 오늘 — 워커가 쌓아둔 snapshots 우선, 비어 있으면 즉석 수집으로 보완
             val existingWeather = dailyDataRepository.getDailyData(userId, date).getOrNull()?.weather
             val snapshots = existingWeather?.snapshots ?: emptyList()
-            if (snapshots.isNotEmpty()) {
-                val latest = snapshots.last()
-                Log.d(TAG, "🌤️ 오늘 날씨 스냅샷 ${snapshots.size}개 로드 | 최신=${latest.description} ${latest.temperature}°C")
+
+            // 워커는 하루 1회(14시)라 오전에 쓰면 스냅샷이 비어 있다. 그때는 기다리지 말고
+            // 지금 한 번 직접 받아온다. 받아온 값은 Firestore에 쌓아, 같은 날 다시 들어와도
+            // API를 또 부르지 않게 한다. 과거 날짜는 지금 날씨가 그날 날씨가 아니므로 제외.
+            // (fetchJson에 타임아웃이 있어 최악 15초 안에 실패로 빠진다)
+            val onDemand = if (snapshots.isEmpty() && isToday) {
+                runCatching { weatherDataSource.fetchTodaySnapshot() }
+                    .onFailure { Log.w(TAG, "⚠️ 즉석 날씨 수집 실패 — 사용자가 칩에서 직접 고르게 둔다", it) }
+                    .getOrNull()
+                    ?.also { dailyDataRepository.appendWeatherSnapshot(userId, date, it) }
+            } else null
+
+            val latest = snapshots.lastOrNull() ?: onDemand
+            if (latest != null) {
+                Log.d(TAG, "🌤️ 오늘 날씨: ${latest.description} ${latest.temperature}°C (${if (onDemand != null) "즉석 수집" else "스냅샷 ${snapshots.size}개"})")
                 // 수집된 오늘 날씨를 일기 날씨로 쓴다 (canonical 값이 선택지와 동일).
-                // 스냅샷이 없으면 비워두고, 사용자가 날짜 옆 칩에서 직접 고른다.
+                // 수집도 실패하면 비워두고, 사용자가 날짜 옆 칩에서 직접 고른다.
                 _selectedWeather.value = latest.description
                 blocks.add(ContentBlock(
                     id = "weather", type = BlockType.WEATHER,
@@ -268,10 +333,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         localizedWeatherDescription(latest.description),
                         latest.temperature.toInt(),
                         latest.humidity
-                    )
+                    ),
+                    isSelected = true
                 ))
             } else {
-                Log.w(TAG, "⚠️ 오늘 날씨 스냅샷 없음 (백그라운드 수집 아직 미실행)")
+                Log.w(TAG, "⚠️ 날씨 없음 (과거 날짜이거나, 스냅샷도 즉석 수집도 실패)")
                 // 캘린더 빈 상태(block_calendar_empty)와 동일한 컨벤션: 블록은 보여주되 선택 자체를 막아
                 // 초안 생성 시 "날씨는 날씨 정보를 가져올 수 없습니다이었다" 같은 어색한 문장이 포함될 수 없도록 함.
                 blocks.add(ContentBlock(id = "weather", type = BlockType.WEATHER, content = localizedContext().getString(R.string.block_weather_unavailable), isSelected = false, isFallback = true))
@@ -315,7 +381,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         ))
                     } else {
                         val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-                        val diaryDate = target ?: DiaryDateUtil.diaryDate()
                         val zone = ZoneId.systemDefault()
 
                         fun toSelectableItem(event: CalendarEvent, id: Int): CalendarSelectableItem {
@@ -337,11 +402,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             )
                         }
 
-                        // 과거 날짜: 전체가 해당 날짜 일정 / 오늘: 날짜별 분리
-                        val todayEvents = if (target != null) events
-                            else events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() == diaryDate }
-                        val futureEvents = if (target != null) emptyList()
-                            else events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() > diaryDate }
+                        // 오늘: 날짜별 분리 / 과거 날짜: 전체가 해당 날짜 일정
+                        val todayEvents = if (isToday)
+                            events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() == diaryDate }
+                            else events
+                        val futureEvents = if (isToday)
+                            events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() > diaryDate }
+                            else emptyList()
 
                         // 오늘 일정 블록
                         if (todayEvents.isNotEmpty()) {
@@ -385,10 +452,12 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     Log.d(TAG, "🖼️ 사진 수집 완료: ${photos.size}장")
                     dailyDataRepository.updatePhotos(userId, date, photos)
 
+                    // 사진은 기본 해제. 자동 수집된 사진에는 스크린샷·수신 이미지가 섞여 있어
+                    // 전부 켜두면 사용자가 지우는 쪽으로 일을 하게 된다. 쓸 사진만 고르게 한다.
                     _photos.value = photos.map { photo ->
                         PhotoSelectableItem(
                             uri = photo.uri,
-                            isSelected = true,
+                            isSelected = false,
                             takenAt = photo.takenAt,
                             latitude = photo.latitude,
                             longitude = photo.longitude,
@@ -400,14 +469,15 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             ContentBlock(
                                 id = "photo",
                                 type = BlockType.PHOTO,
-                                content = localizedContext().getString(R.string.block_photo_selection_content, photos.size, photos.size),
-                                isSelected = photos.isNotEmpty()
+                                content = localizedContext().getString(R.string.block_photo_selection_content, photos.size, 0),
+                                isSelected = false
                                 )
                             )
 
-                    // 촬영 장소 — 선택된 사진 중 GPS 있는 첫 번째 사진 기준, 지오코딩 실패 시 블록 미생성
+                    // 촬영 장소 — GPS 있는 첫 번째 사진 기준, 지오코딩 실패 시 블록 미생성.
+                    // 사진이 기본 해제라 선택 여부는 보지 않는다(보면 블록이 영영 안 생김).
                     _photos.value
-                        .firstOrNull { it.isSelected && (it.latitude != 0.0 || it.longitude != 0.0) }
+                        .firstOrNull { it.latitude != 0.0 || it.longitude != 0.0 }
                         ?.let { photo ->
                             reverseGeocode(photo.latitude, photo.longitude)?.let { placeName ->
                                 blocks.add(ContentBlock(
@@ -444,7 +514,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         } else null
 
                         val content = listOfNotNull(stepsText, sleepText).joinToString(" · ")
-                        blocks.add(ContentBlock(id = "health", type = BlockType.HEALTH, content = content))
+                        blocks.add(ContentBlock(id = "health", type = BlockType.HEALTH, content = content, isSelected = true))
                     }
                 }
                 .onFailure { Log.w(TAG, "⚠️ 건강 수집 실패", it) }
@@ -503,7 +573,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ─────────────────────────────────────────────────────────────
-    // 내부 유틸 — 날씨·결제 표시
+    // 내부 유틸 — 날씨 표기 / 위치 / 이미지 인코딩
     // ─────────────────────────────────────────────────────────────
 
     /** 한국어 canonical 날씨명을 현재 언어 설정에 맞는 문자열로 변환 */
@@ -512,7 +582,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         "흐림" -> localizedContext().getString(R.string.weather_cloudy)
         "비"   -> localizedContext().getString(R.string.weather_rain)
         "눈"   -> localizedContext().getString(R.string.weather_snow)
-        "바람" -> localizedContext().getString(R.string.weather_wind)
+        "뇌우" -> localizedContext().getString(R.string.weather_thunderstorm)
         else   -> canonical
     }
 
@@ -574,6 +644,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Claude Vision에 넘길 media_type을 결정한다.
+     * ContentResolver가 알려준 MIME을 우선 쓰되, 없거나 지원하지 않는 형식이면
+     * 바이트 앞부분의 매직 넘버로 직접 판별한다(갤러리 앱이 MIME을 비워 보내는 경우 대비).
+     */
     private fun detectImageMediaType(
         bytes: ByteArray,
         resolverMimeType: String?
@@ -685,6 +760,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        // 부모 사진 블록의 선택 상태·"선택 N장" 문구를 함께 갱신한다.
+        // (추가·삭제 경로는 이미 호출하고 있었는데 토글만 빠져 있었다)
+        syncPhotoBlockSelection()
     }
 
     /** 블록 선택 화면에서 사진을 목록에서 제거 */
@@ -727,6 +805,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         syncUpcomingBlockSelection()
     }
 
+    /**
+     * 개별 향후 일정 선택 상태를 향후 일정 블록에 반영한다.
+     * 하나도 안 골랐으면 블록 자체를 해제해 초안 소스에서 빠지게 한다.
+     */
     private fun syncUpcomingBlockSelection() {
         val selected = _upcomingEvents.value.filter { it.isSelected }
         _blocks.update { list ->
@@ -741,6 +823,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 향후 일정 블록에 보여줄 요약 텍스트. 선택된 일정이 없으면 안내 문구를 돌려준다. */
     private fun buildUpcomingCalendarSummary(events: List<CalendarSelectableItem>): String {
         val selected = events.filter { it.isSelected }
         if (selected.isEmpty()) return "선택된 향후 일정이 없습니다"
@@ -786,28 +869,20 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun togglePayment(
         id: Int
     ) {
-
         _payments.update { list ->
-
             list.map { payment ->
-
                 if (
                     payment.id == id
                 ) {
-
                     payment.copy(
                         isSelected =
                             !payment.isSelected
                     )
-
                 }
-
                 else {
                     payment
                 }
-
             }
-
         }
 
         syncPaymentBlockSelection()
@@ -828,36 +903,25 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
         _blocks.update { list ->
-
             list.map { block ->
-
                 if (
                     block.type ==
                     BlockType.PAYMENT
                 ) {
-
                     block.copy(
-
                         content =
                             buildPaymentSummary(
                                 _payments.value
                             ),
-
                         isSelected =
                             selected.isNotEmpty()
-
                     )
-
                 }
-
                 else {
                     block
                 }
-
             }
-
         }
-
     }
 
     /** 선택된 결제 항목으로 "N건 · 총 M원\n- 상세" 형태의 요약 문자열 생성 */
@@ -935,21 +999,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * 선택된 블록을 기반으로 Claude API에 일기 초안 생성을 요청.
-     *
-     * 처리 순서:
-     * 1. 선택된 사진을 Base64로 변환 후 Claude Vision으로 분석 (photoSummary 추출)
-     * 2. user_settings에서 MBTI 읽어오기
-     * 3. AiRepository를 통해 Claude에 블록 + MBTI + 사진 요약 + 문체 샘플 전달
-     * 4. 실패 시 fallbackTemplate으로 대체 초안 생성
-     * 5. 완료 시 _draft에 결과 저장 → UI가 DraftPreviewScreen으로 자동 전환
-     */
-    /**
-     * 블록 선택 완료 후 첫 번째 단계 — 선택된 블록을 분석해 맥락 질문을 생성.
-     * 완료되면 _contextQuestions에 결과를 세팅하고 UI가 ContextQnAScreen으로 이동.
-     * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
-     */
-    /**
      * 항상 마지막에 붙는 고정 질문. 감정은 추측할 게 아니라 사용자에게 묻는 것이 정확하고,
      * 이 답변이 프롬프트의 [사용자의 추가 답변]으로 들어가 초안 작성의 근거가 된다.
      */
@@ -959,8 +1008,14 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         quickOptions = EMOTION_OPTIONS
     )
 
+    /**
+     * 초안 생성 1단계 — 선택된 블록을 분석해 맥락 질문을 만든다.
+     * 완료되면 [contextQuestions]에 결과가 세팅되고 UI가 ContextQnAScreen으로 이동한다.
+     *
+     * 선택된 블록이 없으면 빈 리스트를 세팅해 질답 단계를 건너뛴다.
+     * 질문 생성이 실패해도 감정 질문 하나는 남겨, 화면이 빈 채로 뜨지 않게 한다.
+     */
     fun prepareGeneration() = viewModelScope.launch {
-        _photoAnalysisDebug.value = ""
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
             _contextQuestions.value = emptyList()
@@ -997,6 +1052,19 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         generateDraft(qaAnswers = answers)
     }
 
+    /**
+     * 초안 생성 2단계 — 선택된 블록과 질답을 근거로 Claude에 본문 생성을 요청한다.
+     * 현재는 [submitAnswers]에서만 호출된다(화면이 직접 부르지 않음).
+     *
+     * 처리 순서:
+     * 1. 선택된 사진을 **장별로 병렬 분석** — 결과는 각 사진의 analysis에 캐싱해 재호출을 막는다
+     * 2. 사진 1장 = 소스 1개(photo_1..N)로 전개하고 촬영 시각 순으로 정렬, 나머지 블록은 1:1 소스
+     * 3. 소스 목록 + MBTI + 최근 문체 샘플 + 질답을 Claude에 전달해 sourceId별 본문 블록을 받는다
+     * 4. 호출·파싱 실패 시 [fallbackBlocks]로 소스 내용을 그대로 문단화해 블록 구조는 유지한다
+     * 5. [draft]에 세팅 → UI가 DraftPreviewScreen으로 전환
+     *
+     * @param qaAnswers ContextQnAScreen에서 받은 blockId→답변. 없으면 질답 없이 생성한다.
+     */
     fun generateDraft(qaAnswers: Map<String, String> = emptyMap()) = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         val today = (targetDate ?: DiaryDateUtil.diaryDate()).toString()
@@ -1096,12 +1164,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // 사진(구체적 장면)을 앞에 두고 나머지 데이터가 뒤따르게 한다.
             val sources = photoSources + otherSources
 
-            _photoAnalysisDebug.value = photoSources
-                .joinToString("\n\n") { "${it.sourceId} ${it.content}" }
-
-            Log.d(TAG, "===== DIARY SOURCES (${sources.size}) =====")
-            sources.forEach { Log.d(TAG, "- ${it.sourceId} [${it.type.label}] ${it.content}") }
-            Log.d(TAG, "======================================")
+            // 소스 구성만 남기고 content는 찍지 않는다. content에는 결제 가맹점·금액,
+            // 일정 제목, 사진 분석 결과가 그대로 들어있고 릴리스 빌드도 minify가 꺼져 있어
+            // Log.d가 전부 살아서 실행된다.
+            Log.d(TAG, "📝 소스 ${sources.size}개: ${sources.joinToString { "${it.sourceId}[${it.type.label}]" }}")
 
             val mbti = getApplication<Application>()
                 .getSharedPreferences(
@@ -1201,6 +1267,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // 본문 블록 편집 — 수정 / 순서 이동 / 삭제
     // ─────────────────────────────────────────────────────────────
 
+    /** 본문 블록 하나의 텍스트를 교체한다. 편집 화면에서 타이핑할 때마다 호출된다. */
     fun updateBlockText(blockId: String, text: String) {
         _draft.update { draft ->
             draft?.copy(blocks = draft.blocks.map {
@@ -1209,6 +1276,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 본문 블록 하나를 지운다. 사진 블록을 지우면 그 사진은 초안에서 빠진다. */
     fun removeBlock(blockId: String) {
         _draft.update { draft ->
             draft?.copy(blocks = draft.blocks.filterNot { it.id == blockId })
@@ -1257,12 +1325,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // 성공한 사진만 저장하고, 실패한 사진은 로그만 남기고 건너뛴다.
             // 원본 URI를 키로 남겨야 본문 블록의 사진도 같은 URL로 치환할 수 있다.
             // (인덱스로 짝지으면 업로드 실패 시 어긋나 엉뚱한 사진이 블록에 붙는다)
-            val uploadedUrlByUri = _photos.value
-                .filter { it.isSelected }
-                .mapNotNull { photo ->
-                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, photo.uri) }
-                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): ${photo.uri}", it) }
-                        .getOrNull()?.let { photo.uri to it }
+            //
+            // 대상은 _photos(수집 화면의 선택 상태)가 아니라 **지금 저장하는 초안**이다.
+            // _photos를 기준으로 삼으면 (1) 기존 일기 편집 시 블록의 https URI가 매핑에서
+            // 빠져 사진이 통째로 떨어지고 (2) 다른 날짜를 편집·저장할 때 이전 날짜 사진으로
+            // 덮어써진다. 이미 https인 URI는 uploadDiaryPhoto가 재업로드 없이 그대로 돌려준다.
+            val uploadedUrlByUri = d.photoUrisToSave()
+                .mapNotNull { uri ->
+                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri) }
+                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): $uri", it) }
+                        .getOrNull()?.let { uri to it }
                 }
                 .toMap()
 
@@ -1303,10 +1375,19 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // 날씨·감정 선택 / 편집 모드 진입 / 초기화
     // ─────────────────────────────────────────────────────────────
 
+    /**
+     * 편집 화면에서 날씨 칩을 고를 때 호출. 고정 5종(WEATHER_OPTIONS) 중 하나다.
+     * 사용자가 직접 골랐으므로 질답의 "기타" 자유입력 원문은 지운다.
+     */
     fun updateWeatherSelection(weather: String?) {
         _selectedWeather.value = weather
         _customWeatherText.value = null
     }
+
+    /**
+     * 편집 화면에서 감정 칩을 고를 때 호출. 고정 5종(EMOTION_OPTIONS) 중 하나다.
+     * 사용자가 직접 골랐으므로 질답의 "기타" 자유입력 원문은 지운다.
+     */
     fun updateEmotionSelection(emotion: String?) {
         _selectedEmotion.value = emotion
         _customEmotionText.value = null
@@ -1338,7 +1419,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun clearDraftOnly() {
         _draft.value = null
         _contextQuestions.value = null
-        _photoAnalysisDebug.value = ""
     }
 
     /**
@@ -1386,6 +1466,5 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _customWeatherText.value = null
         _customEmotionText.value = null
         _existingEntryId.value = null
-        _photoAnalysisDebug.value = ""
     }
 }

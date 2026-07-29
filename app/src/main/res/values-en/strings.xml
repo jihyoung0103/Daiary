@@ -40,9 +40,6 @@
     <string name="attached_photos">Attached Photos</string>
     <string name="photo_analysis_card_title">Here\'s what I found in your photos</string>
     <string name="photo_load_error">Unable to load photo</string>
-    <string name="photo_analysis_debug_title">Photo Analysis (Dev)</string>
-    <string name="btn_hide">Hide</string>
-    <string name="btn_show">Show</string>
 
     <!-- DiaryEditScreen -->
     <string name="screen_diary_edit">Edit Diary</string>
@@ -158,7 +155,7 @@
     <string name="weather_cloudy">Cloudy</string>
     <string name="weather_rain">Rain</string>
     <string name="weather_snow">Snow</string>
-    <string name="weather_wind">Windy</string>
+    <string name="weather_thunderstorm">Thunderstorm</string>
 
     <!-- Emotion labels -->
     <string name="emotion_joy">Happy</string>
@@ -253,9 +250,13 @@
     <string name="dialog_exit_message">Do you want to leave?</string>
     <string name="dialog_exit_confirm">Leave</string>
     <string name="dialog_exit_cancel">Keep Writing</string>
+    <string name="dialog_discard_draft_message">Leaving will discard the generated draft. Continue?</string>
 
     <!-- Task 6: Save snackbar -->
     <string name="save_done">Diary saved successfully</string>
+
+    <string name="diary_exists_message">A diary already exists for this date</string>
+    <string name="btn_rewrite">Rewrite</string>
 
     <!-- Loading/Error states -->
     <string name="error_load_failed">Failed to load data</string>
