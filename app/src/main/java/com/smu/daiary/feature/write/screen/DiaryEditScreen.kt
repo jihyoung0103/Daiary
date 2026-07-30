@@ -92,6 +92,7 @@ import com.smu.daiary.ui.theme.weatherColor
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
+import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
 
 private data class Emotion(val label: String, val icon: ImageVector)
@@ -246,7 +247,7 @@ fun DiaryEditScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
-            val dateToShow = draft?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
+            val dateToShow = draft?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: DiaryDateUtil.diaryDate()
             Row(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 8.dp)) {
                 Text(
                     text = stringResource(R.string.date_format_full, dateToShow.year, dateToShow.monthValue, dateToShow.dayOfMonth),
