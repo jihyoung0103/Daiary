@@ -83,6 +83,7 @@ import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
 import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.weatherColor
+import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
 import androidx.compose.ui.window.Dialog
 
@@ -309,7 +310,7 @@ private fun DiaryDayContent(
             verticalArrangement = Arrangement.Center
         ) {
             Text(text = stringResource(R.string.empty_diary_placeholder), fontSize = 15.sp, color = wc.TextMuted)
-            if (!date.isAfter(LocalDate.now())) {
+            if (!date.isAfter(DiaryDateUtil.diaryDate())) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onWrite,

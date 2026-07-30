@@ -1279,7 +1279,18 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 본문 블록 하나를 지운다. 사진 블록을 지우면 그 사진은 초안에서 빠진다. */
     fun removeBlock(blockId: String) {
         _draft.update { draft ->
-            draft?.copy(blocks = draft.blocks.filterNot { it.id == blockId })
+            draft?.let { d ->
+                val removed = d.blocks.firstOrNull { it.id == blockId }
+                val remainingBlocks = d.blocks.filterNot { it.id == blockId }
+                val stillReferencedElsewhere = removed?.imageUri != null &&
+                    remainingBlocks.any { it.imageUri == removed.imageUri }
+                d.copy(
+                    blocks = remainingBlocks,
+                    photos = if (removed?.imageUri != null && !stillReferencedElsewhere)
+                        d.photos - removed.imageUri
+                    else d.photos
+                )
+            }
         }
     }
 
