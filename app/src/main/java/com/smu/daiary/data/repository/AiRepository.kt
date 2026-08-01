@@ -21,7 +21,7 @@ class AiRepository(
         locale: String,
         mbti: String,
         recentDiarySamples: String = "",
-        qaAnswers: Map<String, String> = emptyMap()
+        qaAnswers: List<QaAnswer> = emptyList()
     ): Result<List<GeneratedBlock>> =
         runCatching {
             dataSource.generateDiaryBlocks(

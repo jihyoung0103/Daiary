@@ -959,6 +959,64 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         quickOptions = EMOTION_OPTIONS
     )
 
+    /**
+     * 선택된 사진을 장별로 병렬 분석하고 결과를 _photos에 캐싱한다.
+     * 이미 분석된 사진은 재사용하므로 여러 번 호출해도 Vision 호출은 사진당 1회다.
+     */
+    private suspend fun analyzeSelectedPhotos(): List<PhotoSelectableItem> {
+        val selectedPhotos = _photos.value.filter { it.isSelected }
+        Log.d(TAG, "📸 선택된 사진 수: ${selectedPhotos.size}")
+
+        val analyzed = coroutineScope {
+            selectedPhotos.map { photo ->
+                async {
+                    if (!photo.analysis.isNullOrBlank()) return@async photo
+                    val encoded = encodeImage(photo.uri) ?: return@async photo
+                    val result = try {
+                        aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
+                        ""
+                    }
+                    photo.copy(analysis = result.ifBlank { null })
+                }
+            }.awaitAll()
+        }
+
+        _photos.update { list ->
+            list.map { p -> analyzed.firstOrNull { it.uri == p.uri } ?: p }
+        }
+        return analyzed
+    }
+
+    /**
+     * 분석된 사진을 촬영 시각 순으로 정렬해 장별 소스(photo_1..N)로 전개.
+     * 사진 1장 = 소스 1개 = 본문 블록 1개가 되도록 여기서 경계를 만든다.
+     * 질문 생성과 초안 생성이 같은 sourceId를 쓰도록 양쪽에서 이 함수를 공유한다.
+     */
+    private fun photoSourcesOf(photos: List<PhotoSelectableItem>): List<DiarySource> {
+        val photoTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+        return photos
+            .filter { !it.analysis.isNullOrBlank() }
+            .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
+            .mapIndexed { index, photo ->
+                val kindLabel = if (photo.isCameraPhoto) "촬영 사진" else "화면 캡처/수신 이미지"
+                // 촬영 시각은 직접 촬영한 사진에서만 의미가 있으므로 그 경우에만 표시
+                val timeLabel = if (photo.isCameraPhoto && photo.takenAt > 0L) {
+                    val t = Instant.ofEpochMilli(photo.takenAt)
+                        .atZone(ZoneId.systemDefault())
+                        .format(photoTimeFormatter)
+                    ", 촬영 $t"
+                } else ""
+                DiarySource(
+                    sourceId = "photo_${index + 1}",
+                    type = BlockType.PHOTO,
+                    content = "[$kindLabel$timeLabel]\n${photo.analysis}",
+                    imageUri = photo.uri
+                )
+            }
+    }
+
     fun prepareGeneration() = viewModelScope.launch {
         _photoAnalysisDebug.value = ""
         val selected = _blocks.value.filter { it.isSelected }
@@ -969,9 +1027,21 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _isGeneratingQuestions.value = true
         _contextQuestions.value = null
         try {
+            // 질문 생성 전에 사진을 먼저 분석한다. 사진 블록의 content는 "N장 · 선택 M장"뿐이라
+            // 분석 없이 질문을 만들면 사진 속 내용을 모른 채 뻔한 질문만 나온다.
+            val photoSources = photoSourcesOf(analyzeSelectedPhotos())
+            _photoAnalysisDebug.value = photoSources
+                .joinToString("\n\n") { "${it.sourceId} ${it.content}" }
+
+            // 사진 블록은 장별 분석 결과로 대체한다. blockId를 photo_1..N으로 두면
+            // 사진마다 질문·답변이 따로 잡힌다(답변 맵이 blockId 키라 중복되면 덮어써짐).
+            val questionInput = photoSources.map {
+                ContentBlock(id = it.sourceId, type = it.type, content = it.content)
+            } + selected.filter { it.type != BlockType.PHOTO }
+
             // 날씨 질문은 AI가 만든 question 텍스트는 유지하되, quickOptions는 감정처럼
             // 앱 고정 리스트(WEATHER_OPTIONS)로 덮어써서 편집 화면 드롭다운과 항상 일치시킨다.
-            val questions = aiRepository.generateContextQuestions(selected)
+            val questions = aiRepository.generateContextQuestions(questionInput)
                 .map { q -> if (q.blockId == "weather") q.copy(quickOptions = WEATHER_OPTIONS + "기타") else q }
             _contextQuestions.value = questions + emotionQuestion()
         } catch (e: Exception) {
@@ -994,10 +1064,20 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         // "기타" 자유입력 원문은 감정/날씨 칩 선택과는 별개로, 미리보기·편집 화면에 보조 텍스트로만 노출한다.
         _customEmotionText.value = answers["emotion"]?.takeIf { it !in EMOTION_OPTIONS }
         _customWeatherText.value = answers["weather"]?.takeIf { it !in WEATHER_OPTIONS }
-        generateDraft(qaAnswers = answers)
+
+        // 화면에서 올라온 맵은 blockId 키뿐이라 질문 텍스트가 없다.
+        // 방금 사용자에게 보여준 질문과 다시 이어붙여야 AI가 무엇에 대한 답인지 알 수 있다.
+        val questionById = _contextQuestions.value.orEmpty().associateBy { it.blockId }
+        val qaAnswers = answers
+            .filterValues { it.isNotBlank() }
+            .mapNotNull { (blockId, answer) ->
+                val question = questionById[blockId] ?: return@mapNotNull null
+                QaAnswer(sourceId = blockId, question = question.question, answer = answer)
+            }
+        generateDraft(qaAnswers = qaAnswers)
     }
 
-    fun generateDraft(qaAnswers: Map<String, String> = emptyMap()) = viewModelScope.launch {
+    fun generateDraft(qaAnswers: List<QaAnswer> = emptyList()) = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         val today = (targetDate ?: DiaryDateUtil.diaryDate()).toString()
 
@@ -1013,7 +1093,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             return@launch
         }
 
-        viewModelScope.launch {
+        val generation = viewModelScope.launch {
             _isGenerating.value = true
             _generateError.value = null
 
@@ -1032,54 +1112,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val locale = if (savedLang == "English") "en" else "ko"
             android.util.Log.d(TAG, "🌐 저장된 언어: $savedLang → locale: $locale")
 
-            // 선택된 사진을 장별로 병렬 분석 (결과는 각 사진 객체 analysis에 캐싱)
-            val selectedPhotos = _photos.value.filter { it.isSelected }
-            Log.d(TAG, "📸 선택된 사진 수: ${selectedPhotos.size}")
-
-            val analyzedPhotos = coroutineScope {
-                selectedPhotos.map { photo ->
-                    async {
-                        // 이미 분석된 사진은 재사용 (세션 캐시 → 중복 Vision 호출 방지)
-                        if (!photo.analysis.isNullOrBlank()) return@async photo
-                        val encoded = encodeImage(photo.uri) ?: return@async photo
-                        val result = try {
-                            aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
-                            ""
-                        }
-                        photo.copy(analysis = result.ifBlank { null })
-                    }
-                }.awaitAll()
-            }
-
-            // 분석 결과를 _photos에 반영해 캐싱
-            _photos.update { list ->
-                list.map { p -> analyzedPhotos.firstOrNull { it.uri == p.uri } ?: p }
-            }
-
-            // 사진을 촬영 시각 순으로 정렬해 장별 소스(photo_1..N)로 전개.
-            // 사진 1장 = 소스 1개 = 본문 블록 1개가 되도록 여기서 경계를 만든다.
-            val photoTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-            val photoSources = analyzedPhotos
-                .filter { !it.analysis.isNullOrBlank() }
-                .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
-                .mapIndexed { index, photo ->
-                    val kindLabel = if (photo.isCameraPhoto) "촬영 사진" else "화면 캡처/수신 이미지"
-                    // 촬영 시각은 직접 촬영한 사진에서만 의미가 있으므로 그 경우에만 표시
-                    val timeLabel = if (photo.isCameraPhoto && photo.takenAt > 0L) {
-                        val t = Instant.ofEpochMilli(photo.takenAt)
-                            .atZone(ZoneId.systemDefault())
-                            .format(photoTimeFormatter)
-                        ", 촬영 $t"
-                    } else ""
-                    DiarySource(
-                        sourceId = "photo_${index + 1}",
-                        type = BlockType.PHOTO,
-                        content = "[$kindLabel$timeLabel]\n${photo.analysis}",
-                        imageUri = photo.uri
-                    )
-                }
+            // prepareGeneration에서 이미 분석했으면 캐시 히트라 추가 호출이 없다.
+            // 질문 단계를 건너뛴 경로로 들어왔을 때만 여기서 실제 분석이 돈다.
+            val photoSources = photoSourcesOf(analyzeSelectedPhotos())
 
             // 사진 외 블록은 1:1로 소스가 된다. PHOTO 블록("N장 · 선택 M장")은
             // 장별 소스로 대체되었으므로 제외한다.
@@ -1158,9 +1193,12 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 blocks = bodyBlocks,
                 photos = selectedPhotoUris
             )
-
-            _isGenerating.value = false
         }
+
+        // 성공·예외·취소 어느 경우든 로딩 플래그를 반드시 내린다.
+        // 여기서 true로 남으면 QnA 화면이 로딩만 띄우고 질문을 안 보여줘(ContextQnAScreen),
+        // 답변을 못 하니 플래그를 내려줄 코드가 영영 실행되지 않는다. 앱 재시작 외엔 복구 불가.
+        generation.invokeOnCompletion { _isGenerating.value = false }
     }
 
 

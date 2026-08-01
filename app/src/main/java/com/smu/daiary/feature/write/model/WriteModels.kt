@@ -65,6 +65,18 @@ data class ContextQuestion(
     val quickOptions: List<String>
 )
 
+/**
+ * 질의응답 결과 1건.
+ * 답변은 선택지 탭이라 대부분 두세 글자다("그냥 그랬어"). 질문 텍스트 없이 답변만 넘기면
+ * AI는 무엇에 대한 답인지 알 수 없으므로 질문을 반드시 함께 들고 다닌다.
+ * sourceId는 질문이 나온 소스 id — 초안 생성 시 해당 소스에 답변을 붙이는 데 쓴다.
+ */
+data class QaAnswer(
+    val sourceId: String,
+    val question: String,
+    val answer: String
+)
+
 data class CalendarSelectableItem(
     val id: Int,
     val displayText: String,
