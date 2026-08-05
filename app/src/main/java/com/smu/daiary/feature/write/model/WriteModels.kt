@@ -65,6 +65,32 @@ data class ContextQuestion(
     val quickOptions: List<String>
 )
 
+/** 카드 안의 문답 한 턴. answer가 null이면 아직 답하지 않은 턴이다. */
+data class QnaTurn(
+    val question: String,
+    val answer: String? = null
+)
+
+/**
+ * 질의응답 카드 1장 = 소재 1개.
+ *
+ * 같은 소재를 파고드는 후속 질문은 [turns]에 쌓여 카드 안에서 아래로 이어지고,
+ * 다른 소재로 넘어갈 때만 카드가 바뀐다. 수평 이동은 화제 전환, 수직은 심화라
+ * 사용자가 지금 어떤 질문을 받고 있는지 배치만 보고 알 수 있다.
+ */
+data class QnaCard(
+    /** 대응하는 DiarySource.sourceId. 감정처럼 소스가 없는 카드는 "emotion" */
+    val sourceId: String,
+    /** 후속 질문을 만들 때 함께 넘길 원본 데이터. 감정 카드는 빈 문자열 */
+    val sourceContent: String,
+    val turns: List<QnaTurn>,
+    /** 앱이 고정한 선택지. 비어 있으면 자유 입력 카드다 */
+    val options: List<String> = emptyList()
+) {
+    /** 아직 답하지 않은 마지막 턴의 인덱스. 전부 답했으면 null */
+    val pendingTurnIndex: Int? get() = turns.indexOfLast { it.answer == null }.takeIf { it >= 0 }
+}
+
 /**
  * 질의응답 결과 1건.
  * 답변은 선택지 탭이라 대부분 두세 글자다("그냥 그랬어"). 질문 텍스트 없이 답변만 넘기면

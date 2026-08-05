@@ -4,6 +4,7 @@ import com.smu.daiary.BuildConfig
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.data.source.prompt.contextQuestionsPrompt
 import com.smu.daiary.data.source.prompt.diaryPrompt
+import com.smu.daiary.data.source.prompt.followUpQuestionPrompt
 import com.smu.daiary.data.source.prompt.photoAnalysisPrompt
 import com.smu.daiary.data.source.prompt.retrospectPrompt
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
@@ -28,6 +29,8 @@ data class GeneratedBlock(
     val sourceId: String,
     val text: String
 )
+
+private const val TAG = "AnthropicDataSource"
 
 class AnthropicDataSource {
 
@@ -77,7 +80,22 @@ class AnthropicDataSource {
                     .trim()
                     .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
 
-                val questionsArray = JSONObject(text).getJSONArray("questions")
+                val json = JSONObject(text)
+
+                // 질문을 만들지 않은 블럭과 그 사유. 앱 동작에는 쓰지 않고 로그만 남긴다.
+                // 어떤 블럭이 왜 빠졌는지 알아야 프롬프트를 감이 아니라 근거로 고칠 수 있다.
+                json.optJSONArray("skipped")?.let { skipped ->
+                    android.util.Log.d(TAG, "----- 건너뛴 블럭 ${skipped.length()}개 -----")
+                    (0 until skipped.length()).forEach { i ->
+                        val s = skipped.getJSONObject(i)
+                        android.util.Log.d(
+                            TAG,
+                            "- [${s.optString("blockId")}] ${s.optString("reason")}"
+                        )
+                    }
+                }
+
+                val questionsArray = json.getJSONArray("questions")
                 (0 until questionsArray.length()).map { i ->
                     val q = questionsArray.getJSONObject(i)
                     // quickOptions는 더 이상 요청하지 않는다(답변은 자유 입력).
@@ -93,6 +111,53 @@ class AnthropicDataSource {
                 emptyList()
             }
         }
+
+    /**
+     * 방금 받은 답변을 근거로 후속 질문 1개를 만든다.
+     * 더 물을 게 없거나 호출이 실패하면 빈 문자열 — 호출부는 카드를 넘긴다.
+     */
+    suspend fun generateFollowUpQuestion(
+        sourceContent: String,
+        question: String,
+        answer: String
+    ): String = withContext(Dispatchers.IO) {
+        val prompt = followUpQuestionPrompt(sourceContent, question, answer)
+
+        val body = JSONObject().apply {
+            put("model", "claude-haiku-4-5-20251001")
+            // 한 문장짜리 JSON 하나만 받는다
+            put("max_tokens", 256)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", prompt)
+                })
+            })
+        }.toString().toRequestBody(jsonMediaType)
+
+        val request = Request.Builder()
+            .url("https://api.anthropic.com/v1/messages")
+            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+            .addHeader("anthropic-version", "2023-06-01")
+            .post(body)
+            .build()
+
+        try {
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: return@withContext ""
+            val text = JSONObject(responseBody)
+                .getJSONArray("content")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            JSONObject(text).optString("question").trim()
+        } catch (e: Exception) {
+            android.util.Log.e("AnthropicDataSource", "후속 질문 생성 실패", e)
+            ""
+        }
+    }
 
     /**
      * 소스별로 일기 문단을 생성한다. 소스 1개 → 블록 1개(엄격한 1:1).

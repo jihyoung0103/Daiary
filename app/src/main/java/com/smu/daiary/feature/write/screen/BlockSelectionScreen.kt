@@ -103,7 +103,7 @@ fun BlockSelectionScreen(
     val blocks by viewModel.blocks.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoadingBlocks.collectAsStateWithLifecycle()
     val isGeneratingQuestions by viewModel.isGeneratingQuestions.collectAsStateWithLifecycle()
-    val contextQuestions by viewModel.contextQuestions.collectAsStateWithLifecycle()
+    val contextQuestions by viewModel.qnaCards.collectAsStateWithLifecycle()
 
     val photos by viewModel.photos.collectAsStateWithLifecycle()
     val calendarEvents by viewModel.calendarEvents.collectAsStateWithLifecycle()

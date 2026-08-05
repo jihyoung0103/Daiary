@@ -16,6 +16,12 @@ class AiRepository(
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         dataSource.generateContextQuestions(blocks)
 
+    suspend fun generateFollowUpQuestion(
+        sourceContent: String,
+        question: String,
+        answer: String
+    ): String = dataSource.generateFollowUpQuestion(sourceContent, question, answer)
+
     suspend fun generateDiaryBlocks(
         sources: List<DiarySource>,
         locale: String,

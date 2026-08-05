@@ -61,6 +61,27 @@ private val WEATHER_OPTIONS = listOf("맑음", "흐림", "비", "눈", "바람")
 private val NO_QUESTION_TYPES = setOf(BlockType.CALENDAR_UPCOMING, BlockType.WEATHER_TOMORROW)
 
 /**
+ * 세션 전체에서 허용할 후속 질문 수.
+ * 첫 질문은 상한이 없다(물을 가치가 있으면 다 묻고, 넘길지는 사용자가 정한다).
+ * 대신 후속은 사용자가 이미 답한 뒤에 붙는 추가 타이핑이라 여기서 총량을 묶는다.
+ */
+private const val MAX_FOLLOW_UPS = 3
+
+/** 한 카드에서 후속 질문을 붙일 최대 횟수 */
+private const val MAX_FOLLOW_UPS_PER_CARD = 1
+
+/**
+ * 후속 질문을 붙일 최소 답변 길이.
+ * 짧게 끊었다는 건 그 주제에 할 말이 없다는 신호지만, 고유명사는 짧으면서 가장 값진 답이라
+ * ("누나홀닭") 기준을 낮게 잡는다. 성의 없는 답은 DISMISSIVE_ANSWERS와 모델이 걸러낸다.
+ */
+private const val MIN_ANSWER_LENGTH_FOR_FOLLOW_UP = 3
+
+/** 이 답변들은 길이와 무관하게 더 묻지 않는다 (공백 제거 후 비교) */
+private val DISMISSIVE_ANSWERS =
+    setOf("없음", "딱히없음", "특별히없음", "몰라", "모름", "몰라요", "그냥", "기억안남", "없어", "없어요")
+
+/**
  * 일기 작성 화면 전체의 상태와 비즈니스 로직을 담당하는 ViewModel.
  *
  * 주요 책임:
@@ -172,9 +193,20 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGeneratingQuestions = MutableStateFlow(false)
     val isGeneratingQuestions: StateFlow<Boolean> = _isGeneratingQuestions.asStateFlow()
 
-    /** 생성된 맥락 질문 목록. null = 아직 생성 전, emptyList = 질문 없음 */
-    private val _contextQuestions = MutableStateFlow<List<ContextQuestion>?>(null)
-    val contextQuestions: StateFlow<List<ContextQuestion>?> = _contextQuestions.asStateFlow()
+    /** 질의응답 카드 목록. null = 아직 생성 전, emptyList = 질문 없음 */
+    private val _qnaCards = MutableStateFlow<List<QnaCard>?>(null)
+    val qnaCards: StateFlow<List<QnaCard>?> = _qnaCards.asStateFlow()
+
+    /** 지금 보여줄 카드 인덱스 */
+    private val _currentCardIndex = MutableStateFlow(0)
+    val currentCardIndex: StateFlow<Int> = _currentCardIndex.asStateFlow()
+
+    /** 후속 질문을 받아오는 중 — 카드 하단에 로딩 표시 */
+    private val _isLoadingFollowUp = MutableStateFlow(false)
+    val isLoadingFollowUp: StateFlow<Boolean> = _isLoadingFollowUp.asStateFlow()
+
+    /** 이번 세션에서 이미 붙인 후속 질문 수 */
+    private var followUpCount = 0
 
     /** Claude API 호출 진행 중 여부 */
     private val _isGenerating = MutableStateFlow(false)
@@ -275,8 +307,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         localizedWeatherDescription(latest.description),
                         latest.temperature.toInt(),
                         latest.humidity
-                    )
+                    ),
+                    isSelected = true
                 ))
+
             } else {
                 Log.w(TAG, "⚠️ 오늘 날씨 스냅샷 없음 (백그라운드 수집 아직 미실행)")
                 // 캘린더 빈 상태(block_calendar_empty)와 동일한 컨벤션: 블록은 보여주되 선택 자체를 막아
@@ -303,7 +337,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                                 localizedWeatherDescription(tomorrow.tomorrowDescription),
                                 tomorrow.tomorrowTemperature.toInt(),
                                 tomorrow.tomorrowHumidity
-                            )
+                            ),
+                            isSelected = true
                         ))
                     }
                 }
@@ -451,7 +486,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         } else null
 
                         val content = listOfNotNull(stepsText, sleepText).joinToString(" · ")
-                        blocks.add(ContentBlock(id = "health", type = BlockType.HEALTH, content = content))
+                        blocks.add(ContentBlock(id = "health", type = BlockType.HEALTH, content = content, isSelected = true))
                     }
                 }
                 .onFailure { Log.w(TAG, "⚠️ 건강 수집 실패", it) }
@@ -953,18 +988,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      */
     /**
      * 블록 선택 완료 후 첫 번째 단계 — 선택된 블록을 분석해 맥락 질문을 생성.
-     * 완료되면 _contextQuestions에 결과를 세팅하고 UI가 ContextQnAScreen으로 이동.
+     * 완료되면 _qnaCards에 결과를 세팅하고 UI가 ContextQnAScreen으로 이동.
      * 질문이 0개면 빈 리스트가 세팅되어 질답 단계를 자동 스킵.
      */
-    /**
-     * 항상 마지막에 붙는 고정 질문. 감정은 추측할 게 아니라 사용자에게 묻는 것이 정확하고,
-     * 이 답변이 프롬프트의 [사용자의 추가 답변]으로 들어가 초안 작성의 근거가 된다.
-     */
-    private fun emotionQuestion() = ContextQuestion(
-        blockId = "emotion",
-        question = localizedContext().getString(R.string.question_emotion),
-        quickOptions = EMOTION_OPTIONS
-    )
 
     /**
      * 선택된 사진을 장별로 병렬 분석하고 결과를 _photos에 캐싱한다.
@@ -1028,11 +1054,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _photoAnalysisDebug.value = ""
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
-            _contextQuestions.value = emptyList()
+            _qnaCards.value = emptyList()
             return@launch
         }
         _isGeneratingQuestions.value = true
-        _contextQuestions.value = null
+        _qnaCards.value = null
+        _currentCardIndex.value = 0
+        followUpCount = 0
         try {
             // 질문 생성 전에 사진을 먼저 분석한다. 사진 블록의 content는 "N장 · 선택 M장"뿐이라
             // 분석 없이 질문을 만들면 사진 속 내용을 모른 채 뻔한 질문만 나온다.
@@ -1059,37 +1087,123 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             Log.d(TAG, "===== 생성된 질문 ${questions.size}개 (블럭 ${questionInput.size}개) =====")
             questions.forEach { Log.d(TAG, "- [${it.blockId}] ${it.question}") }
 
-            _contextQuestions.value = questions + emotionQuestion()
+            // 카드 = 소재 1개. 첫 질문이 1턴이 되고, 답변에 따라 후속 턴이 아래로 쌓인다.
+            val sourceById = (photoSources + selected
+                .filter { it.type != BlockType.PHOTO }
+                .map { DiarySource(sourceId = it.id, type = it.type, content = it.content) })
+                .associateBy { it.sourceId }
+
+            val cards = questions.map { q ->
+                QnaCard(
+                    sourceId = q.blockId,
+                    sourceContent = sourceById[q.blockId]?.content.orEmpty(),
+                    turns = listOf(QnaTurn(question = q.question))
+                )
+            }
+            _qnaCards.value = cards + emotionCard()
         } catch (e: Exception) {
             Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
-            _contextQuestions.value = listOf(emotionQuestion())
+            _qnaCards.value = listOf(emotionCard())
         } finally {
             _isGeneratingQuestions.value = false
         }
     }
 
-    /**
-     * ContextQnAScreen에서 사용자가 답변을 완료하거나 건너뛴 뒤 호출.
-     * 수집된 answers를 포함해 일기 초안 생성을 시작.
-     */
-    fun submitAnswers(answers: Map<String, String>) {
-        // 질답에서 고른 감정을 그대로 쓴다. "기타" 자유입력은 선택지 밖이라 무시하고
-        // 사용자가 편집 화면에서 직접 고르게 둔다.
-        answers["emotion"]?.takeIf { it != "기타" && it in EMOTION_OPTIONS }
-            ?.let { _selectedEmotion.value = it }
-        // "기타" 자유입력 원문은 감정/날씨 칩 선택과는 별개로, 미리보기·편집 화면에 보조 텍스트로만 노출한다.
-        _customEmotionText.value = answers["emotion"]?.takeIf { it !in EMOTION_OPTIONS }
-        _customWeatherText.value = answers["weather"]?.takeIf { it !in WEATHER_OPTIONS }
+    /** 항상 마지막에 붙는 감정 카드. 선택지가 있어 자유 입력 카드와 다르게 렌더된다. */
+    private fun emotionCard() = QnaCard(
+        sourceId = "emotion",
+        sourceContent = "",
+        turns = listOf(QnaTurn(question = localizedContext().getString(R.string.question_emotion))),
+        options = EMOTION_OPTIONS
+    )
 
-        // 화면에서 올라온 맵은 blockId 키뿐이라 질문 텍스트가 없다.
-        // 방금 사용자에게 보여준 질문과 다시 이어붙여야 AI가 무엇에 대한 답인지 알 수 있다.
-        val questionById = _contextQuestions.value.orEmpty().associateBy { it.blockId }
-        val qaAnswers = answers
-            .filterValues { it.isNotBlank() }
-            .mapNotNull { (blockId, answer) ->
-                val question = questionById[blockId] ?: return@mapNotNull null
-                QaAnswer(sourceId = blockId, question = question.question, answer = answer)
+    /**
+     * 현재 카드의 답하지 않은 턴에 답변을 기록한다.
+     * 답변이 충실하면 후속 질문을 받아 같은 카드에 이어 붙이고(수직),
+     * 그렇지 않으면 다음 카드로 넘어간다(수평).
+     */
+    fun answerCurrentTurn(answer: String) = viewModelScope.launch {
+        val cards = _qnaCards.value ?: return@launch
+        val cardIndex = _currentCardIndex.value
+        val card = cards.getOrNull(cardIndex) ?: return@launch
+        val turnIndex = card.pendingTurnIndex ?: return@launch
+
+        val answered = card.copy(
+            turns = card.turns.toMutableList().also {
+                it[turnIndex] = it[turnIndex].copy(answer = answer)
             }
+        )
+        _qnaCards.value = cards.toMutableList().also { it[cardIndex] = answered }
+
+        if (!shouldAskFollowUp(answered, answer)) {
+            advanceCard()
+            return@launch
+        }
+
+        _isLoadingFollowUp.value = true
+        val followUp = try {
+            aiRepository.generateFollowUpQuestion(
+                sourceContent = answered.sourceContent,
+                question = answered.turns[turnIndex].question,
+                answer = answer
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 후속 질문 실패 — 다음 카드로", e)
+            ""
+        } finally {
+            _isLoadingFollowUp.value = false
+        }
+
+        if (followUp.isBlank()) {
+            Log.d(TAG, "↪️ [${answered.sourceId}] 후속 질문 없음")
+            advanceCard()
+            return@launch
+        }
+
+        followUpCount++
+        Log.d(TAG, "↳ [${answered.sourceId}] 후속 질문($followUpCount/$MAX_FOLLOW_UPS): $followUp")
+        _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
+            list[cardIndex] = answered.copy(turns = answered.turns + QnaTurn(question = followUp))
+        }
+    }
+
+    /** 현재 카드를 건너뛰고 다음 카드로. 후속 질문도 받지 않는다. */
+    fun skipCurrentCard() = advanceCard()
+
+    private fun shouldAskFollowUp(card: QnaCard, answer: String): Boolean {
+        if (card.options.isNotEmpty()) return false                     // 감정 등 고정 선택지 카드
+        if (followUpCount >= MAX_FOLLOW_UPS) return false
+        if (card.turns.size > MAX_FOLLOW_UPS_PER_CARD) return false
+        val normalized = answer.replace(" ", "")
+        if (normalized in DISMISSIVE_ANSWERS) return false
+        return answer.length >= MIN_ANSWER_LENGTH_FOR_FOLLOW_UP
+    }
+
+    private fun advanceCard() {
+        val cards = _qnaCards.value ?: return
+        val next = _currentCardIndex.value + 1
+        if (next >= cards.size) submitQna() else _currentCardIndex.value = next
+    }
+
+    /** 모든 카드의 답변을 모아 초안 생성을 시작한다. */
+    private fun submitQna() {
+        val cards = _qnaCards.value.orEmpty()
+
+        // 감정 답변은 일기의 emotion 필드로 저장되고 회고 집계에 쓰이므로 선택지 값만 인정한다.
+        val emotionAnswer = cards.firstOrNull { it.sourceId == "emotion" }
+            ?.turns?.firstOrNull()?.answer
+        emotionAnswer?.takeIf { it != "기타" && it in EMOTION_OPTIONS }
+            ?.let { _selectedEmotion.value = it }
+        // "기타" 자유입력 원문은 칩 선택과 별개로 미리보기·편집 화면에 보조 텍스트로만 노출한다.
+        _customEmotionText.value = emotionAnswer?.takeIf { it !in EMOTION_OPTIONS }
+
+        val qaAnswers = cards.flatMap { card ->
+            card.turns.mapNotNull { turn ->
+                val answer = turn.answer?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                QaAnswer(sourceId = card.sourceId, question = turn.question, answer = answer)
+            }
+        }
+        Log.d(TAG, "📝 질의응답 완료 — 답변 ${qaAnswers.size}건 (후속 ${followUpCount}건)")
         generateDraft(qaAnswers = qaAnswers)
     }
 
@@ -1391,7 +1505,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** DraftPreviewScreen 재진입 시 이전 초안만 날리고 블록은 유지 */
     fun clearDraftOnly() {
         _draft.value = null
-        _contextQuestions.value = null
+        _qnaCards.value = null
+        _currentCardIndex.value = 0
         _photoAnalysisDebug.value = ""
     }
 
@@ -1434,7 +1549,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _blocks.value = emptyList()
         _calendarEvents.value = emptyList()
         _upcomingEvents.value = emptyList()
-        _contextQuestions.value = null
+        _qnaCards.value = null
+        _currentCardIndex.value = 0
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _customWeatherText.value = null
