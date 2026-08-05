@@ -96,9 +96,21 @@ data class QnaCard(
     val sourceId: String,
     /** 후속 질문을 만들 때 함께 넘길 원본 데이터. 감정 카드는 빈 문자열 */
     val sourceContent: String,
+    /** 소재 종류("사진", "결제 내역"…). 대화 기록을 소재별로 묶어 보여줄 때 쓴다 */
+    val sourceLabel: String = "",
+    /**
+     * 사진 소재면 그 사진의 URI. 질문 위에 썸네일로 띄운다.
+     * 질문이 "이 치킨은…"처럼 지시어로 시작할 때 무엇을 가리키는지 보여줄 유일한 방법이다.
+     */
+    val imageUri: String? = null,
     val turns: List<QnaTurn>,
     /** 앱이 고정한 선택지. 비어 있으면 자유 입력 카드다 */
-    val options: List<String> = emptyList()
+    val options: List<String> = emptyList(),
+    /**
+     * 이 소재의 대화를 마치며 남기는 한마디. 표시한 뒤 다음 카드로 넘어간다.
+     * 답변하자마자 화면이 넘어가면 마지막 답이 허공에 떨어진 느낌이 들어서 둔다.
+     */
+    val closing: String? = null
 ) {
     /** 아직 답하지 않은 마지막 턴의 인덱스. 전부 답했으면 null */
     val pendingTurnIndex: Int? get() = turns.indexOfLast { it.answer == null }.takeIf { it >= 0 }

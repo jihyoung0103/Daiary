@@ -17,6 +17,11 @@ private val API_KEY get() = BuildConfig.OPENWEATHER_API_KEY
 private const val CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
 private const val FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
 
+/** 포그라운드에서 마지막으로 확인된 좌표 캐시. 백그라운드 워커가 위치를 못 얻을 때 쓴다. */
+private const val PREFS_NAME = "weather_location"
+private const val KEY_LAT = "lat"
+private const val KEY_LON = "lon"
+
 /** OpenWeatherMap 응답 description을 앱 내부 canonical 이름으로 매핑. */
 private fun mapToCanonical(description: String): String {
     val d = description.lowercase().trim()
@@ -45,6 +50,7 @@ private fun mapToCanonical(description: String): String {
 class WeatherDataSource(private val context: Context) {
 
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     /**
      * 백그라운드 워커용. 마지막으로 캐시된 위치로 현재 날씨 스냅샷을 반환.
@@ -68,10 +74,25 @@ class WeatherDataSource(private val context: Context) {
         return fetchTomorrowSlot(lat, lon)
     }
 
-    /** 마지막으로 캐시된 위치. 없으면 null. */
+    /**
+     * 마지막으로 캐시된 위치. 없으면 직전에 저장해 둔 좌표로 폴백하고, 그것도 없으면 null.
+     *
+     * 앱은 ACCESS_COARSE_LOCATION("앱 사용 중에만")만 갖고 있어서 백그라운드 워커에서는
+     * lastLocation이 null이거나 SecurityException으로 실패한다 → 워커가 매번 재시도만 하다 끝났다.
+     * 포그라운드에서 성공한 좌표를 저장해 두고 워커가 그걸 쓰게 한다. (동네 단위 날씨엔 충분)
+     */
     private suspend fun lastKnownLocation(): Pair<Double, Double>? {
-        val loc = fusedLocationClient.lastLocation.await() ?: return null
-        return loc.latitude to loc.longitude
+        val loc = runCatching { fusedLocationClient.lastLocation.await() }.getOrNull()
+        if (loc != null) {
+            prefs.edit()
+                .putFloat(KEY_LAT, loc.latitude.toFloat())
+                .putFloat(KEY_LON, loc.longitude.toFloat())
+                .apply()
+            return loc.latitude to loc.longitude
+        }
+        val lat = prefs.getFloat(KEY_LAT, Float.NaN)
+        val lon = prefs.getFloat(KEY_LON, Float.NaN)
+        return if (lat.isNaN() || lon.isNaN()) null else lat.toDouble() to lon.toDouble()
     }
 
     /** 현재 날씨 API 호출 → 스냅샷 반환. */

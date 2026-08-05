@@ -40,7 +40,9 @@ import android.util.Base64
 import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.data.source.EncodedImage
+import com.smu.daiary.data.source.FollowUpResult
 import com.smu.daiary.data.source.GeneratedBlock
+import kotlinx.coroutines.delay
 import java.util.Collections
 import java.util.UUID
 
@@ -64,11 +66,26 @@ private val NO_QUESTION_TYPES = setOf(BlockType.CALENDAR_UPCOMING, BlockType.WEA
  * 세션 전체에서 허용할 후속 질문 수.
  * 첫 질문은 상한이 없다(물을 가치가 있으면 다 묻고, 넘길지는 사용자가 정한다).
  * 대신 후속은 사용자가 이미 답한 뒤에 붙는 추가 타이핑이라 여기서 총량을 묶는다.
+ * 대화를 언제 끝낼지는 모델과 답변 성의가 먼저 판단하고, 이 숫자는 안전망이다.
  */
-private const val MAX_FOLLOW_UPS = 3
+private const val MAX_FOLLOW_UPS = 6
 
-/** 한 카드에서 후속 질문을 붙일 최대 횟수 */
-private const val MAX_FOLLOW_UPS_PER_CARD = 1
+/** 한 소재를 두고 이어갈 수 있는 최대 후속 질문 수 */
+private const val MAX_FOLLOW_UPS_PER_CARD = 3
+
+/**
+ * 넓은 소재를 먼저 묻는 순서. 여기 없는 소재는 원래 순서대로 뒤에 붙는다.
+ *
+ * 날씨와 걸음 수는 하루의 윤곽(밖에 있었는지, 집에 있었는지)을 잡아준다.
+ * 그 답이 뒤 카드의 질문 갱신에 반영되어야 구체적인 질문이 나오므로 먼저 묻는다.
+ */
+private val CARD_ORDER_FIRST = listOf("weather", "health")
+
+/** 마무리 한마디를 보여주고 다음 카드로 넘어가기까지의 시간 */
+private const val CLOSING_DISPLAY_MS = 1600L
+
+/** 마무리 멘트 없이 넘어갈 때의 최소 간격. 답하자마자 화면이 튀는 느낌을 막는다 */
+private const val CARD_ADVANCE_DELAY_MS = 500L
 
 /**
  * 후속 질문을 붙일 최소 답변 길이.
@@ -204,6 +221,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 후속 질문을 받아오는 중 — 카드 하단에 로딩 표시 */
     private val _isLoadingFollowUp = MutableStateFlow(false)
     val isLoadingFollowUp: StateFlow<Boolean> = _isLoadingFollowUp.asStateFlow()
+
+    /** 다음 카드의 질문을 그동안의 답변에 맞춰 손보는 중 */
+    private val _isPreparingCard = MutableStateFlow(false)
+    val isPreparingCard: StateFlow<Boolean> = _isPreparingCard.asStateFlow()
 
     /** 이번 세션에서 이미 붙인 후속 질문 수 */
     private var followUpCount = 0
@@ -1097,10 +1118,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 QnaCard(
                     sourceId = q.blockId,
                     sourceContent = sourceById[q.blockId]?.content.orEmpty(),
+                    sourceLabel = sourceById[q.blockId]?.type?.label.orEmpty(),
+                    imageUri = sourceById[q.blockId]?.imageUri,
                     turns = listOf(QnaTurn(question = q.question))
                 )
             }
-            _qnaCards.value = cards + emotionCard()
+            // 넓은 소재(날씨·걸음 수)를 앞으로. sortedBy는 안정 정렬이라 나머지는 원래 순서를 지킨다.
+            val ordered = cards.sortedBy { card ->
+                CARD_ORDER_FIRST.indexOf(card.sourceId).takeIf { it >= 0 } ?: CARD_ORDER_FIRST.size
+            }
+            _qnaCards.value = ordered + emotionCard()
         } catch (e: Exception) {
             Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
             _qnaCards.value = listOf(emotionCard())
@@ -1135,45 +1162,72 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         )
         _qnaCards.value = cards.toMutableList().also { it[cardIndex] = answered }
 
+        // 감정 카드는 선택지 하나로 끝나면 일기 본문에 쓸 재료가 없다(칩만 붙고 글에는 안 남는다).
+        // 왜 그런 기분이었는지 한 번 더 묻는다. 고정 질문이라 API 호출도 후속 예산도 쓰지 않는다.
+        if (answered.sourceId == "emotion" && answered.turns.size == 1) {
+            _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
+                list[cardIndex] = answered.copy(
+                    turns = answered.turns + QnaTurn(question = "왜 그런 기분이 드셨어요?")
+                )
+            }
+            return@launch
+        }
+
         if (!shouldAskFollowUp(answered, answer)) {
-            advanceCard()
+            finishCard(cardIndex, closing = "")
             return@launch
         }
 
         _isLoadingFollowUp.value = true
-        val followUp = try {
+        val result = try {
             aiRepository.generateFollowUpQuestion(
                 sourceContent = answered.sourceContent,
-                question = answered.turns[turnIndex].question,
-                answer = answer
+                turns = answered.turns
             )
         } catch (e: Exception) {
             Log.e(TAG, "❌ 후속 질문 실패 — 다음 카드로", e)
-            ""
+            FollowUpResult()
         } finally {
             _isLoadingFollowUp.value = false
         }
 
-        if (followUp.isBlank()) {
-            Log.d(TAG, "↪️ [${answered.sourceId}] 후속 질문 없음")
-            advanceCard()
+        if (result.question.isBlank()) {
+            Log.d(TAG, "↪️ [${answered.sourceId}] 대화 종료 — ${result.closing.ifBlank { "(마무리 멘트 없음)" }}")
+            finishCard(cardIndex, result.closing)
             return@launch
         }
 
         followUpCount++
-        Log.d(TAG, "↳ [${answered.sourceId}] 후속 질문($followUpCount/$MAX_FOLLOW_UPS): $followUp")
+        Log.d(TAG, "↳ [${answered.sourceId}] 후속 질문($followUpCount/$MAX_FOLLOW_UPS): ${result.question}")
         _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
-            list[cardIndex] = answered.copy(turns = answered.turns + QnaTurn(question = followUp))
+            list[cardIndex] = answered.copy(turns = answered.turns + QnaTurn(question = result.question))
         }
     }
 
-    /** 현재 카드를 건너뛰고 다음 카드로. 후속 질문도 받지 않는다. */
+    /**
+     * 이 소재의 대화를 마친다. 마무리 한마디를 잠깐 보여준 뒤 다음 카드로 넘어간다.
+     * 답하자마자 화면이 넘어가면 마지막 답변이 무시된 느낌이 들어서 간격을 둔다.
+     */
+    private suspend fun finishCard(cardIndex: Int, closing: String) {
+        if (closing.isNotBlank()) {
+            _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
+                list[cardIndex] = list[cardIndex].copy(closing = closing)
+            }
+            delay(CLOSING_DISPLAY_MS)
+        } else {
+            delay(CARD_ADVANCE_DELAY_MS)
+        }
+        advanceCard()
+    }
+
+    /** 현재 카드를 건너뛰고 다음 카드로. 후속 질문도 마무리 멘트도 없다. */
     fun skipCurrentCard() = advanceCard()
 
     private fun shouldAskFollowUp(card: QnaCard, answer: String): Boolean {
         if (card.options.isNotEmpty()) return false                     // 감정 등 고정 선택지 카드
         if (followUpCount >= MAX_FOLLOW_UPS) return false
-        if (card.turns.size > MAX_FOLLOW_UPS_PER_CARD) return false
+        // turns에는 첫 질문이 포함되므로 후속 횟수는 turns.size - 1
+        if (card.turns.size - 1 >= MAX_FOLLOW_UPS_PER_CARD) return false
         val normalized = answer.replace(" ", "")
         if (normalized in DISMISSIVE_ANSWERS) return false
         return answer.length >= MIN_ANSWER_LENGTH_FOR_FOLLOW_UP
@@ -1182,7 +1236,69 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private fun advanceCard() {
         val cards = _qnaCards.value ?: return
         val next = _currentCardIndex.value + 1
-        if (next >= cards.size) submitQna() else _currentCardIndex.value = next
+        if (next >= cards.size) {
+            submitQna()
+            return
+        }
+        _currentCardIndex.value = next
+        viewModelScope.launch { reviseCurrentQuestion() }
+    }
+
+    /**
+     * 카드에 도착한 시점에 그 카드의 질문을 지금까지 나온 답변에 맞춰 손본다.
+     *
+     * 첫 질문들은 대화가 시작되기 전에 한꺼번에 만들어지므로 중간 답변이 반영돼 있지 않다.
+     * 그래서 이미 답한 걸 또 묻거나, 답변 덕에 가능해진 더 좋은 질문을 놓친다.
+     * 더 물을 게 없어졌다고 판단되면 그 카드는 건너뛴다.
+     */
+    private suspend fun reviseCurrentQuestion() {
+        val cards = _qnaCards.value ?: return
+        val index = _currentCardIndex.value
+        val card = cards.getOrNull(index) ?: return
+
+        if (card.options.isNotEmpty()) return                       // 감정 카드는 고정 질문
+        if (card.turns.size != 1 || card.turns[0].answer != null) return
+
+        // 소재별로 묶어서 넘긴다. 평평하게 나열하면 한 소재에서 이어진 대화인지
+        // 서로 다른 소재의 답변인지 구분이 사라져, 엉뚱한 소재의 답을 근거로 질문을 고친다.
+        val prior = cards.take(index)
+            .mapNotNull { done ->
+                val exchange = done.turns
+                    .filter { it.answer != null }
+                    .joinToString("\n") { "Q: ${it.question}\nA: ${it.answer}" }
+                    .ifBlank { return@mapNotNull null }
+                "[${done.sourceLabel.ifBlank { "기타" }} · ${done.sourceId}]\n$exchange"
+            }
+        if (prior.isEmpty()) return                                 // 첫 카드면 반영할 답변이 없다
+
+        _isPreparingCard.value = true
+        val revised = try {
+            aiRepository.reviseQuestion(
+                sourceId = card.sourceId,
+                sourceLabel = card.sourceLabel,
+                sourceContent = card.sourceContent,
+                question = card.turns[0].question,
+                priorAnswers = prior.joinToString("\n\n")
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 질문 갱신 실패 — 원래 질문 유지", e)
+            card.turns[0].question
+        } finally {
+            _isPreparingCard.value = false
+        }
+
+        when {
+            revised.isBlank() -> {
+                Log.d(TAG, "⤫ [${card.sourceId}] 앞선 답변으로 이미 해소됨 — 카드 건너뜀")
+                advanceCard()
+            }
+            revised != card.turns[0].question -> {
+                Log.d(TAG, "✎ [${card.sourceId}] 질문 갱신: $revised")
+                _qnaCards.value = cards.toMutableList().also {
+                    it[index] = card.copy(turns = listOf(QnaTurn(question = revised)))
+                }
+            }
+        }
     }
 
     /** 모든 카드의 답변을 모아 초안 생성을 시작한다. */

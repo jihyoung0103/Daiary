@@ -74,6 +74,7 @@ import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.TextSecondaryDark
+import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -201,7 +202,9 @@ fun HomeScreen(
                             BannerSkeleton()
                             BannerSkeleton()
                         } else {
-                            val today = LocalDate.now()
+                            // 배너의 "오늘"은 달력의 오늘이 아니라 일기 기준 날짜(04시 이전이면 전날).
+                            // 작성 플로우가 쓰는 날짜와 같아야 일기 유무 판정·이동 날짜가 어긋나지 않는다.
+                            val today = DiaryDateUtil.diaryDate()
                             val diaryBannerDate = selectedDate ?: today
                             val existingDiary = diaries.firstOrNull { it.date == diaryBannerDate.toString() }
                             val diaryBannerState = when {

@@ -6,6 +6,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.smu.daiary.data.model.HealthData
@@ -87,12 +88,16 @@ class HealthDataSource(private val context: Context) {
         return HealthData(steps = steps, sleepDurationMinutes = sleepMinutes)
     }
 
-    /** 시간 범위 내 StepsRecord 모두 더해 총 걸음 수 반환 */
+    /**
+     * 시간 범위 내 총 걸음 수.
+     *
+     * readRecords로 raw 레코드를 직접 더하면 안 된다. 폰 센서 · 삼성 헬스 · 갤럭시 워치가
+     * 같은 걸음을 각자 기록하므로 구간이 겹쳐 2배로 집계된다.
+     * aggregate는 데이터 소스 우선순위에 따라 겹치는 구간을 제거하고 합산해준다.
+     */
     private suspend fun readSteps(client: HealthConnectClient, filter: TimeRangeFilter): Int {
-        val response = client.readRecords(
-            ReadRecordsRequest(StepsRecord::class, filter)
-        )
-        return response.records.sumOf { it.count }.toInt()
+        val result = client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), filter))
+        return (result[StepsRecord.COUNT_TOTAL] ?: 0L).toInt()
     }
 
     /**

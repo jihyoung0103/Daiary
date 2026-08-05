@@ -3,6 +3,7 @@ package com.smu.daiary.data.repository
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.data.source.AnthropicDataSource
 import com.smu.daiary.data.source.EncodedImage
+import com.smu.daiary.data.source.FollowUpResult
 import com.smu.daiary.data.source.GeneratedBlock
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
@@ -16,11 +17,18 @@ class AiRepository(
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         dataSource.generateContextQuestions(blocks)
 
-    suspend fun generateFollowUpQuestion(
+    suspend fun reviseQuestion(
+        sourceId: String,
+        sourceLabel: String,
         sourceContent: String,
         question: String,
-        answer: String
-    ): String = dataSource.generateFollowUpQuestion(sourceContent, question, answer)
+        priorAnswers: String
+    ): String = dataSource.reviseQuestion(sourceId, sourceLabel, sourceContent, question, priorAnswers)
+
+    suspend fun generateFollowUpQuestion(
+        sourceContent: String,
+        turns: List<QnaTurn>
+    ): FollowUpResult = dataSource.generateFollowUpQuestion(sourceContent, turns)
 
     suspend fun generateDiaryBlocks(
         sources: List<DiarySource>,

@@ -7,6 +7,7 @@ import com.smu.daiary.data.source.prompt.diaryPrompt
 import com.smu.daiary.data.source.prompt.followUpQuestionPrompt
 import com.smu.daiary.data.source.prompt.photoAnalysisPrompt
 import com.smu.daiary.data.source.prompt.retrospectPrompt
+import com.smu.daiary.data.source.prompt.reviseQuestionPrompt
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,15 @@ import java.util.concurrent.TimeUnit
 data class EncodedImage(
     val base64: String,
     val mediaType: String
+)
+
+/**
+ * 후속 질문 호출의 결과.
+ * question이 있으면 대화를 이어가고, 비어 있으면 closing을 보여준 뒤 카드를 넘긴다.
+ */
+data class FollowUpResult(
+    val question: String = "",
+    val closing: String = ""
 )
 
 /** AI가 소스 하나당 작성한 일기 문단. sourceId로 원래 소스와 다시 이어붙인다. */
@@ -52,9 +62,9 @@ class AnthropicDataSource {
 
             val body = JSONObject().apply {
                 put("model", "claude-haiku-4-5-20251001")
-                // 블록 수만큼 질문이 나올 수 있다. 모자라면 JSON이 잘려 파싱에 실패하고
-                // 질문이 0개가 되므로(조용한 실패) 여유를 둔다.
-                put("max_tokens", 1024)
+                // 블록 수만큼 질문이 나오고, 질문하지 않은 블록도 사유를 함께 받는다.
+                // 모자라면 JSON이 잘려 파싱에 실패하고 질문이 0개가 되므로 넉넉히 둔다.
+                put("max_tokens", 2048)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -70,13 +80,27 @@ class AnthropicDataSource {
                 .post(body)
                 .build()
 
+            var rawText = ""
             try {
                 val response = client.newCall(request).execute()
-                val responseBody = response.body?.string() ?: return@withContext emptyList()
-                val text = JSONObject(responseBody)
+                val responseBody = response.body?.string() ?: run {
+                    android.util.Log.e(TAG, "질문 생성 — 빈 응답")
+                    return@withContext emptyList()
+                }
+
+                val envelope = JSONObject(responseBody)
+                // 출력이 max_tokens에 걸리면 JSON이 잘려 파싱이 실패한다.
+                // 원인을 여기서 못 밝히면 "질문 0개"와 구분이 안 된다.
+                val stopReason = envelope.optString("stop_reason")
+                if (stopReason == "max_tokens") {
+                    android.util.Log.e(TAG, "질문 생성 — 출력이 max_tokens에 잘림. 상한을 올려야 함")
+                }
+
+                rawText = envelope
                     .getJSONArray("content")
                     .getJSONObject(0)
                     .getString("text")
+                val text = rawText
                     .trim()
                     .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
 
@@ -108,20 +132,76 @@ class AnthropicDataSource {
                     )
                 }
             } catch (e: Exception) {
+                // 여기서 조용히 빈 목록을 돌려주면 "질문이 0개인 날"과 구분이 안 된다.
+                android.util.Log.e(TAG, "질문 생성/파싱 실패 — 응답 원문: $rawText", e)
                 emptyList()
             }
         }
 
     /**
-     * 방금 받은 답변을 근거로 후속 질문 1개를 만든다.
-     * 더 물을 게 없거나 호출이 실패하면 빈 문자열 — 호출부는 카드를 넘긴다.
+     * 미리 만들어 둔 질문을 그동안 나온 답변에 맞춰 손본다.
+     * 빈 문자열이면 더 물을 게 없다는 뜻 — 호출부는 그 카드를 건너뛴다.
+     * 실패하면 원래 질문을 그대로 돌려준다(갱신 실패로 질문이 사라지면 안 된다).
+     */
+    suspend fun reviseQuestion(
+        sourceId: String,
+        sourceLabel: String,
+        sourceContent: String,
+        question: String,
+        priorAnswers: String
+    ): String = withContext(Dispatchers.IO) {
+        val prompt = reviseQuestionPrompt(sourceId, sourceLabel, sourceContent, question, priorAnswers)
+
+        val body = JSONObject().apply {
+            put("model", "claude-haiku-4-5-20251001")
+            put("max_tokens", 256)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", prompt)
+                })
+            })
+        }.toString().toRequestBody(jsonMediaType)
+
+        val request = Request.Builder()
+            .url("https://api.anthropic.com/v1/messages")
+            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+            .addHeader("anthropic-version", "2023-06-01")
+            .post(body)
+            .build()
+
+        var raw = ""
+        try {
+            val response = client.newCall(request).execute()
+            raw = response.body?.string() ?: return@withContext question
+            val text = JSONObject(raw)
+                .getJSONArray("content")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            JSONObject(text).optString("question").trim()
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "질문 갱신 실패 — 원래 질문 유지. 응답: $raw", e)
+            question
+        }
+    }
+
+    /**
+     * 지금까지의 문답 전체를 보고 후속 질문을 만든다.
+     * 대화를 마칠 때는 question이 비고 closing에 마무리 한마디가 온다.
+     * 호출이 실패하면 둘 다 빈 문자열 — 호출부는 조용히 카드를 넘긴다.
      */
     suspend fun generateFollowUpQuestion(
         sourceContent: String,
-        question: String,
-        answer: String
-    ): String = withContext(Dispatchers.IO) {
-        val prompt = followUpQuestionPrompt(sourceContent, question, answer)
+        turns: List<QnaTurn>
+    ): FollowUpResult = withContext(Dispatchers.IO) {
+        // 직전 한 쌍만 주면 3번째 질문에서 앞서 물은 걸 또 묻게 되므로 전체를 넘긴다
+        val conversation = turns.joinToString("\n") { turn ->
+            "질문: ${turn.question}\n답변: ${turn.answer ?: "(아직 답하지 않음)"}"
+        }
+        val prompt = followUpQuestionPrompt(sourceContent, conversation)
 
         val body = JSONObject().apply {
             put("model", "claude-haiku-4-5-20251001")
@@ -142,9 +222,11 @@ class AnthropicDataSource {
             .post(body)
             .build()
 
+        var raw = ""
         try {
             val response = client.newCall(request).execute()
-            val responseBody = response.body?.string() ?: return@withContext ""
+            val responseBody = response.body?.string() ?: return@withContext FollowUpResult()
+            raw = responseBody
             val text = JSONObject(responseBody)
                 .getJSONArray("content")
                 .getJSONObject(0)
@@ -152,10 +234,16 @@ class AnthropicDataSource {
                 .trim()
                 .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
 
-            JSONObject(text).optString("question").trim()
+            val json = JSONObject(text)
+            FollowUpResult(
+                question = json.optString("question").trim(),
+                closing = json.optString("closing").trim()
+            )
         } catch (e: Exception) {
-            android.util.Log.e("AnthropicDataSource", "후속 질문 생성 실패", e)
-            ""
+            // 응답에 content가 없으면 API가 에러 객체를 돌려준 것이다.
+            // 본문을 남기지 않으면 "더 물을 게 없어 정상 종료"와 구분이 안 된다.
+            android.util.Log.e(TAG, "후속 질문 생성 실패 — 응답: $raw", e)
+            FollowUpResult()
         }
     }
 

@@ -94,6 +94,7 @@ fun ContextQnAScreen(
     val cards by viewModel.qnaCards.collectAsStateWithLifecycle()
     val cardIndex by viewModel.currentCardIndex.collectAsStateWithLifecycle()
     val isLoadingFollowUp by viewModel.isLoadingFollowUp.collectAsStateWithLifecycle()
+    val isPreparingCard by viewModel.isPreparingCard.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
     val isGeneratingQuestions by viewModel.isGeneratingQuestions.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
@@ -221,13 +222,25 @@ fun ContextQnAScreen(
                 label = "card_anim"
             ) { idx ->
                 val shown = cardList.getOrNull(idx) ?: return@AnimatedContent
-                QnaCardBody(
-                    card = shown,
-                    wc = wc,
-                    isLoadingFollowUp = isLoadingFollowUp,
-                    onAnswer = { viewModel.answerCurrentTurn(it) },
-                    onSkip = { viewModel.skipCurrentCard() }
-                )
+                if (isPreparingCard) {
+                    // 앞선 답변을 반영해 질문을 손보는 중. 질문이 눈앞에서 바뀌면 어색하므로
+                    // 확정될 때까지 보여주지 않는다.
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = wc.Accent,
+                            strokeWidth = 2.5.dp
+                        )
+                    }
+                } else {
+                    QnaCardBody(
+                        card = shown,
+                        wc = wc,
+                        isLoadingFollowUp = isLoadingFollowUp,
+                        onAnswer = { viewModel.answerCurrentTurn(it) },
+                        onSkip = { viewModel.skipCurrentCard() }
+                    )
+                }
             }
         }
     }
@@ -252,6 +265,26 @@ private fun QnaCardBody(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ) {
+        // 무엇에 대한 질문인지 보여준다. 질문이 "이 치킨은…"처럼 지시어로 시작하면
+        // 이게 없이는 무엇을 묻는지 알 방법이 없다.
+        card.imageUri?.let { uri ->
+            PhotoThumbnail(
+                model = uri,
+                contentDescription = null,
+                modifier = Modifier.size(96.dp),
+                shape = RoundedCornerShape(12.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+        } ?: card.sourceLabel.takeIf { it.isNotBlank() && card.sourceId != "emotion" }?.let { label ->
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                color = wc.TextMuted,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+
         card.turns.forEachIndexed { index, turn ->
             if (index > 0) Spacer(Modifier.height(24.dp))
 
@@ -293,7 +326,9 @@ private fun QnaCardBody(
             // 아직 답하지 않은 턴 — 입력 UI
             if (index == pendingIndex) {
                 Spacer(Modifier.height(20.dp))
-                if (card.options.isEmpty()) {
+                // 선택지는 첫 턴에만. 감정 카드의 "왜 그런 기분이었나요"처럼
+                // 이어지는 턴은 자유 입력으로 받는다.
+                if (card.options.isEmpty() || index > 0) {
                     FreeAnswerInput(wc = wc, onSubmit = onAnswer)
                 } else {
                     OptionAnswerInput(options = card.options, wc = wc, onSubmit = onAnswer)
@@ -315,10 +350,24 @@ private fun QnaCardBody(
             }
         }
 
+        // 이 소재의 대화를 맺는 한마디. 잠깐 보였다가 다음 카드로 넘어간다.
+        card.closing?.takeIf { it.isNotBlank() }?.let { closing ->
+            Spacer(Modifier.height(28.dp))
+            Text(
+                text = closing,
+                fontSize = 16.sp,
+                color = wc.TextPrimary,
+                lineHeight = 24.sp
+            )
+        }
+
         Spacer(Modifier.height(32.dp))
 
-        // 건너뛰기 — 감정은 반드시 답해야 하므로 감정 카드에서는 숨긴다
-        if (card.sourceId != "emotion" && !isLoadingFollowUp) {
+        // 건너뛰기 — 감정 선택은 반드시 답해야 하므로 감정 카드의 첫 턴에서만 숨긴다
+        // (이유를 묻는 두 번째 턴은 건너뛸 수 있다).
+        // 마무리 멘트가 떠 있는 동안은 이미 대화가 끝난 상태라 숨긴다.
+        val isRequiredEmotionTurn = card.sourceId == "emotion" && pendingIndex == 0
+        if (!isRequiredEmotionTurn && !isLoadingFollowUp && card.closing.isNullOrBlank()) {
             TextButton(
                 onClick = onSkip,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
