@@ -49,7 +49,9 @@ class AnthropicDataSource {
 
             val body = JSONObject().apply {
                 put("model", "claude-haiku-4-5-20251001")
-                put("max_tokens", 512)
+                // 블록 수만큼 질문이 나올 수 있다. 모자라면 JSON이 잘려 파싱에 실패하고
+                // 질문이 0개가 되므로(조용한 실패) 여유를 둔다.
+                put("max_tokens", 1024)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -78,11 +80,13 @@ class AnthropicDataSource {
                 val questionsArray = JSONObject(text).getJSONArray("questions")
                 (0 until questionsArray.length()).map { i ->
                     val q = questionsArray.getJSONObject(i)
-                    val opts = q.getJSONArray("quickOptions")
+                    // quickOptions는 더 이상 요청하지 않는다(답변은 자유 입력).
+                    // 모델이 습관적으로 붙여 보내더라도 무시하고 넘어간다.
+                    val opts = q.optJSONArray("quickOptions")
                     ContextQuestion(
                         blockId      = q.getString("blockId"),
                         question     = q.getString("question"),
-                        quickOptions = (0 until opts.length()).map { opts.getString(it) }
+                        quickOptions = (0 until (opts?.length() ?: 0)).map { opts!!.getString(it) }
                     )
                 }
             } catch (e: Exception) {

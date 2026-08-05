@@ -68,6 +68,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.smu.daiary.R
 
+/**
+ * 질의응답 자유 답변의 최대 글자 수.
+ * 답변은 일기 초안의 재료일 뿐이라 길 필요가 없어 짧게 제한한다. 늘리려면 이 값만 고치면 된다.
+ */
+private const val MAX_ANSWER_LENGTH = 50
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContextQnAScreen(
@@ -183,6 +189,16 @@ fun ContextQnAScreen(
         val isCustomSelected = selectedOption == "기타"
         val customText = answers[question.blockId + "_custom"] ?: ""
 
+        // 다음 질문으로 넘어가거나, 마지막이면 답변을 제출한다.
+        val goNext: () -> Unit = {
+            val nextIndex = currentIndex + 1
+            if (nextIndex >= questionList.size) {
+                viewModel.submitAnswers(buildFinalAnswers(answers, questionList))
+            } else {
+                currentIndex = nextIndex
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -229,51 +245,25 @@ fun ContextQnAScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // 빠른 선택 버튼 (한 줄 배치, 다 안 들어가면 가로 스크롤)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
-            ) {
-                question.quickOptions.forEach { option ->
-                    val isSelected = selectedOption == option
-                    Surface(
-                        shape = RoundedCornerShape(ButtonCornerRadius),
-                        color = if (isSelected) wc.Accent else wc.SurfaceBg,
-                        onClick = {
-                            answers[question.blockId] = option
-                            if (option != "기타") {
-                                val finalAnswers = answers.toMap()
-                                    .filterKeys { !it.endsWith("_custom") }
-                                val nextIndex = currentIndex + 1
-                                if (nextIndex >= questionList.size) {
-                                    viewModel.submitAnswers(finalAnswers)
-                                } else {
-                                    currentIndex = nextIndex
-                                }
-                            }
-                        }
-                    ) {
-                        Text(
-                            text = option,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-                            color = if (isSelected) White else wc.TextPrimary
-                        )
-                    }
-                }
-            }
-
-            // "기타" 선택 시 직접 입력 필드
-            if (isCustomSelected) {
-                Spacer(Modifier.height(16.dp))
+            // 선택지가 없는 질문(AI가 만든 질문 전부)은 자유 입력으로 받는다.
+            // 선택지가 있는 질문은 감정처럼 답변을 앱 데이터로 저장해야 하는 경우뿐이다.
+            if (question.quickOptions.isEmpty()) {
                 OutlinedTextField(
                     value = customText,
-                    onValueChange = { answers[question.blockId + "_custom"] = it },
+                    onValueChange = {
+                        if (it.length <= MAX_ANSWER_LENGTH) answers[question.blockId + "_custom"] = it
+                    },
                     placeholder = {
                         Text(stringResource(R.string.hint_custom_answer), color = wc.TextMuted, fontSize = 14.sp)
+                    },
+                    supportingText = {
+                        Text(
+                            text = "${customText.length} / $MAX_ANSWER_LENGTH",
+                            fontSize = 12.sp,
+                            color = wc.TextMuted,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.End
+                        )
                     },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
@@ -289,15 +279,8 @@ fun ContextQnAScreen(
                 Spacer(Modifier.height(12.dp))
                 Button(
                     onClick = {
-                        val answer = customText.ifBlank { "기타" }
-                        answers[question.blockId] = answer
-                        val nextIndex = currentIndex + 1
-                        if (nextIndex >= questionList.size) {
-                            val finalAnswers = buildFinalAnswers(answers, questionList)
-                            viewModel.submitAnswers(finalAnswers)
-                        } else {
-                            currentIndex = nextIndex
-                        }
+                        answers[question.blockId] = customText
+                        goNext()
                     },
                     enabled = customText.isNotBlank(),
                     modifier = Modifier.fillMaxWidth().height(ButtonHeight),
@@ -309,6 +292,83 @@ fun ContextQnAScreen(
                 ) {
                     Text(stringResource(R.string.btn_next), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
+            } else {
+                // 빠른 선택 버튼 (한 줄 배치, 다 안 들어가면 가로 스크롤)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+                ) {
+                    question.quickOptions.forEach { option ->
+                        val isSelected = selectedOption == option
+                        Surface(
+                            shape = RoundedCornerShape(ButtonCornerRadius),
+                            color = if (isSelected) wc.Accent else wc.SurfaceBg,
+                            onClick = {
+                                answers[question.blockId] = option
+                                if (option != "기타") goNext()
+                            }
+                        ) {
+                            Text(
+                                text = option,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
+                                color = if (isSelected) White else wc.TextPrimary
+                            )
+                        }
+                    }
+                }
+
+                // "기타" 선택 시 직접 입력 필드
+                if (isCustomSelected) {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = customText,
+                        onValueChange = {
+                            if (it.length <= MAX_ANSWER_LENGTH) answers[question.blockId + "_custom"] = it
+                        },
+                        placeholder = {
+                            Text(stringResource(R.string.hint_custom_answer), color = wc.TextMuted, fontSize = 14.sp)
+                        },
+                        supportingText = {
+                            Text(
+                                text = "${customText.length} / $MAX_ANSWER_LENGTH",
+                                fontSize = 12.sp,
+                                color = wc.TextMuted,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = wc.Accent,
+                            unfocusedBorderColor = wc.Border,
+                            focusedTextColor = wc.TextPrimary,
+                            unfocusedTextColor = wc.TextPrimary,
+                            cursorColor = wc.Accent
+                        ),
+                        singleLine = true
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            answers[question.blockId] = customText.ifBlank { "기타" }
+                            goNext()
+                        },
+                        enabled = customText.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(ButtonHeight),
+                        shape = RoundedCornerShape(ButtonCornerRadius),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = wc.Accent,
+                            disabledContainerColor = wc.Border
+                        )
+                    ) {
+                        Text(stringResource(R.string.btn_next), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
             }
 
             Spacer(Modifier.weight(1f))
@@ -316,15 +376,7 @@ fun ContextQnAScreen(
             // 건너뛰기 — 감정은 반드시 답해야 하므로 감정 카드에서는 숨긴다
             if (question.blockId != "emotion") {
             TextButton(
-                onClick = {
-                    val nextIndex = currentIndex + 1
-                    if (nextIndex >= questionList.size) {
-                        val finalAnswers = buildFinalAnswers(answers, questionList)
-                        viewModel.submitAnswers(finalAnswers)
-                    } else {
-                        currentIndex = nextIndex
-                    }
-                },
+                onClick = goNext,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .padding(bottom = 24.dp)

@@ -54,6 +54,13 @@ private val EMOTION_OPTIONS = listOf("기쁨", "설렘", "평온", "슬픔", "�
 private val WEATHER_OPTIONS = listOf("맑음", "흐림", "비", "눈", "바람")
 
 /**
+ * 질문을 만들지 않는 블록 타입.
+ * 내일 일정·내일 날씨는 아직 일어나지 않은 일이라 답변에 담길 경험이 없다.
+ * 프롬프트에도 같은 규칙이 있지만, 구조적으로 확실한 건 여기서 걸러 토큰도 아낀다.
+ */
+private val NO_QUESTION_TYPES = setOf(BlockType.CALENDAR_UPCOMING, BlockType.WEATHER_TOMORROW)
+
+/**
  * 일기 작성 화면 전체의 상태와 비즈니스 로직을 담당하는 ViewModel.
  *
  * 주요 책임:
@@ -1037,12 +1044,21 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // 사진마다 질문·답변이 따로 잡힌다(답변 맵이 blockId 키라 중복되면 덮어써짐).
             val questionInput = photoSources.map {
                 ContentBlock(id = it.sourceId, type = it.type, content = it.content)
-            } + selected.filter { it.type != BlockType.PHOTO }
+            } + selected.filter { it.type != BlockType.PHOTO && it.type !in NO_QUESTION_TYPES }
 
-            // 날씨 질문은 AI가 만든 question 텍스트는 유지하되, quickOptions는 감정처럼
-            // 앱 고정 리스트(WEATHER_OPTIONS)로 덮어써서 편집 화면 드롭다운과 항상 일치시킨다.
+            // AI가 만든 질문은 전부 자유 입력으로 받는다. 선택지를 주면 답이 평이해지고
+            // 질문과 무관한 선택지가 섞여서 초안의 재료로 쓸 만한 답이 안 나온다.
+            // 선택지가 남는 건 감정 질문뿐 — 답변이 일기의 emotion 필드로 저장되고 회고 집계에 쓰인다.
+            //
+            // distinctBy: 한 블록에 질문이 2개 이상 나오면 답변 맵(blockId 키)에서 서로 덮어써
+            // 답변이 조용히 사라진다. 프롬프트가 뭘 뱉든 여기서 막는다.
             val questions = aiRepository.generateContextQuestions(questionInput)
-                .map { q -> if (q.blockId == "weather") q.copy(quickOptions = WEATHER_OPTIONS + "기타") else q }
+                .distinctBy { it.blockId }
+                .map { it.copy(quickOptions = emptyList()) }
+
+            Log.d(TAG, "===== 생성된 질문 ${questions.size}개 (블럭 ${questionInput.size}개) =====")
+            questions.forEach { Log.d(TAG, "- [${it.blockId}] ${it.question}") }
+
             _contextQuestions.value = questions + emotionQuestion()
         } catch (e: Exception) {
             Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
