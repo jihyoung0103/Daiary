@@ -69,12 +69,12 @@ import com.smu.daiary.ui.theme.Linen
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
-import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.ui.theme.Silver
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.TextSecondaryDark
+import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -201,8 +201,10 @@ fun HomeScreen(
                             BannerSkeleton()
                             BannerSkeleton()
                         } else {
-                            // FAB(+ 버튼)와 같은 기준을 쓴다. LocalDate.now()를 쓰면
-                            // 오전 4시 이전에 두 진입점이 서로 다른 날짜를 가리킨다.
+                            // 배너의 "오늘"은 달력의 오늘이 아니라 일기 기준 날짜(04시 이전이면 전날).
+                            // FAB(+ 버튼)와 같은 기준이어야 한다. LocalDate.now()를 쓰면 오전 4시
+                            // 이전에 두 진입점이 서로 다른 날짜를 가리키고, 일기 유무 판정·이동
+                            // 날짜도 작성 플로우와 어긋난다.
                             val today = DiaryDateUtil.diaryDate()
                             val diaryBannerDate = selectedDate ?: today
                             val weekDays = stringArrayResource(R.array.week_days_mon_first)

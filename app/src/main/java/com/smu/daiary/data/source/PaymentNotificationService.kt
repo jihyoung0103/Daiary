@@ -7,6 +7,7 @@ import android.util.Log
 import com.smu.daiary.data.model.DailyData
 import com.smu.daiary.data.repository.DailyDataRepository
 import com.smu.daiary.data.source.payment.PaymentParserRegistry
+import com.smu.daiary.data.source.payment.PaymentParsing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -84,6 +85,10 @@ class PaymentNotificationService : NotificationListenerService() {
             val date = DiaryDateUtil.diaryDate().toString()
             mutex.withLock {
                 val existing = repository.getDailyData(userId, date).getOrNull()
+                if (PaymentParsing.isDuplicate(existing?.payments ?: emptyList(), payment)) {
+                    Log.d(TAG, "🔁 중복 알림 무시: ${payment.merchant} / ${payment.amount}원")
+                    return@withLock
+                }
                 val result = if (existing == null) {
                     // 오늘 첫 번째 결제 → 문서 새로 생성
                     repository.saveDailyData(userId, DailyData(date = date, payments = listOf(payment)))

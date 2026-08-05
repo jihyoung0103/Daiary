@@ -40,6 +40,24 @@ object PaymentParsing {
         if (merchant.isBlank()) return null
         return merchant to amount
     }
+
+    /** 같은 결제로 볼 시간 창. paidAt이 "알림 수신 시각"인 파서가 있어 밀리초 비교가 불가능하다. */
+    private const val DUPLICATE_WINDOW_MS = 5 * 60_000L
+
+    /**
+     * 이미 저장된 결제 중 같은 건이 있는지 판단한다. 중복이 생기는 경로:
+     * - 알림이 갱신되면 onNotificationPosted가 같은 내용으로 다시 호출된다.
+     * - 네이버 앱 / 네이버페이 앱처럼 두 패키지가 같은 결제를 각각 알린다.
+     *
+     * ponytail: 가맹점+금액+5분 창 휴리스틱. 같은 가게에서 같은 금액을 5분 내 두 번 결제하면
+     *           하나가 누락된다. 알림에 승인번호가 잡히면 그걸로 교체할 것.
+     */
+    fun isDuplicate(existing: List<PaymentData>, new: PaymentData): Boolean =
+        existing.any {
+            it.merchant == new.merchant &&
+                it.amount == new.amount &&
+                kotlin.math.abs(it.paidAt - new.paidAt) < DUPLICATE_WINDOW_MS
+        }
 }
 
 /**

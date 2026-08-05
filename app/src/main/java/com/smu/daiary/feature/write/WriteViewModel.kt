@@ -40,7 +40,9 @@ import android.util.Base64
 import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.data.source.EncodedImage
+import com.smu.daiary.data.source.FollowUpResult
 import com.smu.daiary.data.source.GeneratedBlock
+import kotlinx.coroutines.delay
 import java.util.Collections
 import java.util.UUID
 
@@ -52,6 +54,49 @@ private val EMOTION_OPTIONS = listOf("기쁨", "설렘", "평온", "슬픔", "�
 
 /** 날씨 선택지. weatherIconMap(DiaryEditScreen/DraftPreviewScreen)과 동일한 canonical 값 */
 private val WEATHER_OPTIONS = listOf("맑음", "흐림", "비", "뇌우", "눈")
+
+/**
+ * 질문을 만들지 않는 블록 타입.
+ * 내일 일정·내일 날씨는 아직 일어나지 않은 일이라 답변에 담길 경험이 없다.
+ * 프롬프트에도 같은 규칙이 있지만, 구조적으로 확실한 건 여기서 걸러 토큰도 아낀다.
+ */
+private val NO_QUESTION_TYPES = setOf(BlockType.CALENDAR_UPCOMING, BlockType.WEATHER_TOMORROW)
+
+/**
+ * 세션 전체에서 허용할 후속 질문 수.
+ * 첫 질문은 상한이 없다(물을 가치가 있으면 다 묻고, 넘길지는 사용자가 정한다).
+ * 대신 후속은 사용자가 이미 답한 뒤에 붙는 추가 타이핑이라 여기서 총량을 묶는다.
+ * 대화를 언제 끝낼지는 모델과 답변 성의가 먼저 판단하고, 이 숫자는 안전망이다.
+ */
+private const val MAX_FOLLOW_UPS = 6
+
+/** 한 소재를 두고 이어갈 수 있는 최대 후속 질문 수 */
+private const val MAX_FOLLOW_UPS_PER_CARD = 3
+
+/**
+ * 넓은 소재를 먼저 묻는 순서. 여기 없는 소재는 원래 순서대로 뒤에 붙는다.
+ *
+ * 날씨와 걸음 수는 하루의 윤곽(밖에 있었는지, 집에 있었는지)을 잡아준다.
+ * 그 답이 뒤 카드의 질문 갱신에 반영되어야 구체적인 질문이 나오므로 먼저 묻는다.
+ */
+private val CARD_ORDER_FIRST = listOf("weather", "health")
+
+/** 마무리 한마디를 보여주고 다음 카드로 넘어가기까지의 시간 */
+private const val CLOSING_DISPLAY_MS = 1600L
+
+/** 마무리 멘트 없이 넘어갈 때의 최소 간격. 답하자마자 화면이 튀는 느낌을 막는다 */
+private const val CARD_ADVANCE_DELAY_MS = 500L
+
+/**
+ * 후속 질문을 붙일 최소 답변 길이.
+ * 짧게 끊었다는 건 그 주제에 할 말이 없다는 신호지만, 고유명사는 짧으면서 가장 값진 답이라
+ * ("누나홀닭") 기준을 낮게 잡는다. 성의 없는 답은 DISMISSIVE_ANSWERS와 모델이 걸러낸다.
+ */
+private const val MIN_ANSWER_LENGTH_FOR_FOLLOW_UP = 3
+
+/** 이 답변들은 길이와 무관하게 더 묻지 않는다 (공백 제거 후 비교) */
+private val DISMISSIVE_ANSWERS =
+    setOf("없음", "딱히없음", "특별히없음", "몰라", "모름", "몰라요", "그냥", "기억안남", "없어", "없어요")
 
 /**
  * 일기 작성 흐름(블록 선택 → 질답 → 초안 → 편집 → 저장) 전체의 상태와 로직을 담당하는 ViewModel.
@@ -190,9 +235,24 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGeneratingQuestions = MutableStateFlow(false)
     val isGeneratingQuestions: StateFlow<Boolean> = _isGeneratingQuestions.asStateFlow()
 
-    /** 생성된 맥락 질문 목록. null = 아직 생성 전, emptyList = 질문 없음 */
-    private val _contextQuestions = MutableStateFlow<List<ContextQuestion>?>(null)
-    val contextQuestions: StateFlow<List<ContextQuestion>?> = _contextQuestions.asStateFlow()
+    /** 질의응답 카드 목록. null = 아직 생성 전, emptyList = 질문 없음 */
+    private val _qnaCards = MutableStateFlow<List<QnaCard>?>(null)
+    val qnaCards: StateFlow<List<QnaCard>?> = _qnaCards.asStateFlow()
+
+    /** 지금 보여줄 카드 인덱스 */
+    private val _currentCardIndex = MutableStateFlow(0)
+    val currentCardIndex: StateFlow<Int> = _currentCardIndex.asStateFlow()
+
+    /** 후속 질문을 받아오는 중 — 카드 하단에 로딩 표시 */
+    private val _isLoadingFollowUp = MutableStateFlow(false)
+    val isLoadingFollowUp: StateFlow<Boolean> = _isLoadingFollowUp.asStateFlow()
+
+    /** 다음 카드의 질문을 그동안의 답변에 맞춰 손보는 중 */
+    private val _isPreparingCard = MutableStateFlow(false)
+    val isPreparingCard: StateFlow<Boolean> = _isPreparingCard.asStateFlow()
+
+    /** 이번 세션에서 이미 붙인 후속 질문 수 */
+    private var followUpCount = 0
 
     /** Claude API 호출 진행 중 여부 */
     private val _isGenerating = MutableStateFlow(false)
@@ -336,6 +396,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     ),
                     isSelected = true
                 ))
+
             } else {
                 Log.w(TAG, "⚠️ 날씨 없음 (과거 날짜이거나, 스냅샷도 즉석 수집도 실패)")
                 // 캘린더 빈 상태(block_calendar_empty)와 동일한 컨벤션: 블록은 보여주되 선택 자체를 막아
@@ -362,7 +423,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                                 localizedWeatherDescription(tomorrow.tomorrowDescription),
                                 tomorrow.tomorrowTemperature.toInt(),
                                 tomorrow.tomorrowHumidity
-                            )
+                            ),
+                            isSelected = true
                         ))
                     }
                 }
@@ -999,14 +1061,62 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     // ─────────────────────────────────────────────────────────────
 
     /**
-     * 항상 마지막에 붙는 고정 질문. 감정은 추측할 게 아니라 사용자에게 묻는 것이 정확하고,
-     * 이 답변이 프롬프트의 [사용자의 추가 답변]으로 들어가 초안 작성의 근거가 된다.
+     * 선택된 사진을 장별로 병렬 분석하고 결과를 _photos에 캐싱한다.
+     * 이미 분석된 사진은 재사용하므로 여러 번 호출해도 Vision 호출은 사진당 1회다.
      */
-    private fun emotionQuestion() = ContextQuestion(
-        blockId = "emotion",
-        question = localizedContext().getString(R.string.question_emotion),
-        quickOptions = EMOTION_OPTIONS
-    )
+    private suspend fun analyzeSelectedPhotos(): List<PhotoSelectableItem> {
+        val selectedPhotos = _photos.value.filter { it.isSelected }
+        Log.d(TAG, "📸 선택된 사진 수: ${selectedPhotos.size}")
+
+        val analyzed = coroutineScope {
+            selectedPhotos.map { photo ->
+                async {
+                    if (!photo.analysis.isNullOrBlank()) return@async photo
+                    val encoded = encodeImage(photo.uri) ?: return@async photo
+                    val result = try {
+                        aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
+                        ""
+                    }
+                    photo.copy(analysis = result.ifBlank { null })
+                }
+            }.awaitAll()
+        }
+
+        _photos.update { list ->
+            list.map { p -> analyzed.firstOrNull { it.uri == p.uri } ?: p }
+        }
+        return analyzed
+    }
+
+    /**
+     * 분석된 사진을 촬영 시각 순으로 정렬해 장별 소스(photo_1..N)로 전개.
+     * 사진 1장 = 소스 1개 = 본문 블록 1개가 되도록 여기서 경계를 만든다.
+     * 질문 생성과 초안 생성이 같은 sourceId를 쓰도록 양쪽에서 이 함수를 공유한다.
+     */
+    private fun photoSourcesOf(photos: List<PhotoSelectableItem>): List<DiarySource> {
+        val photoTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+        return photos
+            .filter { !it.analysis.isNullOrBlank() }
+            .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
+            .mapIndexed { index, photo ->
+                val kindLabel = if (photo.isCameraPhoto) "촬영 사진" else "화면 캡처/수신 이미지"
+                // 촬영 시각은 직접 촬영한 사진에서만 의미가 있으므로 그 경우에만 표시
+                val timeLabel = if (photo.isCameraPhoto && photo.takenAt > 0L) {
+                    val t = Instant.ofEpochMilli(photo.takenAt)
+                        .atZone(ZoneId.systemDefault())
+                        .format(photoTimeFormatter)
+                    ", 촬영 $t"
+                } else ""
+                DiarySource(
+                    sourceId = "photo_${index + 1}",
+                    type = BlockType.PHOTO,
+                    content = "[$kindLabel$timeLabel]\n${photo.analysis}",
+                    imageUri = photo.uri
+                )
+            }
+    }
 
     /**
      * 초안 생성 1단계 — 선택된 블록을 분석해 맥락 질문을 만든다.
@@ -1018,54 +1128,266 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun prepareGeneration() = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
-            _contextQuestions.value = emptyList()
+            _qnaCards.value = emptyList()
             return@launch
         }
         _isGeneratingQuestions.value = true
-        _contextQuestions.value = null
+        _qnaCards.value = null
+        _currentCardIndex.value = 0
+        followUpCount = 0
         try {
-            // 날씨 질문은 AI가 만든 question 텍스트는 유지하되, quickOptions는 감정처럼
-            // 앱 고정 리스트(WEATHER_OPTIONS)로 덮어써서 편집 화면 드롭다운과 항상 일치시킨다.
-            val questions = aiRepository.generateContextQuestions(selected)
-                .map { q -> if (q.blockId == "weather") q.copy(quickOptions = WEATHER_OPTIONS + "기타") else q }
-            _contextQuestions.value = questions + emotionQuestion()
+            // 질문 생성 전에 사진을 먼저 분석한다. 사진 블록의 content는 "N장 · 선택 M장"뿐이라
+            // 분석 없이 질문을 만들면 사진 속 내용을 모른 채 뻔한 질문만 나온다.
+            val photoSources = photoSourcesOf(analyzeSelectedPhotos())
+
+            // 사진 블록은 장별 분석 결과로 대체한다. blockId를 photo_1..N으로 두면
+            // 사진마다 질문·답변이 따로 잡힌다(답변 맵이 blockId 키라 중복되면 덮어써짐).
+            val questionInput = photoSources.map {
+                ContentBlock(id = it.sourceId, type = it.type, content = it.content)
+            } + selected.filter { it.type != BlockType.PHOTO && it.type !in NO_QUESTION_TYPES }
+
+            // AI가 만든 질문은 전부 자유 입력으로 받는다. 선택지를 주면 답이 평이해지고
+            // 질문과 무관한 선택지가 섞여서 초안의 재료로 쓸 만한 답이 안 나온다.
+            // 선택지가 남는 건 감정 질문뿐 — 답변이 일기의 emotion 필드로 저장되고 회고 집계에 쓰인다.
+            //
+            // distinctBy: 한 블록에 질문이 2개 이상 나오면 답변 맵(blockId 키)에서 서로 덮어써
+            // 답변이 조용히 사라진다. 프롬프트가 뭘 뱉든 여기서 막는다.
+            val questions = aiRepository.generateContextQuestions(questionInput)
+                .distinctBy { it.blockId }
+                .map { it.copy(quickOptions = emptyList()) }
+
+            Log.d(TAG, "===== 생성된 질문 ${questions.size}개 (블럭 ${questionInput.size}개) =====")
+            questions.forEach { Log.d(TAG, "- [${it.blockId}] ${it.question}") }
+
+            // 카드 = 소재 1개. 첫 질문이 1턴이 되고, 답변에 따라 후속 턴이 아래로 쌓인다.
+            val sourceById = (photoSources + selected
+                .filter { it.type != BlockType.PHOTO }
+                .map { DiarySource(sourceId = it.id, type = it.type, content = it.content) })
+                .associateBy { it.sourceId }
+
+            val cards = questions.map { q ->
+                QnaCard(
+                    sourceId = q.blockId,
+                    sourceContent = sourceById[q.blockId]?.content.orEmpty(),
+                    sourceLabel = sourceById[q.blockId]?.type?.label.orEmpty(),
+                    imageUri = sourceById[q.blockId]?.imageUri,
+                    turns = listOf(QnaTurn(question = q.question))
+                )
+            }
+            // 넓은 소재(날씨·걸음 수)를 앞으로. sortedBy는 안정 정렬이라 나머지는 원래 순서를 지킨다.
+            val ordered = cards.sortedBy { card ->
+                CARD_ORDER_FIRST.indexOf(card.sourceId).takeIf { it >= 0 } ?: CARD_ORDER_FIRST.size
+            }
+            _qnaCards.value = ordered + emotionCard()
         } catch (e: Exception) {
             Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
-            _contextQuestions.value = listOf(emotionQuestion())
+            _qnaCards.value = listOf(emotionCard())
         } finally {
             _isGeneratingQuestions.value = false
         }
     }
 
+    /** 항상 마지막에 붙는 감정 카드. 선택지가 있어 자유 입력 카드와 다르게 렌더된다. */
+    private fun emotionCard() = QnaCard(
+        sourceId = "emotion",
+        sourceContent = "",
+        turns = listOf(QnaTurn(question = localizedContext().getString(R.string.question_emotion))),
+        options = EMOTION_OPTIONS
+    )
+
     /**
-     * ContextQnAScreen에서 사용자가 답변을 완료하거나 건너뛴 뒤 호출.
-     * 수집된 answers를 포함해 일기 초안 생성을 시작.
+     * 현재 카드의 답하지 않은 턴에 답변을 기록한다.
+     * 답변이 충실하면 후속 질문을 받아 같은 카드에 이어 붙이고(수직),
+     * 그렇지 않으면 다음 카드로 넘어간다(수평).
      */
-    fun submitAnswers(answers: Map<String, String>) {
-        // 질답에서 고른 감정을 그대로 쓴다. "기타" 자유입력은 선택지 밖이라 무시하고
-        // 사용자가 편집 화면에서 직접 고르게 둔다.
-        answers["emotion"]?.takeIf { it != "기타" && it in EMOTION_OPTIONS }
+    fun answerCurrentTurn(answer: String) = viewModelScope.launch {
+        val cards = _qnaCards.value ?: return@launch
+        val cardIndex = _currentCardIndex.value
+        val card = cards.getOrNull(cardIndex) ?: return@launch
+        val turnIndex = card.pendingTurnIndex ?: return@launch
+
+        val answered = card.copy(
+            turns = card.turns.toMutableList().also {
+                it[turnIndex] = it[turnIndex].copy(answer = answer)
+            }
+        )
+        _qnaCards.value = cards.toMutableList().also { it[cardIndex] = answered }
+
+        // 감정 카드는 선택지 하나로 끝나면 일기 본문에 쓸 재료가 없다(칩만 붙고 글에는 안 남는다).
+        // 왜 그런 기분이었는지 한 번 더 묻는다. 고정 질문이라 API 호출도 후속 예산도 쓰지 않는다.
+        if (answered.sourceId == "emotion" && answered.turns.size == 1) {
+            _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
+                list[cardIndex] = answered.copy(
+                    turns = answered.turns + QnaTurn(question = "왜 그런 기분이 드셨어요?")
+                )
+            }
+            return@launch
+        }
+
+        if (!shouldAskFollowUp(answered, answer)) {
+            finishCard(cardIndex, closing = "")
+            return@launch
+        }
+
+        _isLoadingFollowUp.value = true
+        val result = try {
+            aiRepository.generateFollowUpQuestion(
+                sourceContent = answered.sourceContent,
+                turns = answered.turns
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 후속 질문 실패 — 다음 카드로", e)
+            FollowUpResult()
+        } finally {
+            _isLoadingFollowUp.value = false
+        }
+
+        if (result.question.isBlank()) {
+            Log.d(TAG, "↪️ [${answered.sourceId}] 대화 종료 — ${result.closing.ifBlank { "(마무리 멘트 없음)" }}")
+            finishCard(cardIndex, result.closing)
+            return@launch
+        }
+
+        followUpCount++
+        Log.d(TAG, "↳ [${answered.sourceId}] 후속 질문($followUpCount/$MAX_FOLLOW_UPS): ${result.question}")
+        _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
+            list[cardIndex] = answered.copy(turns = answered.turns + QnaTurn(question = result.question))
+        }
+    }
+
+    /**
+     * 이 소재의 대화를 마친다. 마무리 한마디를 잠깐 보여준 뒤 다음 카드로 넘어간다.
+     * 답하자마자 화면이 넘어가면 마지막 답변이 무시된 느낌이 들어서 간격을 둔다.
+     */
+    private suspend fun finishCard(cardIndex: Int, closing: String) {
+        if (closing.isNotBlank()) {
+            _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
+                list[cardIndex] = list[cardIndex].copy(closing = closing)
+            }
+            delay(CLOSING_DISPLAY_MS)
+        } else {
+            delay(CARD_ADVANCE_DELAY_MS)
+        }
+        advanceCard()
+    }
+
+    /** 현재 카드를 건너뛰고 다음 카드로. 후속 질문도 마무리 멘트도 없다. */
+    fun skipCurrentCard() = advanceCard()
+
+    private fun shouldAskFollowUp(card: QnaCard, answer: String): Boolean {
+        if (card.options.isNotEmpty()) return false                     // 감정 등 고정 선택지 카드
+        if (followUpCount >= MAX_FOLLOW_UPS) return false
+        // turns에는 첫 질문이 포함되므로 후속 횟수는 turns.size - 1
+        if (card.turns.size - 1 >= MAX_FOLLOW_UPS_PER_CARD) return false
+        val normalized = answer.replace(" ", "")
+        if (normalized in DISMISSIVE_ANSWERS) return false
+        return answer.length >= MIN_ANSWER_LENGTH_FOR_FOLLOW_UP
+    }
+
+    private fun advanceCard() {
+        val cards = _qnaCards.value ?: return
+        val next = _currentCardIndex.value + 1
+        if (next >= cards.size) {
+            submitQna()
+            return
+        }
+        _currentCardIndex.value = next
+        viewModelScope.launch { reviseCurrentQuestion() }
+    }
+
+    /**
+     * 카드에 도착한 시점에 그 카드의 질문을 지금까지 나온 답변에 맞춰 손본다.
+     *
+     * 첫 질문들은 대화가 시작되기 전에 한꺼번에 만들어지므로 중간 답변이 반영돼 있지 않다.
+     * 그래서 이미 답한 걸 또 묻거나, 답변 덕에 가능해진 더 좋은 질문을 놓친다.
+     * 더 물을 게 없어졌다고 판단되면 그 카드는 건너뛴다.
+     */
+    private suspend fun reviseCurrentQuestion() {
+        val cards = _qnaCards.value ?: return
+        val index = _currentCardIndex.value
+        val card = cards.getOrNull(index) ?: return
+
+        if (card.options.isNotEmpty()) return                       // 감정 카드는 고정 질문
+        if (card.turns.size != 1 || card.turns[0].answer != null) return
+
+        // 소재별로 묶어서 넘긴다. 평평하게 나열하면 한 소재에서 이어진 대화인지
+        // 서로 다른 소재의 답변인지 구분이 사라져, 엉뚱한 소재의 답을 근거로 질문을 고친다.
+        val prior = cards.take(index)
+            .mapNotNull { done ->
+                val exchange = done.turns
+                    .filter { it.answer != null }
+                    .joinToString("\n") { "Q: ${it.question}\nA: ${it.answer}" }
+                    .ifBlank { return@mapNotNull null }
+                "[${done.sourceLabel.ifBlank { "기타" }} · ${done.sourceId}]\n$exchange"
+            }
+        if (prior.isEmpty()) return                                 // 첫 카드면 반영할 답변이 없다
+
+        _isPreparingCard.value = true
+        val revised = try {
+            aiRepository.reviseQuestion(
+                sourceId = card.sourceId,
+                sourceLabel = card.sourceLabel,
+                sourceContent = card.sourceContent,
+                question = card.turns[0].question,
+                priorAnswers = prior.joinToString("\n\n")
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ 질문 갱신 실패 — 원래 질문 유지", e)
+            card.turns[0].question
+        } finally {
+            _isPreparingCard.value = false
+        }
+
+        when {
+            revised.isBlank() -> {
+                Log.d(TAG, "⤫ [${card.sourceId}] 앞선 답변으로 이미 해소됨 — 카드 건너뜀")
+                advanceCard()
+            }
+            revised != card.turns[0].question -> {
+                Log.d(TAG, "✎ [${card.sourceId}] 질문 갱신: $revised")
+                _qnaCards.value = cards.toMutableList().also {
+                    it[index] = card.copy(turns = listOf(QnaTurn(question = revised)))
+                }
+            }
+        }
+    }
+
+    /** 모든 카드의 답변을 모아 초안 생성을 시작한다. */
+    private fun submitQna() {
+        val cards = _qnaCards.value.orEmpty()
+
+        // 감정 답변은 일기의 emotion 필드로 저장되고 회고 집계에 쓰이므로 선택지 값만 인정한다.
+        val emotionAnswer = cards.firstOrNull { it.sourceId == "emotion" }
+            ?.turns?.firstOrNull()?.answer
+        emotionAnswer?.takeIf { it != "기타" && it in EMOTION_OPTIONS }
             ?.let { _selectedEmotion.value = it }
-        // "기타" 자유입력 원문은 감정/날씨 칩 선택과는 별개로, 미리보기·편집 화면에 보조 텍스트로만 노출한다.
-        _customEmotionText.value = answers["emotion"]?.takeIf { it !in EMOTION_OPTIONS }
-        _customWeatherText.value = answers["weather"]?.takeIf { it !in WEATHER_OPTIONS }
-        generateDraft(qaAnswers = answers)
+        // "기타" 자유입력 원문은 칩 선택과 별개로 미리보기·편집 화면에 보조 텍스트로만 노출한다.
+        _customEmotionText.value = emotionAnswer?.takeIf { it !in EMOTION_OPTIONS }
+
+        val qaAnswers = cards.flatMap { card ->
+            card.turns.mapNotNull { turn ->
+                val answer = turn.answer?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                QaAnswer(sourceId = card.sourceId, question = turn.question, answer = answer)
+            }
+        }
+        Log.d(TAG, "📝 질의응답 완료 — 답변 ${qaAnswers.size}건 (후속 ${followUpCount}건)")
+        generateDraft(qaAnswers = qaAnswers)
     }
 
     /**
      * 초안 생성 2단계 — 선택된 블록과 질답을 근거로 Claude에 본문 생성을 요청한다.
-     * 현재는 [submitAnswers]에서만 호출된다(화면이 직접 부르지 않음).
+     * 현재는 [submitQna]에서만 호출된다(화면이 직접 부르지 않음).
      *
      * 처리 순서:
-     * 1. 선택된 사진을 **장별로 병렬 분석** — 결과는 각 사진의 analysis에 캐싱해 재호출을 막는다
+     * 1. 선택된 사진을 **장별로 병렬 분석** — [analyzeSelectedPhotos]가 결과를 캐싱해 재호출을 막는다
      * 2. 사진 1장 = 소스 1개(photo_1..N)로 전개하고 촬영 시각 순으로 정렬, 나머지 블록은 1:1 소스
      * 3. 소스 목록 + MBTI + 최근 문체 샘플 + 질답을 Claude에 전달해 sourceId별 본문 블록을 받는다
      * 4. 호출·파싱 실패 시 [fallbackBlocks]로 소스 내용을 그대로 문단화해 블록 구조는 유지한다
      * 5. [draft]에 세팅 → UI가 DraftPreviewScreen으로 전환
      *
-     * @param qaAnswers ContextQnAScreen에서 받은 blockId→답변. 없으면 질답 없이 생성한다.
+     * @param qaAnswers 질의응답 카드에서 모은 답변. 비어 있으면 질답 없이 생성한다.
      */
-    fun generateDraft(qaAnswers: Map<String, String> = emptyMap()) = viewModelScope.launch {
+    fun generateDraft(qaAnswers: List<QaAnswer> = emptyList()) = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         val today = (targetDate ?: DiaryDateUtil.diaryDate()).toString()
 
@@ -1081,7 +1403,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             return@launch
         }
 
-        viewModelScope.launch {
+        val generation = viewModelScope.launch {
             _isGenerating.value = true
             _generateError.value = null
 
@@ -1100,54 +1422,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val locale = if (savedLang == "English") "en" else "ko"
             android.util.Log.d(TAG, "🌐 저장된 언어: $savedLang → locale: $locale")
 
-            // 선택된 사진을 장별로 병렬 분석 (결과는 각 사진 객체 analysis에 캐싱)
-            val selectedPhotos = _photos.value.filter { it.isSelected }
-            Log.d(TAG, "📸 선택된 사진 수: ${selectedPhotos.size}")
-
-            val analyzedPhotos = coroutineScope {
-                selectedPhotos.map { photo ->
-                    async {
-                        // 이미 분석된 사진은 재사용 (세션 캐시 → 중복 Vision 호출 방지)
-                        if (!photo.analysis.isNullOrBlank()) return@async photo
-                        val encoded = encodeImage(photo.uri) ?: return@async photo
-                        val result = try {
-                            aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
-                            ""
-                        }
-                        photo.copy(analysis = result.ifBlank { null })
-                    }
-                }.awaitAll()
-            }
-
-            // 분석 결과를 _photos에 반영해 캐싱
-            _photos.update { list ->
-                list.map { p -> analyzedPhotos.firstOrNull { it.uri == p.uri } ?: p }
-            }
-
-            // 사진을 촬영 시각 순으로 정렬해 장별 소스(photo_1..N)로 전개.
-            // 사진 1장 = 소스 1개 = 본문 블록 1개가 되도록 여기서 경계를 만든다.
-            val photoTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-            val photoSources = analyzedPhotos
-                .filter { !it.analysis.isNullOrBlank() }
-                .sortedBy { if (it.takenAt > 0L) it.takenAt else Long.MAX_VALUE }
-                .mapIndexed { index, photo ->
-                    val kindLabel = if (photo.isCameraPhoto) "촬영 사진" else "화면 캡처/수신 이미지"
-                    // 촬영 시각은 직접 촬영한 사진에서만 의미가 있으므로 그 경우에만 표시
-                    val timeLabel = if (photo.isCameraPhoto && photo.takenAt > 0L) {
-                        val t = Instant.ofEpochMilli(photo.takenAt)
-                            .atZone(ZoneId.systemDefault())
-                            .format(photoTimeFormatter)
-                        ", 촬영 $t"
-                    } else ""
-                    DiarySource(
-                        sourceId = "photo_${index + 1}",
-                        type = BlockType.PHOTO,
-                        content = "[$kindLabel$timeLabel]\n${photo.analysis}",
-                        imageUri = photo.uri
-                    )
-                }
+            // prepareGeneration에서 이미 분석했으면 캐시 히트라 추가 호출이 없다.
+            // 질문 단계를 건너뛴 경로로 들어왔을 때만 여기서 실제 분석이 돈다.
+            val photoSources = photoSourcesOf(analyzeSelectedPhotos())
 
             // 사진 외 블록은 1:1로 소스가 된다. PHOTO 블록("N장 · 선택 M장")은
             // 장별 소스로 대체되었으므로 제외한다.
@@ -1224,9 +1501,12 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 blocks = bodyBlocks,
                 photos = selectedPhotoUris
             )
-
-            _isGenerating.value = false
         }
+
+        // 성공·예외·취소 어느 경우든 로딩 플래그를 반드시 내린다.
+        // 여기서 true로 남으면 QnA 화면이 로딩만 띄우고 질문을 안 보여줘(ContextQnAScreen),
+        // 답변을 못 하니 플래그를 내려줄 코드가 영영 실행되지 않는다. 앱 재시작 외엔 복구 불가.
+        generation.invokeOnCompletion { _isGenerating.value = false }
     }
 
 
@@ -1429,7 +1709,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** DraftPreviewScreen 재진입 시 이전 초안만 날리고 블록은 유지 */
     fun clearDraftOnly() {
         _draft.value = null
-        _contextQuestions.value = null
+        _qnaCards.value = null
+        _currentCardIndex.value = 0
     }
 
     /**
@@ -1471,7 +1752,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         _blocks.value = emptyList()
         _calendarEvents.value = emptyList()
         _upcomingEvents.value = emptyList()
-        _contextQuestions.value = null
+        _qnaCards.value = null
+        _currentCardIndex.value = 0
         _selectedWeather.value = null
         _selectedEmotion.value = null
         _customWeatherText.value = null
