@@ -1425,12 +1425,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // 성공한 사진만 저장하고, 실패한 사진은 로그만 남기고 건너뛴다.
             // 원본 URI를 키로 남겨야 본문 블록의 사진도 같은 URL로 치환할 수 있다.
             // (인덱스로 짝지으면 업로드 실패 시 어긋나 엉뚱한 사진이 블록에 붙는다)
-            val uploadedUrlByUri = _photos.value
-                .filter { it.isSelected }
-                .mapNotNull { photo ->
-                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, photo.uri) }
-                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): ${photo.uri}", it) }
-                        .getOrNull()?.let { photo.uri to it }
+            //
+            // 대상은 _photos(수집 화면의 선택 상태)가 아니라 **지금 저장하는 초안**이다.
+            // _photos를 기준으로 삼으면 (1) 기존 일기 편집 시 블록의 https URI가 매핑에서
+            // 빠져 사진이 통째로 떨어지고 (2) 다른 날짜를 편집·저장할 때 이전 날짜 사진으로
+            // 덮어써진다. 이미 https인 URI는 uploadDiaryPhoto가 재업로드 없이 그대로 돌려준다.
+            val uploadedUrlByUri = d.photoUrisToSave()
+                .mapNotNull { uri ->
+                    runCatching { photoStorageDataSource.uploadDiaryPhoto(userId, d.date, uri) }
+                        .onFailure { Log.e(TAG, "❌ 사진 업로드 실패(건너뜀): $uri", it) }
+                        .getOrNull()?.let { uri to it }
                 }
                 .toMap()
 

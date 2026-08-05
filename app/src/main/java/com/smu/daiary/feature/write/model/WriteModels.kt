@@ -59,6 +59,19 @@ data class DiaryBodyBlock(
     val imageUri: String? = null
 )
 
+/**
+ * 저장 시 업로드/치환 대상이 되는 사진 URI 목록.
+ *
+ * 원본은 **초안 자신**이다. WriteViewModel의 _photos는 수집 화면(loadBlocks)을 거치는
+ * 신규 작성 경로에서만 채워지므로, 기존 일기 편집에는 비어 있거나 직전 세션 사진이 남아 있다.
+ *
+ * 첨부 목록(photos)과 본문 블록 사진(blocks[].imageUri)을 합치는 이유:
+ * 분석 결과가 없어 블록이 안 만들어진 선택 사진은 photos에만, 옛 일기의 블록 사진은
+ * blocks에만 있을 수 있다.
+ */
+fun DiaryDraft.photoUrisToSave(): List<String> =
+    (photos + blocks.mapNotNull { it.imageUri }).distinct()
+
 data class ContextQuestion(
     val blockId: String,
     val question: String,
