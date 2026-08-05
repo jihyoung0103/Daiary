@@ -20,8 +20,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import android.content.Intent
@@ -78,6 +80,7 @@ import com.smu.daiary.feature.write.screen.DiaryDetailScreen
 import com.smu.daiary.feature.write.screen.DiaryEditScreen
 import com.smu.daiary.feature.write.screen.DraftPreviewScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.util.DiaryDateUtil
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
@@ -132,7 +135,9 @@ class MainActivity : ComponentActivity() {
                             Snackbar(
                                 snackbarData    = data,
                                 containerColor  = if (isDark) SageForestDark else SageForest,
-                                contentColor    = Color.White
+                                contentColor    = Color.White,
+                                // 기본 actionColor(inversePrimary)는 SageForest 위에서 잘 안 읽힌다
+                                actionColor     = Color.White
                             )
                         }
                     }
@@ -164,6 +169,8 @@ class MainActivity : ComponentActivity() {
                             var editFromDetail by remember { mutableStateOf(false) }
                             val scope = rememberCoroutineScope()
                             val saveFailedMessage = stringResource(R.string.profile_save_error)
+                            val diaryExistsMessage = stringResource(R.string.diary_exists_message)
+                            val rewriteLabel = stringResource(R.string.btn_rewrite)
 
                             // 다이얼로그 공통 색상 (Daiary 토큰)
                             val isDark = LocalDarkTheme.current
@@ -208,6 +215,37 @@ class MainActivity : ComponentActivity() {
                                 // 개별 권한이 거부되어도 수집 가능한 데이터만 부분 수집
                                 writeViewModel.loadBlocks(userId)
                                 navController.navigate("block_selection")
+                            }
+
+                            /**
+                             * 일기 작성 시작. 세 진입점(FAB·홈 배너·상세 화면)이 공유한다.
+                             *
+                             * 대상 날짜에 이미 일기가 있으면 바로 시작하지 않고 스낵바로 먼저 묻는다.
+                             * saveDraft는 같은 날짜 문서를 찾아 덮어쓰므로(하루 1개 유지) 그대로 두면
+                             * 수집·질답·AI 생성을 다 거친 뒤에 기존 일기가 조용히 사라진다.
+                             * 검사를 호출자에 흩어두면 진입점이 늘 때 또 새기 때문에 여기 하나로 모은다.
+                             */
+                            fun startWriting(date: LocalDate?) {
+                                val target = date ?: DiaryDateUtil.diaryDate()
+                                val begin = {
+                                    editFromDetail = false
+                                    writeViewModel.setTargetDate(date)
+                                    permissionLauncher.launch(requiredPermissions)
+                                }
+                                if (diaries.none { it.date == target.toString() }) {
+                                    begin()
+                                    return
+                                }
+                                // 덮어쓰기가 늘 실수인 건 아니다(초안이 마음에 안 들어 다시 뽑는 경우).
+                                // 기본값은 아무것도 안 하는 쪽이고, 다시 쓰기는 명시적 선택으로 둔다.
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = diaryExistsMessage,
+                                        actionLabel = rewriteLabel,
+                                        duration = SnackbarDuration.Long
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) begin()
+                                }
                             }
 
                             // 앱 시작 시 알림 권한 팝업 (Android 13+, 미허용 상태일 때만)
@@ -340,19 +378,13 @@ class MainActivity : ComponentActivity() {
                                         isLoading = isLoading,
                                         error = homeError,
                                         onRetry = { homeViewModel.loadDiaries(userId) },
-                                        onStartDiary = {
-                                            writeViewModel.setTargetDate(null)
-                                            permissionLauncher.launch(requiredPermissions)
-                                        },
+                                        onStartDiary = { startWriting(null) },
                                         onProfileClick = { navController.navigate("profile") },
                                         onDiaryClick = { entry ->
                                             viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                             navController.navigate("diary_detail")
                                         },
-                                        onWriteDiary = { dateStr ->
-                                            writeViewModel.setTargetDate(LocalDate.parse(dateStr))
-                                            permissionLauncher.launch(requiredPermissions)
-                                        },
+                                        onWriteDiary = { dateStr -> startWriting(LocalDate.parse(dateStr)) },
                                         onViewAllDiaries = { navController.navigate("diary_list") },
                                         weeklyBannerStatus = weeklyBannerStatus,
                                         monthlyBannerStatus = monthlyBannerStatus,
@@ -508,6 +540,12 @@ class MainActivity : ComponentActivity() {
                                             )
                                         },
 
+                                        onSaveFailed = {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(saveFailedMessage)
+                                            }
+                                        },
+
                                         onBack = {
                                             writeViewModel.clearDraftOnly()
 
@@ -592,10 +630,7 @@ class MainActivity : ComponentActivity() {
                                             initialDate = date,
                                             diaries = diaries,
                                             isDeleting = isDeletingDiary,
-                                            onWrite = { writeDate ->
-                                                writeViewModel.setTargetDate(writeDate)
-                                                permissionLauncher.launch(requiredPermissions)
-                                            },
+                                            onWrite = { writeDate -> startWriting(writeDate) },
                                             onEdit = { entry ->
                                                 editFromDetail = true
                                                 writeViewModel.loadExistingEntry(entry)
