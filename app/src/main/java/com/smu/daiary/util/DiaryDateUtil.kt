@@ -1,7 +1,9 @@
 package com.smu.daiary.util
 
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 
 /**
  * 일기 작성 기준 날짜 유틸리티.
@@ -12,6 +14,9 @@ import java.time.LocalTime
  *
  *  00:00 ~ 03:59  →  어제 날짜 (전날 일기)
  *  04:00 ~ 23:59  →  오늘 날짜
+ *
+ * 날짜뿐 아니라 데이터 수집 구간도 이 경계를 따른다.
+ * 기준일 D의 실제 구간은 [D 04:00, D+1 04:00) 이다. → [dayRange]
  */
 object DiaryDateUtil {
 
@@ -37,5 +42,26 @@ object DiaryDateUtil {
     fun isLateNight(): Boolean {
         val now = LocalTime.now()
         return now.isBefore(DAY_BOUNDARY)
+    }
+
+    /**
+     * 기준일 [date]에 해당하는 실제 시각 구간 [start, end).
+     * start = date 04:00, end = date+1 04:00.
+     *
+     * 사진·건강·캘린더처럼 시각으로 데이터를 긁는 쪽은 자정이 아니라 이 구간을 써야
+     * 새벽 0~4시의 기록이 전날 일기에 붙는다.
+     */
+    fun dayRange(date: LocalDate, zone: ZoneId = ZoneId.systemDefault()): Pair<Instant, Instant> =
+        date.atTime(DAY_BOUNDARY).atZone(zone).toInstant() to
+            date.plusDays(1).atTime(DAY_BOUNDARY).atZone(zone).toInstant()
+
+    /** [millis] 시각이 속한 일기 기준일 (그날 04:00 이전이면 전날). */
+    fun diaryDateOf(millis: Long, zone: ZoneId = ZoneId.systemDefault()): LocalDate {
+        val dateTime = Instant.ofEpochMilli(millis).atZone(zone)
+        return if (dateTime.toLocalTime().isBefore(DAY_BOUNDARY)) {
+            dateTime.toLocalDate().minusDays(1)
+        } else {
+            dateTime.toLocalDate()
+        }
     }
 }

@@ -69,9 +69,14 @@ import com.smu.daiary.R
 
 /**
  * 질의응답 자유 답변의 최대 글자 수.
- * 답변은 일기 초안의 재료일 뿐이라 길 필요가 없어 짧게 제한한다. 늘리려면 이 값만 고치면 된다.
+ *
+ * 매일 여러 번 답하는 화면이라 상한을 둔다. 다만 실제 답변은 대개 30자 안팎이라
+ * 이 값이 걸리는 일은 드물고, 낮게 잡으면 "잘릴까 봐 못 쓰는" 쪽으로만 작용한다.
+ *
+ * 프롬프트 쪽 "한두 문장으로 답할 수 있는 질문" 규칙과는 별개다.
+ * 그건 답변 상한이 아니라 질문을 구체적으로 만드는 장치라, 이 숫자와 맞출 필요가 없다.
  */
-private const val MAX_ANSWER_LENGTH = 50
+private const val MAX_ANSWER_LENGTH = 100
 
 /**
  * 질의응답 화면.
@@ -418,7 +423,8 @@ private fun FreeAnswerInput(
                 unfocusedTextColor = wc.TextPrimary,
                 cursorColor = wc.Accent
             ),
-            singleLine = true
+            // 100자면 한 줄에 안 들어가 좌우로 밀린다. 세 줄까지 늘어나게 둔다
+            maxLines = 3
         )
         Spacer(Modifier.height(12.dp))
         Button(

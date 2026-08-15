@@ -379,7 +379,9 @@ class AnthropicDataSource {
 
             val body = JSONObject().apply {
                 put("model", "claude-sonnet-4-6")
-                put("max_tokens", 400)
+                // 중심/주변/글자/추측 네 항목을 모두 채우게 하면서 출력이 길어졌다.
+                // 모자라면 마지막 항목이 문장 중간에 잘려 그대로 일기 입력이 된다.
+                put("max_tokens", 800)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")

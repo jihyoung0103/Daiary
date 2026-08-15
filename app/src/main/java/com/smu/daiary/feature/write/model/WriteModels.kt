@@ -154,5 +154,7 @@ data class PhotoSelectableItem(
     /** EXIF 카메라 정보가 있으면 직접 촬영한 사진. 없으면 스크린샷/수신 이미지 */
     val isCameraPhoto: Boolean = false,
     /** Claude Vision 사진별 분석 결과 (세션 캐시). 미분석이면 null */
-    val analysis: String? = null
+    val analysis: String? = null,
+    /** EXIF 좌표를 지오코딩한 지명("백마동, 고양시"). GPS가 없거나 실패하면 null */
+    val placeName: String? = null
 )

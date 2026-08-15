@@ -39,10 +39,14 @@ import android.net.Uri
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 import com.smu.daiary.util.DiaryDateUtil
+import com.smu.daiary.BuildConfig
 import com.smu.daiary.data.source.EncodedImage
 import com.smu.daiary.data.source.FollowUpResult
 import com.smu.daiary.data.source.GeneratedBlock
 import kotlinx.coroutines.delay
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import java.util.Collections
 import java.util.UUID
 
@@ -56,11 +60,24 @@ private val EMOTION_OPTIONS = listOf("기쁨", "설렘", "평온", "슬픔", "�
 private val WEATHER_OPTIONS = listOf("맑음", "흐림", "비", "뇌우", "눈")
 
 /**
- * 질문을 만들지 않는 블록 타입.
+ * AI가 질문을 만들지 않는 블록 타입.
  * 내일 일정·내일 날씨는 아직 일어나지 않은 일이라 답변에 담길 경험이 없다.
  * 프롬프트에도 같은 규칙이 있지만, 구조적으로 확실한 건 여기서 걸러 토큰도 아낀다.
+ *
+ * 오늘 일정은 다르다. 물을 게 없어서가 아니라 첫 질문이 고정이라 제외한다.
+ * [calendarConfirmCard] 참고.
  */
-private val NO_QUESTION_TYPES = setOf(BlockType.CALENDAR_UPCOMING, BlockType.WEATHER_TOMORROW)
+private val NO_QUESTION_TYPES =
+    setOf(BlockType.CALENDAR, BlockType.CALENDAR_UPCOMING, BlockType.WEATHER_TOMORROW)
+
+/** 일정 확인 카드의 선택지. 이 답변들은 길이가 짧아도 후속 질문을 막지 않는다 */
+private val YES_NO_OPTIONS = listOf("예", "아니오")
+
+/** 감정 카드의 sourceId. 소스가 아니라 하루 전체에 붙는 답이라 분기 조건으로 쓰인다 */
+private const val EMOTION_SOURCE_ID = "emotion"
+
+/** "[오늘] 도미노 알바 11:00~21:30 · 도미노피자" → "도미노 알바" */
+private val EVENT_TITLE = Regex("""^\[[^]]*] (.+?) \d{1,2}:\d{2}~""")
 
 /**
  * 세션 전체에서 허용할 후속 질문 수.
@@ -70,8 +87,12 @@ private val NO_QUESTION_TYPES = setOf(BlockType.CALENDAR_UPCOMING, BlockType.WEA
  */
 private const val MAX_FOLLOW_UPS = 6
 
-/** 한 소재를 두고 이어갈 수 있는 최대 후속 질문 수 */
-private const val MAX_FOLLOW_UPS_PER_CARD = 3
+/**
+ * 한 소재를 두고 이어갈 수 있는 최대 후속 질문 수.
+ * 넓은 소재(날씨·걸음 수)가 앞에 오므로, 카드당 상한이 높으면 앞 두 장이 예산을 다 써
+ * 정작 사진처럼 할 말 많은 소재가 첫 질문 하나로 끝난다.
+ */
+private const val MAX_FOLLOW_UPS_PER_CARD = 2
 
 /**
  * 넓은 소재를 먼저 묻는 순서. 여기 없는 소재는 원래 순서대로 뒤에 붙는다.
@@ -446,7 +467,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         val zone = ZoneId.systemDefault()
 
                         fun toSelectableItem(event: CalendarEvent, id: Int): CalendarSelectableItem {
-                            val eventDate = Instant.ofEpochMilli(event.startTime).atZone(zone).toLocalDate()
+                            val eventDate = DiaryDateUtil.diaryDateOf(event.startTime, zone)
                             val dayLabel = when (eventDate) {
                                 diaryDate             -> "오늘"
                                 diaryDate.plusDays(1) -> "내일"
@@ -466,10 +487,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
                         // 오늘: 날짜별 분리 / 과거 날짜: 전체가 해당 날짜 일정
                         val todayEvents = if (isToday)
-                            events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() == diaryDate }
+                            events.filter { DiaryDateUtil.diaryDateOf(it.startTime, zone) == diaryDate }
                             else events
                         val futureEvents = if (isToday)
-                            events.filter { Instant.ofEpochMilli(it.startTime).atZone(zone).toLocalDate() > diaryDate }
+                            events.filter { DiaryDateUtil.diaryDateOf(it.startTime, zone) > diaryDate }
                             else emptyList()
 
                         // 오늘 일정 블록
@@ -536,18 +557,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                                 )
                             )
 
-                    // 촬영 장소 — GPS 있는 첫 번째 사진 기준, 지오코딩 실패 시 블록 미생성.
-                    // 사진이 기본 해제라 선택 여부는 보지 않는다(보면 블록이 영영 안 생김).
-                    _photos.value
-                        .firstOrNull { it.latitude != 0.0 || it.longitude != 0.0 }
-                        ?.let { photo ->
-                            reverseGeocode(photo.latitude, photo.longitude)?.let { placeName ->
-                                blocks.add(ContentBlock(
-                                    id = "photo_location", type = BlockType.PHOTO_LOCATION,
-                                    content = placeName
-                                ))
-                            }
-                        }
+                    // 촬영 장소는 별도 블록으로 두지 않는다. 하루에 하나뿐이라 어느 사진 것인지
+                    // 알 수 없었고, 사진 소스와 연결도 끊겨 있었다.
+                    // 지금은 선택된 사진마다 지오코딩해 각 사진 소스의 라벨에 붙인다(photoSourcesOf).
                 }
                 .onFailure {
                     Log.w(TAG, "⚠️ 사진 수집 실패 (권한 문제)", it)
@@ -568,7 +580,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
                     // 데이터가 모두 0이면 블록 표시 안 함 (Health Connect 미설정 사용자)
                     if (health.steps > 0 || health.sleepDurationMinutes > 0) {
-                        val stepsText = if (health.steps > 0) "${String.format("%,d", health.steps)}보" else null
+                        // 걸음 수만 주면 사용자가 이미 아는 숫자를 되돌려주는 질문·문장밖에 안 나온다.
+                        // 평소 값을 함께 넘겨야 "평소보다 많은 날인가"를 판단할 근거가 생긴다.
+                        val stepsText = if (health.steps > 0) {
+                            val steps = String.format("%,d", health.steps)
+                            val usual = health.usualSteps
+                                .takeIf { it > 0 }
+                                ?.let { " · 평소 ${String.format("%,d", it)}보" }
+                                .orEmpty()
+                            "${steps}보$usual"
+                        } else null
                         val sleepText = if (health.sleepDurationMinutes > 0) {
                             val h = health.sleepDurationMinutes / 60
                             val m = health.sleepDurationMinutes % 60
@@ -1071,15 +1092,20 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         val analyzed = coroutineScope {
             selectedPhotos.map { photo ->
                 async {
-                    if (!photo.analysis.isNullOrBlank()) return@async photo
-                    val encoded = encodeImage(photo.uri) ?: return@async photo
+                    // 지오코딩은 좌표만 있으면 되므로 분석 캐시와 별개로 채운다
+                    val place = photo.placeName ?: if (photo.latitude != 0.0 || photo.longitude != 0.0) {
+                        reverseGeocode(photo.latitude, photo.longitude)
+                    } else null
+
+                    if (!photo.analysis.isNullOrBlank()) return@async photo.copy(placeName = place)
+                    val encoded = encodeImage(photo.uri) ?: return@async photo.copy(placeName = place)
                     val result = try {
                         aiRepository.analyzePhoto(encoded, photo.isCameraPhoto)
                     } catch (e: Exception) {
                         Log.e(TAG, "❌ 사진 분석 실패: ${photo.uri}", e)
                         ""
                     }
-                    photo.copy(analysis = result.ifBlank { null })
+                    photo.copy(analysis = result.ifBlank { null }, placeName = place)
                 }
             }.awaitAll()
         }
@@ -1109,10 +1135,13 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         .format(photoTimeFormatter)
                     ", 촬영 $t"
                 } else ""
+                // 지명은 사진이 찍힌 동네일 뿐이다. 무엇을 했는지는 알 수 없으므로
+                // 프롬프트가 오해하지 않도록 "촬영 위치"라고 명시해 둔다.
+                val placeLabel = photo.placeName?.let { ", 촬영 위치: $it" }.orEmpty()
                 DiarySource(
                     sourceId = "photo_${index + 1}",
                     type = BlockType.PHOTO,
-                    content = "[$kindLabel$timeLabel]\n${photo.analysis}",
+                    content = "[$kindLabel$timeLabel$placeLabel]\n${photo.analysis}",
                     imageUri = photo.uri
                 )
             }
@@ -1125,6 +1154,60 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      * 선택된 블록이 없으면 빈 리스트를 세팅해 질답 단계를 건너뛴다.
      * 질문 생성이 실패해도 감정 질문 하나는 남겨, 화면이 빈 채로 뜨지 않게 한다.
      */
+    /**
+     * 결제를 건별 소스로 전개한다. 결제 1건 = 소스 1개 = 본문 블록 1개.
+     * 통짜로 두면 3건에 질문 하나만 붙고 본문도 한 문단에 뭉쳐, 시간대가 다른 일들이 섞인다.
+     */
+    private fun paymentSourcesOf(payments: List<PaymentSelectableItem>): List<DiarySource> =
+        payments.filter { it.isSelected }
+            .mapIndexed { index, payment ->
+                DiarySource(
+                    sourceId = "payment_${index + 1}",
+                    type = BlockType.PAYMENT,
+                    content = payment.displayText
+                )
+            }
+
+    /** 일정을 건별 소스로 전개한다. 결제와 같은 이유. */
+    private fun calendarSourcesOf(
+        events: List<CalendarSelectableItem>,
+        type: BlockType,
+        idPrefix: String
+    ): List<DiarySource> =
+        events.filter { it.isSelected }
+            .mapIndexed { index, event ->
+                DiarySource(
+                    sourceId = "${idPrefix}_${index + 1}",
+                    type = type,
+                    content = event.displayText
+                )
+            }
+
+    /**
+     * 선택된 블록을 소스 목록으로 조립한다.
+     *
+     * 개별 아이템이 있는 데이터(사진·결제·일정)는 건별로 전개하고, 나머지는 블록 1:1이다.
+     * 질문 생성과 초안 생성이 완전히 같은 소스를 보도록 양쪽에서 이 함수를 공유한다.
+     */
+    private suspend fun buildSources(selected: List<ContentBlock>): List<DiarySource> {
+        val photoSources = photoSourcesOf(analyzeSelectedPhotos())
+        val paymentSources = paymentSourcesOf(_payments.value)
+        val calendarSources = calendarSourcesOf(_calendarEvents.value, BlockType.CALENDAR, "calendar")
+        val upcomingSources =
+            calendarSourcesOf(_upcomingEvents.value, BlockType.CALENDAR_UPCOMING, "upcoming")
+
+        // 건별로 전개한 타입은 요약 블록을 그대로 소스로 쓰지 않는다
+        val expanded = setOf(
+            BlockType.PHOTO, BlockType.PAYMENT, BlockType.CALENDAR, BlockType.CALENDAR_UPCOMING
+        )
+        val otherSources = selected
+            .filter { it.type !in expanded }
+            .map { DiarySource(sourceId = it.id, type = it.type, content = it.content) }
+
+        // 사진(구체적 장면)을 앞에 두고 나머지 데이터가 뒤따르게 한다
+        return photoSources + paymentSources + calendarSources + upcomingSources + otherSources
+    }
+
     fun prepareGeneration() = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         if (selected.isEmpty()) {
@@ -1138,13 +1221,12 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         try {
             // 질문 생성 전에 사진을 먼저 분석한다. 사진 블록의 content는 "N장 · 선택 M장"뿐이라
             // 분석 없이 질문을 만들면 사진 속 내용을 모른 채 뻔한 질문만 나온다.
-            val photoSources = photoSourcesOf(analyzeSelectedPhotos())
+            val sources = buildSources(selected)
 
-            // 사진 블록은 장별 분석 결과로 대체한다. blockId를 photo_1..N으로 두면
-            // 사진마다 질문·답변이 따로 잡힌다(답변 맵이 blockId 키라 중복되면 덮어써짐).
-            val questionInput = photoSources.map {
-                ContentBlock(id = it.sourceId, type = it.type, content = it.content)
-            } + selected.filter { it.type != BlockType.PHOTO && it.type !in NO_QUESTION_TYPES }
+            // 질문도 초안과 완전히 같은 소스를 본다. 건별로 전개된 소재는 각자 질문·답변을 갖는다.
+            val questionInput = sources
+                .filter { it.type !in NO_QUESTION_TYPES }
+                .map { ContentBlock(id = it.sourceId, type = it.type, content = it.content) }
 
             // AI가 만든 질문은 전부 자유 입력으로 받는다. 선택지를 주면 답이 평이해지고
             // 질문과 무관한 선택지가 섞여서 초안의 재료로 쓸 만한 답이 안 나온다.
@@ -1160,10 +1242,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             questions.forEach { Log.d(TAG, "- [${it.blockId}] ${it.question}") }
 
             // 카드 = 소재 1개. 첫 질문이 1턴이 되고, 답변에 따라 후속 턴이 아래로 쌓인다.
-            val sourceById = (photoSources + selected
-                .filter { it.type != BlockType.PHOTO }
-                .map { DiarySource(sourceId = it.id, type = it.type, content = it.content) })
-                .associateBy { it.sourceId }
+            val sourceById = sources.associateBy { it.sourceId }
 
             val cards = questions.map { q ->
                 QnaCard(
@@ -1174,8 +1253,15 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     turns = listOf(QnaTurn(question = q.question))
                 )
             }
+            val calendarCards = sources
+                .filter { it.type == BlockType.CALENDAR }
+                .map { calendarConfirmCard(it) }
+
+            // AI 질문은 소스를 건너뛸 수 있어서, 순서는 questions가 아니라 sources를 따른다.
+            // 그래야 일정 확인 카드도 제자리에 들어가고 순서가 매번 같다.
+            val bySource = (cards + calendarCards).associateBy { it.sourceId }
             // 넓은 소재(날씨·걸음 수)를 앞으로. sortedBy는 안정 정렬이라 나머지는 원래 순서를 지킨다.
-            val ordered = cards.sortedBy { card ->
+            val ordered = sources.mapNotNull { bySource[it.sourceId] }.sortedBy { card ->
                 CARD_ORDER_FIRST.indexOf(card.sourceId).takeIf { it >= 0 } ?: CARD_ORDER_FIRST.size
             }
             _qnaCards.value = ordered + emotionCard()
@@ -1187,9 +1273,29 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 오늘 일정에 붙는 고정 확인 카드.
+     *
+     * 일정은 "하기로 했던 것"이지 "한 것"이 아니다. 확인하지 않으면 초안이 취소된 일정도
+     * 갔다고 쓴다. 초안 프롬프트가 일정에 "갔다/했다"를 쓰려면 이 답이 있어야 한다.
+     * 예/아니오 어느 쪽이든 후속 질문이 이어지므로 대화의 물꼬이기도 하다.
+     */
+    private fun calendarConfirmCard(source: DiarySource): QnaCard {
+        val title = EVENT_TITLE.find(source.content)?.groupValues?.get(1)?.trim()
+        return QnaCard(
+            sourceId = source.sourceId,
+            sourceContent = source.content,
+            sourceLabel = source.type.label,
+            turns = listOf(
+                QnaTurn(question = "${title ?: "이"} 일정은 예정대로 진행되었나요?")
+            ),
+            options = YES_NO_OPTIONS
+        )
+    }
+
     /** 항상 마지막에 붙는 감정 카드. 선택지가 있어 자유 입력 카드와 다르게 렌더된다. */
     private fun emotionCard() = QnaCard(
-        sourceId = "emotion",
+        sourceId = EMOTION_SOURCE_ID,
         sourceContent = "",
         turns = listOf(QnaTurn(question = localizedContext().getString(R.string.question_emotion))),
         options = EMOTION_OPTIONS
@@ -1215,7 +1321,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
         // 감정 카드는 선택지 하나로 끝나면 일기 본문에 쓸 재료가 없다(칩만 붙고 글에는 안 남는다).
         // 왜 그런 기분이었는지 한 번 더 묻는다. 고정 질문이라 API 호출도 후속 예산도 쓰지 않는다.
-        if (answered.sourceId == "emotion" && answered.turns.size == 1) {
+        if (answered.sourceId == EMOTION_SOURCE_ID && answered.turns.size == 1) {
             _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
                 list[cardIndex] = answered.copy(
                     turns = answered.turns + QnaTurn(question = "왜 그런 기분이 드셨어요?")
@@ -1275,12 +1381,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     fun skipCurrentCard() = advanceCard()
 
     private fun shouldAskFollowUp(card: QnaCard, answer: String): Boolean {
-        if (card.options.isNotEmpty()) return false                     // 감정 등 고정 선택지 카드
+        // 감정 카드의 두 번째 질문은 고정이라 여기서 후속을 붙이지 않는다.
+        // 일정 확인 카드도 선택지 카드지만, 예/아니오는 대화의 시작이라 후속이 이어져야 한다.
+        if (card.sourceId == EMOTION_SOURCE_ID) return false
         if (followUpCount >= MAX_FOLLOW_UPS) return false
         // turns에는 첫 질문이 포함되므로 후속 횟수는 turns.size - 1
         if (card.turns.size - 1 >= MAX_FOLLOW_UPS_PER_CARD) return false
         val normalized = answer.replace(" ", "")
         if (normalized in DISMISSIVE_ANSWERS) return false
+        // 선택지에서 고른 답은 길이가 성의를 뜻하지 않는다("예"는 2자)
+        if (answer in card.options) return true
         return answer.length >= MIN_ANSWER_LENGTH_FOR_FOLLOW_UP
     }
 
@@ -1357,7 +1467,7 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         val cards = _qnaCards.value.orEmpty()
 
         // 감정 답변은 일기의 emotion 필드로 저장되고 회고 집계에 쓰이므로 선택지 값만 인정한다.
-        val emotionAnswer = cards.firstOrNull { it.sourceId == "emotion" }
+        val emotionAnswer = cards.firstOrNull { it.sourceId == EMOTION_SOURCE_ID }
             ?.turns?.firstOrNull()?.answer
         emotionAnswer?.takeIf { it != "기타" && it in EMOTION_OPTIONS }
             ?.let { _selectedEmotion.value = it }
@@ -1387,6 +1497,58 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      *
      * @param qaAnswers 질의응답 카드에서 모은 답변. 비어 있으면 질답 없이 생성한다.
      */
+    /**
+     * 프롬프트 평가용 고정 입력(fixture)을 파일로 남긴다.
+     *
+     * 일기 생성의 입력은 sources·qaAnswers·mbti·recentDiarySamples 네 가지가 전부다.
+     * 이걸 떠 두면 사진 Vision 재호출 없이 같은 입력으로 몇 번이든 다시 생성할 수 있어,
+     * 프롬프트만 바꿔 결과가 어떻게 달라지는지 비교할 수 있다.
+     *
+     * 가맹점·금액·사진 분석·사용자 답변이 그대로 담기므로 디버그 빌드에서만 쓴다.
+     * 파일은 앱 전용 폴더에 남으므로 `adb pull`로 꺼내 test/resources에 보관한다.
+     */
+    private fun saveFixture(
+        sources: List<DiarySource>,
+        qaAnswers: List<QaAnswer>,
+        mbti: String
+    ) {
+        if (!BuildConfig.DEBUG) return
+
+        val json = JSONObject().apply {
+            put("mbti", mbti)
+            // 최근 일기 문체 샘플도 프롬프트에 들어간다. 빠뜨리면 재생 결과가 어긋난다
+            put("recentDiarySamples", recentDiarySamples)
+            put("sources", JSONArray().apply {
+                sources.forEach {
+                    put(
+                        JSONObject()
+                            .put("sourceId", it.sourceId)
+                            // label("사진")이 아니라 enum 이름 — 테스트에서 valueOf로 되돌리기 위해
+                            .put("type", it.type.name)
+                            .put("content", it.content)
+                    )
+                }
+            })
+            put("qaAnswers", JSONArray().apply {
+                qaAnswers.forEach {
+                    put(
+                        JSONObject()
+                            .put("sourceId", it.sourceId)
+                            .put("question", it.question)
+                            .put("answer", it.answer)
+                    )
+                }
+            })
+        }.toString(2)
+
+        runCatching {
+            val date = (targetDate ?: DiaryDateUtil.diaryDate()).toString()
+            val file = File(context.getExternalFilesDir(null), "fixture_$date.json")
+            file.writeText(json)
+            Log.d(TAG, "📦 fixture 저장 (${json.length}자): ${file.absolutePath}")
+        }.onFailure { Log.e(TAG, "fixture 저장 실패", it) }
+    }
+
     fun generateDraft(qaAnswers: List<QaAnswer> = emptyList()) = viewModelScope.launch {
         val selected = _blocks.value.filter { it.isSelected }
         val today = (targetDate ?: DiaryDateUtil.diaryDate()).toString()
@@ -1422,24 +1584,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val locale = if (savedLang == "English") "en" else "ko"
             android.util.Log.d(TAG, "🌐 저장된 언어: $savedLang → locale: $locale")
 
-            // prepareGeneration에서 이미 분석했으면 캐시 히트라 추가 호출이 없다.
-            // 질문 단계를 건너뛴 경로로 들어왔을 때만 여기서 실제 분석이 돈다.
-            val photoSources = photoSourcesOf(analyzeSelectedPhotos())
-
-            // 사진 외 블록은 1:1로 소스가 된다. PHOTO 블록("N장 · 선택 M장")은
-            // 장별 소스로 대체되었으므로 제외한다.
-            val otherSources = selected
-                .filter { it.type != BlockType.PHOTO }
-                .map { block ->
-                    DiarySource(
-                        sourceId = block.id,
-                        type = block.type,
-                        content = block.content
-                    )
-                }
-
-            // 사진(구체적 장면)을 앞에 두고 나머지 데이터가 뒤따르게 한다.
-            val sources = photoSources + otherSources
+            // prepareGeneration에서 이미 분석·지오코딩했으면 캐시 히트라 추가 호출이 없다.
+            // 질문 단계를 건너뛴 경로로 들어왔을 때만 여기서 실제 호출이 돈다.
+            val sources = buildSources(selected)
 
             // 소스 구성만 남기고 content는 찍지 않는다. content에는 결제 가맹점·금액,
             // 일정 제목, 사진 분석 결과가 그대로 들어있고 릴리스 빌드도 minify가 꺼져 있어
@@ -1452,6 +1599,9 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     android.content.Context.MODE_PRIVATE
                 )
                 .getString("mbti", "INFP") ?: "INFP"
+
+            // 프롬프트 비교용 고정 입력을 남긴다(디버그 빌드 전용)
+            saveFixture(sources, qaAnswers, mbti)
 
             val result =
                 aiRepository.generateDiaryBlocks(
