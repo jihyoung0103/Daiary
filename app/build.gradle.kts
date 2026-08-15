@@ -52,6 +52,11 @@ android {
         compose = true
         buildConfig = true
     }
+    testOptions {
+        // 프롬프트 평가 도구(src/test/.../eval)가 AnthropicDataSource를 그대로 호출하는데,
+        // 그 안의 android.util.Log는 유닛 테스트에서 스텁이라 예외를 던진다. 조용히 넘긴다.
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -68,6 +73,9 @@ dependencies {
     implementation(libs.androidx.compose.runtime)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     testImplementation(libs.junit)
+    // org.json은 android.jar에 들어 있어 유닛 테스트에선 스텁(모든 메서드가 null 반환)이 된다.
+    // AnthropicDataSource가 요청/응답을 전부 org.json으로 다루므로 진짜 구현을 얹는다.
+    testImplementation("org.json:json:20231013")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
