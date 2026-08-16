@@ -1364,6 +1364,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         // "기타" 자유입력 원문은 칩 선택과 별개로 미리보기·편집 화면에 보조 텍스트로만 노출한다.
         _customEmotionText.value = emotionAnswer?.takeIf { it !in EMOTION_OPTIONS }
 
+        // 날씨 질답은 항상 자유 입력이라, 고정 5종 밖의 값이면 커스텀 텍스트로 별도 보관한다.
+        val weatherAnswer = cards.firstOrNull { it.sourceId == "weather" }
+            ?.turns?.firstOrNull()?.answer
+        _customWeatherText.value = weatherAnswer?.takeIf { it !in WEATHER_OPTIONS }
+
         val qaAnswers = cards.flatMap { card ->
             card.turns.mapNotNull { turn ->
                 val answer = turn.answer?.takeIf { it.isNotBlank() } ?: return@mapNotNull null

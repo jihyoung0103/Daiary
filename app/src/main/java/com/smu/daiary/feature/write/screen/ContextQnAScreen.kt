@@ -288,38 +288,23 @@ private fun QnaCardBody(
         card.turns.forEachIndexed { index, turn ->
             if (index > 0) Spacer(Modifier.height(24.dp))
 
-            // 이어지는 질문임을 왼쪽 세로선으로 표시
-            Row(modifier = Modifier.fillMaxWidth()) {
-                if (index > 0) {
-                    Box(
-                        modifier = Modifier
-                            .width(2.dp)
-                            .height(if (turn.answer == null) 60.dp else 40.dp)
-                            .padding(top = 4.dp)
-                    ) {
-                        Surface(color = wc.Border, modifier = Modifier.fillMaxSize()) {}
-                    }
-                    Spacer(Modifier.width(12.dp))
-                }
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = turn.question,
+                    fontSize = if (index == 0) 22.sp else 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = wc.TextPrimary,
+                    lineHeight = if (index == 0) 30.sp else 26.sp
+                )
 
-                Column(modifier = Modifier.fillMaxWidth()) {
+                // 이미 답한 턴 — 답변을 회색으로 남겨 대화 기록처럼 보이게
+                turn.answer?.let { answer ->
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        text = turn.question,
-                        fontSize = if (index == 0) 22.sp else 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = wc.TextPrimary,
-                        lineHeight = if (index == 0) 30.sp else 26.sp
+                        text = answer,
+                        fontSize = 15.sp,
+                        color = wc.TextMuted
                     )
-
-                    // 이미 답한 턴 — 답변을 회색으로 남겨 대화 기록처럼 보이게
-                    turn.answer?.let { answer ->
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = answer,
-                            fontSize = 15.sp,
-                            color = wc.TextMuted
-                        )
-                    }
                 }
             }
 
