@@ -87,6 +87,18 @@ private const val EMOTION_SOURCE_ID = "emotion"
  */
 private const val STEPS_NOTEWORTHY_RATIO = 1.5
 
+/**
+ * 내일 예보를 일기 소스로 넘길지 가르는 기준.
+ *
+ * "대비할 게 있을 때만 쓰라"를 프롬프트에 맡겼더니 모델이 습도를 근거로 끌어와
+ * 흐린 날에도 문장을 만들었다("습도가 70%라니 눅눅함에 대비해야겠다").
+ * 소스를 준 이상 쓸 이유를 찾는다. 여기서 자르면 평범한 날은 소스 자체가 없어
+ * 판단할 여지가 남지 않고, 기준을 바꿔도 프롬프트를 다시 검증할 필요가 없다.
+ *
+ * 기온 기반(폭염·한파)은 넣지 않았다. 계절·지역마다 체감이 달라 상수 하나로 못 자른다.
+ */
+private val WEATHER_NEEDS_PREP = setOf("비", "눈", "뇌우")
+
 /** 걸음 수가 실마리로 쓸 만한 소재를 가진 블록. 이게 없는 날은 걸음이 유일한 통로다 */
 private val ACTIVITY_SOURCE_TYPES = setOf(BlockType.PHOTO, BlockType.PAYMENT, BlockType.CALENDAR)
 
@@ -450,16 +462,21 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                             tomorrowHumidity = tomorrow.tomorrowHumidity
                         )
                         dailyDataRepository.updateWeather(userId, date, merged)
-                        blocks.add(ContentBlock(
-                            id = "weather_tomorrow", type = BlockType.WEATHER_TOMORROW,
-                            content = localizedContext().getString(
-                                R.string.block_weather_tomorrow_content,
-                                localizedWeatherDescription(tomorrow.tomorrowDescription),
-                                tomorrow.tomorrowTemperature.toInt(),
-                                tomorrow.tomorrowHumidity
-                            ),
-                            isSelected = true
-                        ))
+                        // 저장은 예보 전체를 하되, 일기 소스로는 대비가 필요한 예보만 넘긴다.
+                        if (tomorrow.tomorrowDescription in WEATHER_NEEDS_PREP) {
+                            blocks.add(ContentBlock(
+                                id = "weather_tomorrow", type = BlockType.WEATHER_TOMORROW,
+                                content = localizedContext().getString(
+                                    R.string.block_weather_tomorrow_content,
+                                    localizedWeatherDescription(tomorrow.tomorrowDescription),
+                                    tomorrow.tomorrowTemperature.toInt(),
+                                    tomorrow.tomorrowHumidity
+                                ),
+                                isSelected = true
+                            ))
+                        } else {
+                            Log.d(TAG, "⤫ [weather_tomorrow] 대비할 예보가 아니라 소스 제외")
+                        }
                     }
                 }
                 .onFailure { Log.w(TAG, "⚠️ 내일 날씨 조회 실패", it) }
