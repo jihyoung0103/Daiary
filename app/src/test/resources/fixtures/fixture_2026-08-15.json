@@ -48,11 +48,6 @@
       "content": "Goyang-si · 비 26°C · 습도 87%"
     },
     {
-      "sourceId": "weather_tomorrow",
-      "type": "WEATHER_TOMORROW",
-      "content": "흐림 27°C · 습도 70%"
-    },
-    {
       "sourceId": "health",
       "type": "HEALTH",
       "content": "5,105보 · 평소 8,954보"
