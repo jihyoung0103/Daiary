@@ -7,7 +7,6 @@ import com.smu.daiary.data.source.prompt.diaryPrompt
 import com.smu.daiary.data.source.prompt.followUpQuestionPrompt
 import com.smu.daiary.data.source.prompt.photoAnalysisPrompt
 import com.smu.daiary.data.source.prompt.retrospectPrompt
-import com.smu.daiary.data.source.prompt.reviseQuestionPrompt
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
@@ -138,55 +137,6 @@ class AnthropicDataSource {
             }
         }
 
-    /**
-     * 미리 만들어 둔 질문을 그동안 나온 답변에 맞춰 손본다.
-     * 빈 문자열이면 더 물을 게 없다는 뜻 — 호출부는 그 카드를 건너뛴다.
-     * 실패하면 원래 질문을 그대로 돌려준다(갱신 실패로 질문이 사라지면 안 된다).
-     */
-    suspend fun reviseQuestion(
-        sourceId: String,
-        sourceLabel: String,
-        sourceContent: String,
-        question: String,
-        priorAnswers: String
-    ): String = withContext(Dispatchers.IO) {
-        val prompt = reviseQuestionPrompt(sourceId, sourceLabel, sourceContent, question, priorAnswers)
-
-        val body = JSONObject().apply {
-            put("model", "claude-haiku-4-5-20251001")
-            put("max_tokens", 256)
-            put("messages", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("content", prompt)
-                })
-            })
-        }.toString().toRequestBody(jsonMediaType)
-
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(body)
-            .build()
-
-        var raw = ""
-        try {
-            val response = client.newCall(request).execute()
-            raw = response.body?.string() ?: return@withContext question
-            val text = JSONObject(raw)
-                .getJSONArray("content")
-                .getJSONObject(0)
-                .getString("text")
-                .trim()
-                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-
-            JSONObject(text).optString("question").trim()
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "질문 갱신 실패 — 원래 질문 유지. 응답: $raw", e)
-            question
-        }
-    }
 
     /**
      * 지금까지의 문답 전체를 보고 후속 질문을 만든다.

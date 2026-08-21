@@ -17,14 +17,6 @@ class AiRepository(
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         dataSource.generateContextQuestions(blocks)
 
-    suspend fun reviseQuestion(
-        sourceId: String,
-        sourceLabel: String,
-        sourceContent: String,
-        question: String,
-        priorAnswers: String
-    ): String = dataSource.reviseQuestion(sourceId, sourceLabel, sourceContent, question, priorAnswers)
-
     suspend fun generateFollowUpQuestion(
         sourceContent: String,
         turns: List<QnaTurn>

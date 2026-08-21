@@ -76,6 +76,20 @@ private val YES_NO_OPTIONS = listOf("예", "아니오")
 /** 감정 카드의 sourceId. 소스가 아니라 하루 전체에 붙는 답이라 분기 조건으로 쓰인다 */
 private const val EMOTION_SOURCE_ID = "emotion"
 
+/**
+ * 걸음 수가 "물을 거리가 있는 날"인지 가르는 배수. 평소(지난 7일 중앙값) 대비다.
+ *
+ * 프롬프트에 임계값을 설명하면 모델이 매번 나눗셈을 하고 가끔 틀린다. 여기서 자르면
+ * 정확하고, 값을 조정할 때 프롬프트를 고쳐 재실행할 필요도 없다.
+ *
+ * 적게 걸은 날은 반대쪽 기준을 두지 않는다. 집에 있었는지, 폰을 두고 나갔는지,
+ * 차로 다녔는지 구분할 수 없어서 무슨 질문을 해도 헛다리를 짚는다.
+ */
+private const val STEPS_NOTEWORTHY_RATIO = 1.5
+
+/** 걸음 수가 실마리로 쓸 만한 소재를 가진 블록. 이게 없는 날은 걸음이 유일한 통로다 */
+private val ACTIVITY_SOURCE_TYPES = setOf(BlockType.PHOTO, BlockType.PAYMENT, BlockType.CALENDAR)
+
 /** "[오늘] 도미노 알바 11:00~21:30 · 도미노피자" → "도미노 알바" */
 private val EVENT_TITLE = Regex("""^\[[^]]*] (.+?) \d{1,2}:\d{2}~""")
 
@@ -268,12 +282,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoadingFollowUp = MutableStateFlow(false)
     val isLoadingFollowUp: StateFlow<Boolean> = _isLoadingFollowUp.asStateFlow()
 
-    /** 다음 카드의 질문을 그동안의 답변에 맞춰 손보는 중 */
-    private val _isPreparingCard = MutableStateFlow(false)
-    val isPreparingCard: StateFlow<Boolean> = _isPreparingCard.asStateFlow()
-
     /** 이번 세션에서 이미 붙인 후속 질문 수 */
     private var followUpCount = 0
+
+    /** 오늘 걸음 수가 평소와 크게 다른가. 블록을 만들 때 판정해 두고 질문 대상 판단에 쓴다 */
+    private var stepsNoteworthy = false
 
     /** Claude API 호출 진행 중 여부 */
     private val _isGenerating = MutableStateFlow(false)
@@ -577,6 +590,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 .onSuccess { health ->
                     Log.d(TAG, "🏃 건강 수집 완료 | 걸음=${health.steps} | 수면=${health.sleepDurationMinutes}분")
                     dailyDataRepository.updateHealth(userId, date, health)
+
+                    stepsNoteworthy = health.usualSteps > 0 &&
+                        health.steps > health.usualSteps * STEPS_NOTEWORTHY_RATIO
+                    Log.d(TAG, "🏃 걸음 특이 여부=$stepsNoteworthy (평소 ${health.usualSteps}보)")
 
                     // 데이터가 모두 0이면 블록 표시 안 함 (Health Connect 미설정 사용자)
                     if (health.steps > 0 || health.sleepDurationMinutes > 0) {
@@ -1223,10 +1240,20 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             // 분석 없이 질문을 만들면 사진 속 내용을 모른 채 뻔한 질문만 나온다.
             val sources = buildSources(selected)
 
+            // 걸음 수 자체는 일기 소재가 아니라 지표다. 물을 가치는 그 숫자가 가리키는
+            // 활동에 있는데, 활동을 담을 블록(사진·결제·일정)이 이미 있으면 그쪽이 담당한다.
+            // 그래서 평소와 크게 다른 날이거나, 하루가 통째로 비어 걸음이 유일한 실마리인
+            // 날에만 묻는다.
+            val hasActivitySource = sources.any { it.type in ACTIVITY_SOURCE_TYPES }
+            val askSteps = stepsNoteworthy || !hasActivitySource
+
             // 질문도 초안과 완전히 같은 소스를 본다. 건별로 전개된 소재는 각자 질문·답변을 갖는다.
             val questionInput = sources
                 .filter { it.type !in NO_QUESTION_TYPES }
+                .filter { it.type != BlockType.HEALTH || askSteps }
                 .map { ContentBlock(id = it.sourceId, type = it.type, content = it.content) }
+
+            if (!askSteps) Log.d(TAG, "⤫ [health] 평소와 비슷하고 다른 소재가 있어 질문 제외")
 
             // AI가 만든 질문은 전부 자유 입력으로 받는다. 선택지를 주면 답이 평이해지고
             // 질문과 무관한 선택지가 섞여서 초안의 재료로 쓸 만한 답이 안 나온다.
@@ -1402,64 +1429,6 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         _currentCardIndex.value = next
-        viewModelScope.launch { reviseCurrentQuestion() }
-    }
-
-    /**
-     * 카드에 도착한 시점에 그 카드의 질문을 지금까지 나온 답변에 맞춰 손본다.
-     *
-     * 첫 질문들은 대화가 시작되기 전에 한꺼번에 만들어지므로 중간 답변이 반영돼 있지 않다.
-     * 그래서 이미 답한 걸 또 묻거나, 답변 덕에 가능해진 더 좋은 질문을 놓친다.
-     * 더 물을 게 없어졌다고 판단되면 그 카드는 건너뛴다.
-     */
-    private suspend fun reviseCurrentQuestion() {
-        val cards = _qnaCards.value ?: return
-        val index = _currentCardIndex.value
-        val card = cards.getOrNull(index) ?: return
-
-        if (card.options.isNotEmpty()) return                       // 감정 카드는 고정 질문
-        if (card.turns.size != 1 || card.turns[0].answer != null) return
-
-        // 소재별로 묶어서 넘긴다. 평평하게 나열하면 한 소재에서 이어진 대화인지
-        // 서로 다른 소재의 답변인지 구분이 사라져, 엉뚱한 소재의 답을 근거로 질문을 고친다.
-        val prior = cards.take(index)
-            .mapNotNull { done ->
-                val exchange = done.turns
-                    .filter { it.answer != null }
-                    .joinToString("\n") { "Q: ${it.question}\nA: ${it.answer}" }
-                    .ifBlank { return@mapNotNull null }
-                "[${done.sourceLabel.ifBlank { "기타" }} · ${done.sourceId}]\n$exchange"
-            }
-        if (prior.isEmpty()) return                                 // 첫 카드면 반영할 답변이 없다
-
-        _isPreparingCard.value = true
-        val revised = try {
-            aiRepository.reviseQuestion(
-                sourceId = card.sourceId,
-                sourceLabel = card.sourceLabel,
-                sourceContent = card.sourceContent,
-                question = card.turns[0].question,
-                priorAnswers = prior.joinToString("\n\n")
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ 질문 갱신 실패 — 원래 질문 유지", e)
-            card.turns[0].question
-        } finally {
-            _isPreparingCard.value = false
-        }
-
-        when {
-            revised.isBlank() -> {
-                Log.d(TAG, "⤫ [${card.sourceId}] 앞선 답변으로 이미 해소됨 — 카드 건너뜀")
-                advanceCard()
-            }
-            revised != card.turns[0].question -> {
-                Log.d(TAG, "✎ [${card.sourceId}] 질문 갱신: $revised")
-                _qnaCards.value = cards.toMutableList().also {
-                    it[index] = card.copy(turns = listOf(QnaTurn(question = revised)))
-                }
-            }
-        }
     }
 
     /** 모든 카드의 답변을 모아 초안 생성을 시작한다. */

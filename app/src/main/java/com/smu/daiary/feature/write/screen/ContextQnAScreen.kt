@@ -99,7 +99,6 @@ fun ContextQnAScreen(
     val cards by viewModel.qnaCards.collectAsStateWithLifecycle()
     val cardIndex by viewModel.currentCardIndex.collectAsStateWithLifecycle()
     val isLoadingFollowUp by viewModel.isLoadingFollowUp.collectAsStateWithLifecycle()
-    val isPreparingCard by viewModel.isPreparingCard.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
     val isGeneratingQuestions by viewModel.isGeneratingQuestions.collectAsStateWithLifecycle()
     val draft by viewModel.draft.collectAsStateWithLifecycle()
@@ -227,25 +226,13 @@ fun ContextQnAScreen(
                 label = "card_anim"
             ) { idx ->
                 val shown = cardList.getOrNull(idx) ?: return@AnimatedContent
-                if (isPreparingCard) {
-                    // 앞선 답변을 반영해 질문을 손보는 중. 질문이 눈앞에서 바뀌면 어색하므로
-                    // 확정될 때까지 보여주지 않는다.
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = wc.Accent,
-                            strokeWidth = 2.5.dp
-                        )
-                    }
-                } else {
-                    QnaCardBody(
-                        card = shown,
-                        wc = wc,
-                        isLoadingFollowUp = isLoadingFollowUp,
-                        onAnswer = { viewModel.answerCurrentTurn(it) },
-                        onSkip = { viewModel.skipCurrentCard() }
-                    )
-                }
+                QnaCardBody(
+                    card = shown,
+                    wc = wc,
+                    isLoadingFollowUp = isLoadingFollowUp,
+                    onAnswer = { viewModel.answerCurrentTurn(it) },
+                    onSkip = { viewModel.skipCurrentCard() }
+                )
             }
         }
     }
