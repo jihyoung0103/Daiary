@@ -1,32 +1,34 @@
 package com.smu.daiary.ui.theme
 
-import androidx.compose.ui.graphics.Color
-import com.smu.daiary.ui.theme.MainGreen
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.smu.daiary.R
 
-/**
- * 앱 전체 기본 글꼴 스타일(Material [Typography]). 제목·본문 등에 공통으로 쓰입니다.
- */
+private val PretendardFamily = FontFamily(
+    Font(R.font.pretendard_regular, FontWeight.Normal),
+    Font(R.font.pretendard_medium, FontWeight.Medium),
+    Font(R.font.pretendard_bold, FontWeight.Bold),
+    Font(R.font.pretendard_extrabold, FontWeight.ExtraBold)
+)
+
 val Typography = Typography(
-    // 1. 큰 제목 (Headline/Display) 스타일 추가
-    displayLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Bold,
-        fontSize = 32.sp,
-        color = MainGreen // ✨
-    ),
-
-    // 2. 기본 본문 스타일 (기존 코드에 color 추가)
-    bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-        letterSpacing = 0.5.sp,
-        color = Color.Black // 본문은 가독성을 위해 검정이나 어두운 회색 추천
-    )
+    displayLarge  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal,  fontSize = 57.sp, lineHeight = 64.sp, letterSpacing = (-0.25).sp),
+    displayMedium = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal,  fontSize = 45.sp, lineHeight = 52.sp),
+    displaySmall  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal,  fontSize = 36.sp, lineHeight = 44.sp),
+    headlineLarge  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal,  fontSize = 32.sp, lineHeight = 40.sp),
+    headlineMedium = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal,  fontSize = 28.sp, lineHeight = 36.sp),
+    headlineSmall  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal,  fontSize = 24.sp, lineHeight = 32.sp),
+    titleLarge  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Medium, fontSize = 22.sp, lineHeight = 28.sp),
+    titleMedium = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Medium, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.15.sp),
+    titleSmall  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    bodyLarge  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp, letterSpacing = 0.5.sp),
+    bodyMedium = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.25.sp),
+    bodySmall  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.4.sp),
+    labelLarge  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp),
+    labelMedium = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp),
+    labelSmall  = TextStyle(fontFamily = PretendardFamily, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp),
 )

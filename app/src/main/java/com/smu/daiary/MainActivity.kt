@@ -1,62 +1,679 @@
 package com.smu.daiary
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import android.content.Intent
+import android.provider.Settings
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.smu.daiary.auth.AuthState
-import com.smu.daiary.auth.AuthViewModel
-import com.smu.daiary.auth.LoginScreen
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.feature.retrospect.RetrospectCardScreen
+import com.smu.daiary.feature.retrospect.RetrospectLoadingScreen
+import com.smu.daiary.feature.retrospect.RetrospectState
+import com.smu.daiary.feature.retrospect.RetrospectSummaryErrorScreen
+import com.smu.daiary.feature.retrospect.RetrospectSummaryLoadingScreen
+import com.smu.daiary.feature.retrospect.RetrospectSummaryScreen
+import com.smu.daiary.feature.retrospect.RetrospectViewModel
+import kotlinx.coroutines.delay
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import com.smu.daiary.data.source.HealthDataSource
+import com.smu.daiary.data.model.DiaryEntry
+import java.time.LocalDate
+import com.smu.daiary.feature.auth.AuthState
+import com.smu.daiary.feature.auth.AuthViewModel
+import com.smu.daiary.feature.auth.LoginScreen
+import com.smu.daiary.feature.auth.PrivacyPolicyScreen
+import com.smu.daiary.feature.auth.ProfileEditScreen
+import com.smu.daiary.feature.auth.ProfileScreen
+import com.smu.daiary.feature.auth.TermsOfServiceScreen
+import com.smu.daiary.feature.home.HomeScreen
+import com.smu.daiary.feature.home.HomeViewModel
+import com.smu.daiary.feature.settings.SettingsScreen
+import com.smu.daiary.feature.notification.createNotificationChannel
+import com.smu.daiary.feature.settings.SettingsScreen
+import com.smu.daiary.feature.write.WriteViewModel
+import com.smu.daiary.feature.write.screen.BlockSelectionScreen
+import com.smu.daiary.feature.write.screen.ContextQnAScreen
+import com.smu.daiary.feature.write.screen.DiaryDetailScreen
+import com.smu.daiary.feature.write.screen.DiaryEditScreen
+import com.smu.daiary.feature.write.screen.DraftPreviewScreen
 import com.smu.daiary.ui.theme.DaiaryTheme
+import com.smu.daiary.util.DiaryDateUtil
+import com.smu.daiary.ui.theme.Ink
+import com.smu.daiary.ui.theme.LocalDarkTheme
+import com.smu.daiary.ui.theme.SageForest
+import com.smu.daiary.ui.theme.SageForestDark
+import com.smu.daiary.ui.theme.SurfaceDark
+import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.White
+import java.util.Locale
 
-private lateinit var auth: com.google.firebase.auth.FirebaseAuth
-
+// 메인 함수 :ComponentActivity()는 ComponentActivity를 상속받는 의미
+// (:) 콜론 = extends 또는 implements로 치환가능
 class MainActivity : ComponentActivity() {
+
+    // 언어 설정을 Activity 생성 최초 시점에 적용
+    override fun attachBaseContext(newBase: Context) {
+        val prefs = newBase.getSharedPreferences("daiary_settings", Context.MODE_PRIVATE)
+        val lang = prefs.getString("language", "한국어") ?: "한국어"
+        val locale = if (lang == "English") Locale("en") else Locale("ko")
+        val config = Configuration(newBase.resources.configuration)
+        config.setLocale(locale)
+        super.attachBaseContext(newBase.createConfigurationContext(config))
+    }
+
+    // 시작될 때 딱 한 번 실행되는 함수 onCreate
     override fun onCreate(savedInstanceState: Bundle?) {
+        val prefs = getSharedPreferences("daiary_settings", Context.MODE_PRIVATE)
+
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge() // 화면 꽉 채우는 설정
+        createNotificationChannel(this)
+
+        // Compose UI
         setContent {
-            DaiaryTheme {
+            val isDarkTheme = remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
+            DaiaryTheme(darkTheme = isDarkTheme.value) {
+                // val은 변경 불가 변수(final) / var는 변경 가능 변수
+                // 인증 상태 감지
                 val authViewModel: AuthViewModel = viewModel()
                 val authState by authViewModel.authState.collectAsStateWithLifecycle()
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    when (authState) {
-                        // 앱 시작 직후 Firebase 로딩 중
+                // Material3의 기본 레이아웃 틀.
+                // innerPadding이란 상단바/하단바 여백 자동 계산 설정
+                val snackbarHostState = remember { SnackbarHostState() }
+                val isDark = LocalDarkTheme.current
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    snackbarHost = {
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.padding(bottom = 80.dp)
+                        ) { data ->
+                            Snackbar(
+                                snackbarData    = data,
+                                containerColor  = if (isDark) SageForestDark else SageForest,
+                                contentColor    = Color.White,
+                                // 기본 actionColor(inversePrimary)는 SageForest 위에서 잘 안 읽힌다
+                                actionColor     = Color.White
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    when (authState) { // authState, 즉 로그인 상태
+                        // 로딩 중일 때.
                         is AuthState.Loading -> {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .background(Color(0xFFF1EFE8)),
+                                    .background(MaterialTheme.colorScheme.background),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(color = Color(0xFF533AB7))
+                                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                             }
                         }
-                        // 로그인된 상태 → 캘린더 메인 화면
+
+                        // 로그인 된 상태일 때.
                         is AuthState.Authenticated -> {
-                            MainCalendarScreen(
-                                modifier = Modifier.padding(innerPadding),
-                                onLogout = { authViewModel.logout() }
-                            )
+                            val userId = (authState as AuthState.Authenticated).user.uid // 유저 id
+                            val navController = rememberNavController()                  // 화면 이동 객체
+                            val writeViewModel: WriteViewModel = viewModel()
+                            val homeViewModel: HomeViewModel = viewModel()
+                            val diaries by homeViewModel.diaries.collectAsStateWithLifecycle()
+                            val isLoading by homeViewModel.isLoading.collectAsStateWithLifecycle()
+                            val homeError by homeViewModel.error.collectAsStateWithLifecycle()
+                            val isDeletingDiary by homeViewModel.isDeletingDiary.collectAsStateWithLifecycle()
+                            var viewingDate by remember { mutableStateOf<LocalDate?>(null) }
+                            var editFromDetail by remember { mutableStateOf(false) }
+                            val scope = rememberCoroutineScope()
+                            val saveFailedMessage = stringResource(R.string.profile_save_error)
+                            val diaryExistsMessage = stringResource(R.string.diary_exists_message)
+                            val rewriteLabel = stringResource(R.string.btn_rewrite)
+
+                            // 다이얼로그 공통 색상 (Daiary 토큰)
+                            val isDark = LocalDarkTheme.current
+                            val dialogBg = if (isDark) SurfaceDark else White
+                            val dialogText = if (isDark) TextPrimaryDark else Ink
+
+                            val retrospectViewModel: RetrospectViewModel = viewModel()
+                            val weeklyBannerStatus by retrospectViewModel.weeklyBannerStatus.collectAsStateWithLifecycle()
+                            val monthlyBannerStatus by retrospectViewModel.monthlyBannerStatus.collectAsStateWithLifecycle()
+                            val retrospectState by retrospectViewModel.state.collectAsStateWithLifecycle()
+
+                            LaunchedEffect(userId) {
+                                homeViewModel.loadDiaries(userId)
+                                retrospectViewModel.loadBannerStatuses(userId)
+                                // 오늘 날씨 백그라운드 수집 예약 (14:00). 이미 등록돼 있으면 KEEP.
+                                com.smu.daiary.data.source.weather.WeatherScheduler.scheduleAll(applicationContext)
+                            }
+
+                            val saveDoneMessage = stringResource(R.string.save_done)
+                            LaunchedEffect(writeViewModel) {
+                                writeViewModel.saveEvent.collect {
+                                    snackbarHostState.showSnackbar(saveDoneMessage)
+                                }
+                            }
+
+                            // 데이터 수집에 필요한 권한 목록
+                            val requiredPermissions = buildList {
+                                add(Manifest.permission.READ_CALENDAR)
+                                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    add(Manifest.permission.POST_NOTIFICATIONS)
+                                    add(Manifest.permission.READ_MEDIA_IMAGES)
+                                } else {
+                                    add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                                }
+                            }.toTypedArray()
+
+                            // 권한 요청 런처 (허용/거부 결과와 무관하게 loadBlocks 실행)
+                            val permissionLauncher = rememberLauncherForActivityResult(
+                                contract = ActivityResultContracts.RequestMultiplePermissions()
+                            ) { _ ->
+                                // 개별 권한이 거부되어도 수집 가능한 데이터만 부분 수집
+                                writeViewModel.loadBlocks(userId)
+                                navController.navigate("block_selection")
+                            }
+
+                            /**
+                             * 일기 작성 시작. 세 진입점(FAB·홈 배너·상세 화면)이 공유한다.
+                             *
+                             * 대상 날짜에 이미 일기가 있으면 바로 시작하지 않고 스낵바로 먼저 묻는다.
+                             * saveDraft는 같은 날짜 문서를 찾아 덮어쓰므로(하루 1개 유지) 그대로 두면
+                             * 수집·질답·AI 생성을 다 거친 뒤에 기존 일기가 조용히 사라진다.
+                             * 검사를 호출자에 흩어두면 진입점이 늘 때 또 새기 때문에 여기 하나로 모은다.
+                             */
+                            fun startWriting(date: LocalDate?) {
+                                val target = date ?: DiaryDateUtil.diaryDate()
+                                val begin = {
+                                    editFromDetail = false
+                                    writeViewModel.setTargetDate(date)
+                                    permissionLauncher.launch(requiredPermissions)
+                                }
+                                if (diaries.none { it.date == target.toString() }) {
+                                    begin()
+                                    return
+                                }
+                                // 덮어쓰기가 늘 실수인 건 아니다(초안이 마음에 안 들어 다시 뽑는 경우).
+                                // 기본값은 아무것도 안 하는 쪽이고, 다시 쓰기는 명시적 선택으로 둔다.
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = diaryExistsMessage,
+                                        actionLabel = rewriteLabel,
+                                        duration = SnackbarDuration.Long
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) begin()
+                                }
+                            }
+
+                            // 앱 시작 시 알림 권한 팝업 (Android 13+, 미허용 상태일 때만)
+                            val notifPermissionLauncher = rememberLauncherForActivityResult(
+                                contract = ActivityResultContracts.RequestPermission()
+                            ) { /* 허용/거부 무관하게 계속 진행 */ }
+
+                            // 결제 알림 수집 온보딩 팝업 (최초 1회)
+                            var showPaymentListenerOnboarding by remember {
+                                val shown = prefs.getBoolean("payment_listener_onboarding_shown", false)
+                                val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+                                    ?.contains(packageName) == true
+                                mutableStateOf(!shown && !enabled)
+                            }
+                            if (showPaymentListenerOnboarding) {
+                                AlertDialog(
+                                    onDismissRequest = {
+                                        prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
+                                        showPaymentListenerOnboarding = false
+                                    },
+                                    title = { Text(text = "결제 알림 자동 수집", color = dialogText) },
+                                    text = { Text(text = "오늘 쓴 결제 내역을 일기에 자동으로 담을 수 있어요.\n설정에서 Daiary 알림 접근을 허용하면 결제 기록이 블록으로 추가됩니다.", color = dialogText) },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
+                                            showPaymentListenerOnboarding = false
+                                            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                                        }) {
+                                            Text("허용하기")
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = {
+                                            prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
+                                            showPaymentListenerOnboarding = false
+                                        }) {
+                                            Text("나중에")
+                                        }
+                                    },
+                                    containerColor = dialogBg
+                                )
+                            }
+
+                            LaunchedEffect(Unit) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                                    PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }
+
+                            // Health Connect 권한 요청 (미허용 상태일 때만 시스템 권한 화면 표시)
+                            val healthPermissionLauncher = rememberLauncherForActivityResult(
+                                contract = PermissionController.createRequestPermissionResultContract()
+                            ) { result ->
+                                android.util.Log.d("HealthConnect", "🔄 권한 요청 결과: $result")
+                            }
+
+                            var showHealthConnectFallback by remember { mutableStateOf(false) }
+
+                            LaunchedEffect(Unit) {
+                                val sdkStatus = HealthConnectClient.getSdkStatus(this@MainActivity)
+                                android.util.Log.d("HealthConnect", "🔎 SDK 상태: $sdkStatus (3=AVAILABLE, 2=UPDATE_REQUIRED, 1=UNAVAILABLE)")
+
+                                when (sdkStatus) {
+                                    HealthConnectClient.SDK_AVAILABLE -> {
+                                        val client = HealthConnectClient.getOrCreate(this@MainActivity)
+                                        val granted = client.permissionController.getGrantedPermissions()
+                                        android.util.Log.d("HealthConnect", "✅ 허용된 권한: $granted")
+                                        android.util.Log.d("HealthConnect", "🎯 필요한 권한: ${HealthDataSource.REQUIRED_PERMISSIONS}")
+                                        if (!granted.containsAll(HealthDataSource.REQUIRED_PERMISSIONS)) {
+                                            android.util.Log.d("HealthConnect", "📋 권한 요청 화면 띄움")
+                                            try {
+                                                healthPermissionLauncher.launch(HealthDataSource.REQUIRED_PERMISSIONS)
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("HealthConnect", "❌ 권한 요청 실패", e)
+                                                showHealthConnectFallback = true
+                                            }
+                                        } else {
+                                            android.util.Log.d("HealthConnect", "✔️ 이미 모든 권한 허용됨")
+                                        }
+                                    }
+                                    HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
+                                        android.util.Log.w("HealthConnect", "⚠️ Health Connect 업데이트 필요 — Play Store 이동 필요")
+                                    }
+                                    else -> {
+                                        android.util.Log.w("HealthConnect", "⚠️ Health Connect SDK 사용 불가")
+                                    }
+                                }
+                            }
+
+                            // 권한 요청 화면이 자동으로 안 뜨는 경우 Health Connect 앱 직접 열기 안내
+                            if (showHealthConnectFallback) {
+                                AlertDialog(
+                                    onDismissRequest = { showHealthConnectFallback = false },
+                                    title = { Text("건강 데이터 권한 설정", color = dialogText) },
+                                    text = { Text("Health Connect 앱에서 Daiary의 걸음 수, 수면 데이터 접근 권한을 허용해주세요.", color = dialogText) },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            showHealthConnectFallback = false
+                                            try {
+                                                val intent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
+                                                startActivity(intent)
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("HealthConnect", "❌ Health Connect 앱 열기 실패", e)
+                                            }
+                                        }) { Text("열기") }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showHealthConnectFallback = false }) {
+                                            Text("나중에")
+                                        }
+                                    },
+                                    containerColor = dialogBg
+                                )
+                            }
+
+                            // 네비게이션 구조
+                            NavHost(
+                                navController = navController,
+                                startDestination = "main" // 시작 화면은 "main"
+                            ) {
+                                // "main": 메인 캘린더 화면
+                                composable("main") {
+                                    // UI
+                                    HomeScreen(
+                                        modifier = Modifier.padding(innerPadding),
+                                        diaries = diaries,
+                                        isLoading = isLoading,
+                                        error = homeError,
+                                        onRetry = { homeViewModel.loadDiaries(userId) },
+                                        onStartDiary = { startWriting(null) },
+                                        onProfileClick = { navController.navigate("profile") },
+                                        onDiaryClick = { entry ->
+                                            viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
+                                            navController.navigate("diary_detail")
+                                        },
+                                        onWriteDiary = { dateStr -> startWriting(LocalDate.parse(dateStr)) },
+                                        onViewAllDiaries = { navController.navigate("diary_list") },
+                                        weeklyBannerStatus = weeklyBannerStatus,
+                                        monthlyBannerStatus = monthlyBannerStatus,
+                                        weeklyBannerSubLabel = retrospectViewModel.weeklyPeriod.rangeLabel,
+                                        monthlyBannerSubLabel = retrospectViewModel.monthlyPeriod.rangeLabel,
+                                        onWeeklyBannerClick = {
+                                            if (weeklyBannerStatus == com.smu.daiary.feature.retrospect.BannerStatus.SAVED) {
+                                                retrospectViewModel.openSaved(userId, RetrospectType.WEEKLY)
+                                                navController.navigate("retrospect_summary")
+                                            } else {
+                                                navController.navigate("retrospect_loading/${RetrospectType.WEEKLY.name}")
+                                            }
+                                        },
+                                        onMonthlyBannerClick = {
+                                            if (monthlyBannerStatus == com.smu.daiary.feature.retrospect.BannerStatus.SAVED) {
+                                                retrospectViewModel.openSaved(userId, RetrospectType.MONTHLY)
+                                                navController.navigate("retrospect_summary")
+                                            } else {
+                                                navController.navigate("retrospect_loading/${RetrospectType.MONTHLY.name}")
+                                            }
+                                        }
+                                    )
+                                }
+                                // "retrospect_loading/{type}": 회고 생성 로딩 화면
+                                composable(
+                                    "retrospect_loading/{type}",
+                                    arguments = listOf(navArgument("type") { type = NavType.StringType })
+                                ) { backStackEntry ->
+                                    val type = RetrospectType.valueOf(
+                                        backStackEntry.arguments?.getString("type") ?: RetrospectType.WEEKLY.name
+                                    )
+                                    val periodLabel = if (type == RetrospectType.WEEKLY)
+                                        retrospectViewModel.weeklyPeriod.titleLabel
+                                    else retrospectViewModel.monthlyPeriod.titleLabel
+
+                                    LaunchedEffect(type) {
+                                        retrospectViewModel.generateRetrospect(userId, type)
+                                    }
+                                    LaunchedEffect(retrospectState) {
+                                        when (val s = retrospectState) {
+                                            is RetrospectState.CardView -> {
+                                                delay(500)
+                                                navController.navigate("retrospect_card") {
+                                                    popUpTo("retrospect_loading/{type}") { inclusive = true }
+                                                }
+                                            }
+                                            is RetrospectState.Error -> {
+                                                snackbarHostState.showSnackbar(s.message)
+                                                retrospectViewModel.resetState()
+                                                navController.popBackStack()
+                                            }
+                                            else -> {}
+                                        }
+                                    }
+                                    RetrospectLoadingScreen(
+                                        periodLabel = periodLabel,
+                                        state = retrospectState,
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "retrospect_card": 카드 리캡 화면
+                                composable("retrospect_card") {
+                                    val s = retrospectState
+                                    if (s is RetrospectState.CardView) {
+                                        RetrospectCardScreen(
+                                            report = s.report,
+                                            onBack = { navController.popBackStack("main", inclusive = false) },
+                                            onSave = { navController.popBackStack("main", inclusive = false) },
+                                            onViewDiary = { date ->
+                                                diaries.find { it.date == date }?.let { entry ->
+                                                    viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
+                                                    navController.navigate("diary_detail")
+                                                }
+                                            },
+                                            modifier = Modifier.padding(innerPadding)
+                                        )
+                                    }
+                                }
+                                // "retrospect_summary": 저장된 회고 재진입 요약 화면
+                                composable("retrospect_summary") {
+                                    when (val s = retrospectState) {
+                                        is RetrospectState.Summary -> {
+                                            RetrospectSummaryScreen(
+                                                report = s.report,
+                                                onBack = { navController.popBackStack() },
+                                                onViewFull = {
+                                                    retrospectViewModel.showFullRecap()
+                                                    navController.navigate("retrospect_card")
+                                                },
+                                                modifier = Modifier.padding(innerPadding)
+                                            )
+                                        }
+                                        is RetrospectState.Error -> {
+                                            RetrospectSummaryErrorScreen(
+                                                message = s.message,
+                                                onBack = { navController.popBackStack() },
+                                                modifier = Modifier.padding(innerPadding)
+                                            )
+                                        }
+                                        // Loading 및 그 외 전환 상태 — Firestore fetch 완료 전 blank 화면 방지
+                                        else -> {
+                                            RetrospectSummaryLoadingScreen(modifier = Modifier.padding(innerPadding))
+                                        }
+                                    }
+                                }
+                                // "block_selection": 블록 선택 화면
+                                composable("block_selection") {
+                                    BlockSelectionScreen(
+                                        viewModel = writeViewModel,
+                                        onNext = {
+                                            navController.navigate("context_qna") {
+                                                popUpTo("block_selection") { inclusive = false }
+                                                launchSingleTop = true
+                                            }
+                                        },
+                                        onBack = { navController.popBackStack() },
+                                        onRetry = { writeViewModel.loadBlocks(userId) },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "context_qna": 맥락 질답 화면
+                                composable("context_qna") {
+                                    ContextQnAScreen(
+                                        viewModel = writeViewModel,
+                                        onComplete = {
+                                            navController.navigate("draft_preview") {
+                                                popUpTo("block_selection") { inclusive = false }
+                                                launchSingleTop = true
+                                            }
+                                        },
+                                        onBack = {
+                                            writeViewModel.clearDraftOnly()
+                                            navController.popBackStack()
+                                        },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "draft_preview": 초안 미리보기 화면
+                                composable("draft_preview") {
+                                    DraftPreviewScreen(
+                                        viewModel = writeViewModel,
+                                        userId = userId,
+
+                                        onEdit = {
+                                            navController.navigate("diary_edit")
+                                        },
+
+                                        onSaved = {
+                                            writeViewModel.resetDraft()
+                                            navController.popBackStack(
+                                                route = "main",
+                                                inclusive = false
+                                            )
+                                        },
+
+                                        onSaveFailed = {
+                                            scope.launch {
+                                                snackbarHostState.showSnackbar(saveFailedMessage)
+                                            }
+                                        },
+
+                                        onBack = {
+                                            writeViewModel.clearDraftOnly()
+
+                                            navController.navigate("block_selection") {
+                                                popUpTo("draft_preview") {
+                                                    inclusive = true
+                                                }
+                                                launchSingleTop = true
+                                            }
+                                        },
+
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "diary_edit": 일기 편집 화면
+                                composable("diary_edit") {
+                                    DiaryEditScreen(
+                                        viewModel = writeViewModel,
+                                        onDone = {
+                                            if (editFromDetail) {
+                                                writeViewModel.saveDraft(userId) { success ->
+                                                    if (success) {
+                                                        editFromDetail = false
+                                                        writeViewModel.resetDraft()
+                                                        navController.popBackStack(route = "main", inclusive = false)
+                                                    } else {
+                                                        scope.launch {
+                                                            snackbarHostState.showSnackbar(saveFailedMessage)
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                navController.popBackStack()
+                                            }
+                                        },
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "profile": 프로필 화면
+                                composable("profile") {
+                                    ProfileScreen(
+                                        authViewModel = authViewModel,
+                                        navController = navController,
+                                        onBack = { navController.popBackStack() },
+                                        isDarkMode = isDarkTheme.value,
+                                        onDarkModeChange = { enabled ->
+                                            isDarkTheme.value = enabled
+                                            prefs.edit().putBoolean("dark_mode", enabled).apply()
+                                        },
+                                        onPrivacyPolicy = { navController.navigate("privacy_policy") },
+                                        onTermsOfService = { navController.navigate("terms_of_service") },
+                                        onEditProfile = { navController.navigate("profile_edit") },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "privacy_policy": 개인정보 처리방침 화면
+                                composable("privacy_policy") {
+                                    PrivacyPolicyScreen(
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "terms_of_service": 서비스 이용약관 화면
+                                composable("terms_of_service") {
+                                    TermsOfServiceScreen(
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "profile_edit": 프로필 편집 화면
+                                composable("profile_edit") {
+                                    ProfileEditScreen(
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                // "diary_detail": 일기 상세 화면 (날짜 기반, 좌우 스와이프로 인접 날짜 이동)
+                                composable("diary_detail") {
+                                    viewingDate?.let { date ->
+                                        DiaryDetailScreen(
+                                            initialDate = date,
+                                            diaries = diaries,
+                                            isDeleting = isDeletingDiary,
+                                            onWrite = { writeDate -> startWriting(writeDate) },
+                                            onEdit = { entry ->
+                                                editFromDetail = true
+                                                writeViewModel.loadExistingEntry(entry)
+                                                navController.navigate("diary_edit")
+                                            },
+                                            onDelete = { entry ->
+                                                homeViewModel.deleteDiary(userId, entry.id) { success ->
+                                                    if (success) navController.popBackStack()
+                                                }
+                                            },
+                                            onBack = { navController.popBackStack() },
+                                            modifier = Modifier.padding(innerPadding)
+                                        )
+                                    }
+                                }
+                                // "diary_list": 모든 일기 리스트 (일기 날짜 내림차순)
+                                composable("diary_list") {
+                                    com.smu.daiary.feature.home.DiaryListScreen(
+                                        diaries = diaries,
+                                        isLoading = isLoading,
+                                        onDiaryClick = { entry ->
+                                            viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
+                                            navController.navigate("diary_detail")
+                                        },
+                                        onBack = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                                composable("settings") {
+                                    SettingsScreen(
+                                        onBack = { navController.popBackStack() },
+                                        onConfirm = { navController.popBackStack() },
+                                        modifier = Modifier.padding(innerPadding)
+                                    )
+                                }
+                            }
                         }
-                        // 미로그인·에러·성공 피드백 중 → 로그인 화면 (피드백 오버레이는 LoginScreen 내부에서 표시)
-                        is AuthState.Unauthenticated,
-                        is AuthState.Error,
-                        is AuthState.LoginSuccess,
-                        is AuthState.SignUpSuccess -> {
+
+                        // 미인증된 상태
+                        is AuthState.Unauthenticated,   // 인증되지 않은 상태, 즉 로그인 안한 상태
+                        is AuthState.Error,             // 로그인 실패
+                        is AuthState.LoginSuccess,      // 로그인, 회원가입 성공
+                        is AuthState.SignUpSuccess -> { // 성공했는데 로그인 화면으로 보내는 이유는, Firebase 인증까지 소요되는 시간이 있기 때문. 인증 후 자동적으로 authenticated 분기로 넘어감
                             LoginScreen(
                                 authViewModel = authViewModel,
                                 modifier = Modifier.padding(innerPadding)
@@ -67,4 +684,5 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 }
