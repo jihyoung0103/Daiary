@@ -41,7 +41,12 @@ data class DiarySource(
     val type: BlockType,
     val content: String,
     /** PHOTO 소스일 때 해당 사진의 URI */
-    val imageUri: String? = null
+    val imageUri: String? = null,
+    /**
+     * 그 일이 일어난 시각(epoch millis). 일기를 하루 흐름대로 배열하는 데 쓴다.
+     * 날씨·걸음 수처럼 하루 단위라 시각이 없는 소스는 0.
+     */
+    val occurredAt: Long = 0L
 )
 
 /**
@@ -140,7 +145,9 @@ data class PaymentSelectableItem(
     val displayText: String,
     val amount: Int,
     val category: String = "기타",
-    val isSelected: Boolean = true
+    val isSelected: Boolean = true,
+    /** 결제 시각 (epoch millis). displayText 앞머리의 시각과 같은 값 */
+    val paidAt: Long = 0L
 )
 
 data class PhotoSelectableItem(

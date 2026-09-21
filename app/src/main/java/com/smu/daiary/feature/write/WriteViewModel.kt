@@ -664,7 +664,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                                     displayText = "$timeText ${categoryEmoji(category)} ${payment.merchant} ${String.format("%,d", payment.amount)}원",
                                     amount = payment.amount,
                                     category = category,
-                                    isSelected = true
+                                    isSelected = true,
+                                    paidAt = payment.paidAt
                                 )
                             }
 
@@ -1176,7 +1177,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                     sourceId = "photo_${index + 1}",
                     type = BlockType.PHOTO,
                     content = "[$kindLabel$timeLabel$placeLabel]\n${photo.analysis}",
-                    imageUri = photo.uri
+                    imageUri = photo.uri,
+                    occurredAt = photo.takenAt
                 )
             }
     }
@@ -1198,7 +1200,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 DiarySource(
                     sourceId = "payment_${index + 1}",
                     type = BlockType.PAYMENT,
-                    content = payment.displayText
+                    content = payment.displayText,
+                    occurredAt = payment.paidAt
                 )
             }
 
@@ -1213,7 +1216,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                 DiarySource(
                     sourceId = "${idPrefix}_${index + 1}",
                     type = type,
-                    content = event.displayText
+                    content = event.displayText,
+                    occurredAt = event.startTime
                 )
             }
 
@@ -1238,8 +1242,20 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             .filter { it.type !in expanded }
             .map { DiarySource(sourceId = it.id, type = it.type, content = it.content) }
 
-        // 사진(구체적 장면)을 앞에 두고 나머지 데이터가 뒤따르게 한다
-        return photoSources + paymentSources + calendarSources + upcomingSources + otherSources
+        // 일기는 하루의 흐름대로 읽혀야 한다. 타입별로 몰아 두면 15:49 버거킹 결제와
+        // 16:06 햄버거 사진처럼 같은 사건이 블록 몇 개만큼 떨어져 서로 남남이 된다.
+        //
+        //   배경   날씨 — 하루의 무대라 서두에 둔다
+        //   흐름   사진·결제·오늘 일정 — 실제로 일어난 시각 순
+        //   마무리 걸음 수(하루 집계) → 향후 일정 · 내일 날씨(내일 이야기)
+        //
+        // 시각을 모르는 소스(갤러리에서 수동 추가한 사진 등)는 흐름 끝에 붙인다.
+        // 0으로 두면 맨 앞으로 튀어 하루가 거기서 시작한 것처럼 읽힌다.
+        val timeline = (photoSources + paymentSources + calendarSources)
+            .sortedBy { if (it.occurredAt > 0L) it.occurredAt else Long.MAX_VALUE }
+        val (opening, closing) = otherSources.partition { it.type == BlockType.WEATHER }
+
+        return opening + timeline + closing + upcomingSources
     }
 
     fun prepareGeneration() = viewModelScope.launch {
