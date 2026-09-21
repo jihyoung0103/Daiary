@@ -1,0 +1,464 @@
+package com.smu.daiary.data.source
+
+import com.smu.daiary.BuildConfig
+import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.data.source.prompt.contextQuestionsPrompt
+import com.smu.daiary.data.source.prompt.diaryPrompt
+import com.smu.daiary.data.source.prompt.followUpQuestionPrompt
+import com.smu.daiary.data.source.prompt.photoAnalysisPrompt
+import com.smu.daiary.data.source.prompt.retrospectPrompt
+import com.smu.daiary.feature.retrospect.RetrospectAiResult
+import com.smu.daiary.feature.write.model.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
+
+data class EncodedImage(
+    val base64: String,
+    val mediaType: String
+)
+
+/**
+ * 후속 질문 호출의 결과.
+ * question이 있으면 대화를 이어가고, 비어 있으면 closing을 보여준 뒤 카드를 넘긴다.
+ */
+data class FollowUpResult(
+    val question: String = "",
+    val closing: String = ""
+)
+
+/** AI가 소스 하나당 작성한 일기 문단. sourceId로 원래 소스와 다시 이어붙인다. */
+data class GeneratedBlock(
+    val sourceId: String,
+    val text: String
+)
+
+private const val TAG = "AnthropicDataSource"
+
+class AnthropicDataSource {
+
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    private val jsonMediaType = "application/json".toMediaType()
+
+    suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
+        withContext(Dispatchers.IO) {
+            if (blocks.isEmpty()) return@withContext emptyList()
+
+            val blocksText = blocks.joinToString("\n") { "- ID: ${it.id} | [${it.type.label}] ${it.content}" }
+
+            val prompt = contextQuestionsPrompt(blocksText)
+
+            val body = JSONObject().apply {
+                put("model", "claude-haiku-4-5-20251001")
+                // 블록 수만큼 질문이 나오고, 질문하지 않은 블록도 사유를 함께 받는다.
+                // 모자라면 JSON이 잘려 파싱에 실패하고 질문이 0개가 되므로 넉넉히 둔다.
+                put("max_tokens", 2048)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
+
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
+
+            var rawText = ""
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string() ?: run {
+                    android.util.Log.e(TAG, "질문 생성 — 빈 응답")
+                    return@withContext emptyList()
+                }
+
+                val envelope = JSONObject(responseBody)
+                // 출력이 max_tokens에 걸리면 JSON이 잘려 파싱이 실패한다.
+                // 원인을 여기서 못 밝히면 "질문 0개"와 구분이 안 된다.
+                val stopReason = envelope.optString("stop_reason")
+                if (stopReason == "max_tokens") {
+                    android.util.Log.e(TAG, "질문 생성 — 출력이 max_tokens에 잘림. 상한을 올려야 함")
+                }
+
+                rawText = envelope
+                    .getJSONArray("content")
+                    .getJSONObject(0)
+                    .getString("text")
+                val text = rawText
+                    .trim()
+                    .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+                val json = JSONObject(text)
+
+                // 질문을 만들지 않은 블럭과 그 사유. 앱 동작에는 쓰지 않고 로그만 남긴다.
+                // 어떤 블럭이 왜 빠졌는지 알아야 프롬프트를 감이 아니라 근거로 고칠 수 있다.
+                json.optJSONArray("skipped")?.let { skipped ->
+                    android.util.Log.d(TAG, "----- 건너뛴 블럭 ${skipped.length()}개 -----")
+                    (0 until skipped.length()).forEach { i ->
+                        val s = skipped.getJSONObject(i)
+                        android.util.Log.d(
+                            TAG,
+                            "- [${s.optString("blockId")}] ${s.optString("reason")}"
+                        )
+                    }
+                }
+
+                val questionsArray = json.getJSONArray("questions")
+                (0 until questionsArray.length()).map { i ->
+                    val q = questionsArray.getJSONObject(i)
+                    // quickOptions는 더 이상 요청하지 않는다(답변은 자유 입력).
+                    // 모델이 습관적으로 붙여 보내더라도 무시하고 넘어간다.
+                    val opts = q.optJSONArray("quickOptions")
+                    ContextQuestion(
+                        blockId      = q.getString("blockId"),
+                        question     = q.getString("question"),
+                        quickOptions = (0 until (opts?.length() ?: 0)).map { opts!!.getString(it) }
+                    )
+                }
+            } catch (e: Exception) {
+                // 여기서 조용히 빈 목록을 돌려주면 "질문이 0개인 날"과 구분이 안 된다.
+                android.util.Log.e(TAG, "질문 생성/파싱 실패 — 응답 원문: $rawText", e)
+                emptyList()
+            }
+        }
+
+
+    /**
+     * 지금까지의 문답 전체를 보고 후속 질문을 만든다.
+     * 대화를 마칠 때는 question이 비고 closing에 마무리 한마디가 온다.
+     * 호출이 실패하면 둘 다 빈 문자열 — 호출부는 조용히 카드를 넘긴다.
+     */
+    suspend fun generateFollowUpQuestion(
+        sourceContent: String,
+        turns: List<QnaTurn>
+    ): FollowUpResult = withContext(Dispatchers.IO) {
+        // 직전 한 쌍만 주면 3번째 질문에서 앞서 물은 걸 또 묻게 되므로 전체를 넘긴다
+        val conversation = turns.joinToString("\n") { turn ->
+            "질문: ${turn.question}\n답변: ${turn.answer ?: "(아직 답하지 않음)"}"
+        }
+        val prompt = followUpQuestionPrompt(sourceContent, conversation)
+
+        val body = JSONObject().apply {
+            put("model", "claude-haiku-4-5-20251001")
+            // 한 문장짜리 JSON 하나만 받는다
+            put("max_tokens", 256)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", prompt)
+                })
+            })
+        }.toString().toRequestBody(jsonMediaType)
+
+        val request = Request.Builder()
+            .url("https://api.anthropic.com/v1/messages")
+            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+            .addHeader("anthropic-version", "2023-06-01")
+            .post(body)
+            .build()
+
+        var raw = ""
+        try {
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: return@withContext FollowUpResult()
+            raw = responseBody
+            val text = JSONObject(responseBody)
+                .getJSONArray("content")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            val json = JSONObject(text)
+            FollowUpResult(
+                question = json.optString("question").trim(),
+                closing = json.optString("closing").trim()
+            )
+        } catch (e: Exception) {
+            // 응답에 content가 없으면 API가 에러 객체를 돌려준 것이다.
+            // 본문을 남기지 않으면 "더 물을 게 없어 정상 종료"와 구분이 안 된다.
+            android.util.Log.e(TAG, "후속 질문 생성 실패 — 응답: $raw", e)
+            FollowUpResult()
+        }
+    }
+
+    /**
+     * 소스별로 일기 문단을 생성한다. 소스 1개 → 블록 1개(엄격한 1:1).
+     * 쓸 내용이 마땅치 않은 소스는 AI가 응답에서 생략할 수 있다(없는 사실 창작 방지).
+     * 호출은 1회 — 전체를 함께 보되 출력만 소스별로 쪼갠다.
+     */
+    suspend fun generateDiaryBlocks(
+        sources: List<DiarySource>,
+        locale: String,
+        mbti: String,
+        qaAnswers: List<QaAnswer> = emptyList(),
+        recentDiarySamples: String = ""
+    ): List<GeneratedBlock> =
+        withContext(Dispatchers.IO) {
+            if (sources.isEmpty()) return@withContext emptyList()
+
+            val answered = qaAnswers.filter { it.answer.isNotBlank() }
+            val answersBySource = answered.groupBy { it.sourceId }
+
+            // 답변을 해당 소스 안에 넣어준다. 평평한 목록으로 넘기면
+            // 사진이 여러 장일 때 어느 답이 어느 사진 것인지 모델이 추측하게 된다.
+            val sourcesJson = JSONArray().apply {
+                sources.forEach { source ->
+                    put(
+                        JSONObject()
+                            .put("sourceId", source.sourceId)
+                            .put("type", source.type.label)
+                            .put("content", source.content)
+                            .apply {
+                                val own = answersBySource[source.sourceId].orEmpty()
+                                if (own.isNotEmpty()) {
+                                    put("userAnswers", JSONArray().apply {
+                                        own.forEach {
+                                            put(
+                                                JSONObject()
+                                                    .put("question", it.question)
+                                                    .put("answer", it.answer)
+                                            )
+                                        }
+                                    })
+                                }
+                            }
+                    )
+                }
+            }.toString(2)
+
+            // 특정 소스에 속하지 않는 답변(감정 등)만 따로 모은다
+            val sourceIds = sources.map { it.sourceId }.toSet()
+            val followUpAnswerText = answered
+                .filter { it.sourceId !in sourceIds }
+                .joinToString("\n") { "- ${it.question}: ${it.answer}" }
+
+            val prompt = diaryPrompt(
+                sourcesJson = sourcesJson,
+                mbti = mbti,
+                recentDiarySamples = recentDiarySamples,
+                followUpAnswerText = followUpAnswerText
+            )
+
+            val body = JSONObject().apply {
+                put("model", "claude-sonnet-5")
+                // thinking 토큰과 본문이 이 예산을 함께 쓴다. 넘치면 JSON이 잘린 채 오고
+                // thinking 값은 그대로 과금되므로 결과물 없이 돈만 나간다.
+                // max_tokens는 한도지 예약이 아니라 넉넉히 잡아도 비용은 늘지 않는다.
+                put("max_tokens", 8192)
+                // Sonnet 5는 생략하면 adaptive가 기본이라 끄려면 명시해야 한다.
+                put("thinking", JSONObject().put("type", "disabled"))
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
+
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: throw Exception("빈 응답")
+
+            if (!response.isSuccessful) {
+                throw Exception("API 오류 (${response.code}): $responseBody")
+            }
+
+            val envelope = JSONObject(responseBody)
+
+            // 모델을 바꿀 때 토큰이 얼마나 더 드는지는 추정이 아니라 실측이 필요하다.
+            // Log는 유닛 테스트에서 스텁(returnDefaultValues)이라 평가 도구에 안 찍히므로 println.
+            // stop_reason을 같이 찍는 이유: 잘린 응답은 out이 상한에 붙어 수치가 오해를 부른다.
+            envelope.optJSONObject("usage")?.let { u ->
+                println(
+                    "💰 [일기] in=${u.optInt("input_tokens")}" +
+                        " cache_read=${u.optInt("cache_read_input_tokens")}" +
+                        " cache_write=${u.optInt("cache_creation_input_tokens")}" +
+                        " out=${u.optInt("output_tokens")}" +
+                        " stop=${envelope.optString("stop_reason")}"
+                )
+            }
+
+            if (envelope.optString("stop_reason") == "max_tokens") {
+                android.util.Log.e(TAG, "일기 생성 — 출력이 max_tokens에 잘림. 상한을 올려야 함")
+            }
+
+            // thinking이 켜져 있으면 content[0]은 thinking 블록이라 text 필드가 없다.
+            // 위치가 아니라 타입으로 골라야 한다.
+            val content = envelope.getJSONArray("content")
+            val text = (0 until content.length())
+                .map { content.getJSONObject(it) }
+                .first { it.optString("type") == "text" }
+                .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            val blocksArray = JSONObject(text).getJSONArray("blocks")
+            val validIds = sources.map { it.sourceId }.toSet()
+
+            (0 until blocksArray.length()).mapNotNull { i ->
+                val obj = blocksArray.getJSONObject(i)
+                val sourceId = obj.optString("sourceId").takeIf { it in validIds }
+                    ?: return@mapNotNull null   // 모르는 sourceId를 지어냈으면 버린다
+                val blockText = obj.optString("text").trim().takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                GeneratedBlock(sourceId = sourceId, text = blockText)
+            }
+        }
+
+    /**
+     * 사진 1장을 분석해 관찰 가능한 사실만 요약한다.
+     * 여러 장은 호출부에서 각 사진마다 병렬로 호출한다 (배치 분석 아님).
+     */
+    suspend fun analyzePhoto(image: EncodedImage, isCameraPhoto: Boolean): String =
+        withContext(Dispatchers.IO) {
+            val promptText = photoAnalysisPrompt(isCameraPhoto)
+            val contentArray = JSONArray().apply {
+                put(
+                    JSONObject()
+                        .put("type", "text")
+                        .put("text", promptText)
+                )
+                put(
+                    JSONObject()
+                        .put("type", "image")
+                        .put(
+                            "source",
+                            JSONObject()
+                                .put("type", "base64")
+                                .put("media_type", image.mediaType)
+                                .put("data", image.base64)
+                        )
+                )
+            }
+
+            val body = JSONObject().apply {
+                put("model", "claude-sonnet-4-6")
+                // 중심/주변/글자/추측 네 항목을 모두 채우게 하면서 출력이 길어졌다.
+                // 모자라면 마지막 항목이 문장 중간에 잘려 그대로 일기 입력이 된다.
+                put("max_tokens", 800)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", contentArray)
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
+
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
+
+            try {
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string().orEmpty()
+
+                if (responseBody.isBlank()) return@withContext ""
+
+                val json = JSONObject(responseBody)
+                if (!json.has("content")) {
+                    android.util.Log.e("AnthropicDataSource", "사진 분석 응답에 content 없음 = $responseBody")
+                    return@withContext ""
+                }
+
+                json.getJSONArray("content")
+                    .getJSONObject(0)
+                    .getString("text")
+            } catch (e: Exception) {
+                android.util.Log.e("AnthropicDataSource", "사진 분석 API 호출 실패", e)
+                ""
+            }
+        }
+
+    /**
+     * 주간/월간 회고를 위한 AI 호출 — 내러티브 + 키워드 + 기억에 남는 하루를 1회 호출로 받는다.
+     * 실패 시 예외를 던지며, 호출부(AiRepository/ViewModel)에서 로컬 폴백으로 대체한다.
+     */
+    suspend fun generateRetrospect(
+        type: RetrospectType,
+        periodLabel: String,
+        diarySummaries: String,
+        emotionSummary: String,
+        healthSummary: String,
+        spendingSummary: String,
+        scheduleSummary: String
+    ): RetrospectAiResult =
+        withContext(Dispatchers.IO) {
+            val prompt = retrospectPrompt(
+                type = type,
+                periodLabel = periodLabel,
+                diarySummaries = diarySummaries,
+                emotionSummary = emotionSummary,
+                healthSummary = healthSummary,
+                spendingSummary = spendingSummary,
+                scheduleSummary = scheduleSummary
+            )
+
+            val body = JSONObject().apply {
+                put("model", "claude-haiku-4-5-20251001")
+                put("max_tokens", 512)
+                put("messages", JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("role", "user")
+                        put("content", prompt)
+                    })
+                })
+            }.toString().toRequestBody(jsonMediaType)
+
+            val request = Request.Builder()
+                .url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
+                .addHeader("anthropic-version", "2023-06-01")
+                .post(body)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: throw Exception("빈 응답")
+
+            if (!response.isSuccessful) {
+                throw Exception("API 오류 (${response.code}): $responseBody")
+            }
+
+            val text = JSONObject(responseBody)
+                .getJSONArray("content")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            val json = JSONObject(text)
+            val keywordsArray = json.getJSONArray("keywords")
+            val memorableDay = json.getJSONObject("memorableDay")
+
+            RetrospectAiResult(
+                narrative = json.getString("narrative"),
+                keywords = (0 until keywordsArray.length()).map { keywordsArray.getString(it) },
+                memorableDate = memorableDay.getString("date"),
+                memorableReason = memorableDay.getString("reason")
+            )
+        }
+}

@@ -1,0 +1,87 @@
+package com.smu.daiary.data.repository
+
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.ktx.toObject
+import com.smu.daiary.data.model.DiaryEntry
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.tasks.await
+
+/**
+ * Firestore CRUD를 담당하는 Repository.
+ *
+ * 컬렉션 구조:
+ *   users/{userId}/diaries/{diaryId}
+ */
+class DiaryRepository {
+
+    private val db = FirebaseFirestore.getInstance()
+
+    private fun diariesRef(userId: String) =
+        db.collection("users").document(userId).collection("diaries")
+
+    /**
+     * 특정 사용자의 일기 목록을 실시간으로 구독합니다.
+     * 최신순(createdAt 내림차순)으로 반환합니다.
+     */
+    fun getDiaries(userId: String): Flow<List<DiaryEntry>> = callbackFlow {
+        val listener = diariesRef(userId)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val diaries = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject<DiaryEntry>()?.copy(id = doc.id)
+                } ?: emptyList()
+                trySend(diaries)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    /**
+     * 기간(startDate ~ endDate, 포함) 내 일기 목록을 한 번만 조회합니다.
+     * date는 "YYYY-MM-DD" 문자열이므로 사전식 비교가 곧 날짜 비교와 동일합니다.
+     */
+    suspend fun getDiariesInRange(userId: String, startDate: String, endDate: String): Result<List<DiaryEntry>> = runCatching {
+        diariesRef(userId)
+            .whereGreaterThanOrEqualTo("date", startDate)
+            .whereLessThanOrEqualTo("date", endDate)
+            .get()
+            .await()
+            .documents
+            .mapNotNull { doc -> doc.toObject<DiaryEntry>()?.copy(id = doc.id) }
+    }
+
+    /**
+     * 특정 날짜("YYYY-MM-DD")에 이미 저장된 일기를 한 건 조회합니다.
+     * 하루 1개 유지(중복 저장 방지)를 위해 사용하며, 없으면 null을 반환합니다.
+     */
+    suspend fun getDiaryByDate(userId: String, date: String): Result<DiaryEntry?> = runCatching {
+        diariesRef(userId)
+            .whereEqualTo("date", date)
+            .get()
+            .await()
+            .documents
+            .mapNotNull { doc -> doc.toObject<DiaryEntry>()?.copy(id = doc.id) }
+            .firstOrNull()
+    }
+
+    /** 일기를 Firestore에 추가합니다. */
+    suspend fun addDiary(userId: String, entry: DiaryEntry): Result<Unit> = runCatching {
+        diariesRef(userId).add(entry).await()
+    }
+
+    /** 일기를 수정합니다. */
+    suspend fun updateDiary(userId: String, entry: DiaryEntry): Result<Unit> = runCatching {
+        diariesRef(userId).document(entry.id).set(entry).await()
+    }
+
+    /** 일기를 삭제합니다. */
+    suspend fun deleteDiary(userId: String, diaryId: String): Result<Unit> = runCatching {
+        diariesRef(userId).document(diaryId).delete().await()
+    }
+}

@@ -1,0 +1,38 @@
+package com.smu.daiary.feature.write.screen
+
+import androidx.compose.ui.graphics.Color
+import com.smu.daiary.ui.theme.Ivory
+import com.smu.daiary.ui.theme.SageForestDark
+
+internal data class WriteColorScheme(
+    val Bg: Color,
+    val SurfaceBg: Color,
+    val TextPrimary: Color,
+    val TextMuted: Color,
+    val Accent: Color,
+    val AccentLight: Color,
+    val Border: Color,
+    val MintGreen: Color
+)
+
+internal val WriteColors = WriteColorScheme(
+    Bg          = Ivory,
+    SurfaceBg   = Color(0xFFF7F7F7),
+    TextPrimary = Color(0xFF1C1C1E),
+    TextMuted   = Color(0xFF6C6C70),
+    Accent      = Color(0xFF3D7A5C),
+    AccentLight = Color(0xFFEAF2EC),
+    Border      = Color(0xFFE5E0D8),
+    MintGreen   = Color(0xFF5A9478)
+)
+
+internal val WriteColorsDark = WriteColorScheme(
+    Bg          = Color(0xFF121714),
+    SurfaceBg   = Color(0xFF1C2420),
+    TextPrimary = Color(0xFFF0F0F0),
+    TextMuted   = Color(0xFFA0A0A0),
+    Accent      = SageForestDark,
+    AccentLight = Color(0xFF243D30),
+    Border      = Color(0xFF2C3530),
+    MintGreen   = Color(0xFF4E8A6A)
+)
