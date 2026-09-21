@@ -6,15 +6,23 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.smu.daiary.data.model.HealthData
 import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
+import java.time.Period
 import java.time.ZoneId
 
 private const val TAG = "HealthDataSource"
+
+/** 걸음 수 기준선을 뽑을 기간 */
+private const val BASELINE_DAYS = 7L
+
+/** 기준선으로 인정할 최소 표본 수. 이틀치 중앙값은 기준선이 아니다 */
+private const val MIN_BASELINE_SAMPLES = 3
 
 /**
  * Health Connect API로 사용자의 건강 데이터를 수집합니다.
@@ -69,8 +77,8 @@ class HealthDataSource(private val context: Context) {
         }
 
         val zone = ZoneId.systemDefault()
-        val dayStart = date.atStartOfDay(zone).toInstant()
-        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant()
+        // 기준일 구간은 04:00~다음날 04:00. 새벽 0~4시 걸음/수면은 전날 일기에 붙는다.
+        val (dayStart, dayEnd) = DiaryDateUtil.dayRange(date, zone)
 
         // 걸음 수: 오늘 범위만 (startTime 기준 필터)
         val stepsFilter = TimeRangeFilter.between(dayStart, dayEnd)
@@ -84,9 +92,47 @@ class HealthDataSource(private val context: Context) {
             dayEnd
         )
         val sleepMinutes = readSleep(client, sleepFilter, dayStart, dayEnd)
+        val usualSteps = readUsualSteps(client, date)
 
-        Log.d(TAG, "🏃 건강 수집 완료 | steps=$steps | sleep=${sleepMinutes}분")
-        return HealthData(steps = steps, sleepDurationMinutes = sleepMinutes)
+        Log.d(TAG, "🏃 건강 수집 완료 | steps=$steps | sleep=${sleepMinutes}분 | 평소=$usualSteps")
+        return HealthData(
+            steps = steps,
+            sleepDurationMinutes = sleepMinutes,
+            usualSteps = usualSteps
+        )
+    }
+
+    /**
+     * 지난 7일(오늘 제외) 걸음 수의 중앙값. 비교할 표본이 모자라면 0.
+     *
+     * "8,328보"는 사용자가 이미 아는 숫자라 그 자체로는 물을 것도 쓸 것도 없다.
+     * 평소와 얼마나 다른지가 유일하게 데이터에 없던 정보다.
+     *
+     * 평균이 아니라 중앙값인 건 등산 한 번에 기준선이 무너지기 때문이다.
+     * 5천 보대 엿새에 22,000보 하루가 끼면 평균은 7,529로 밀려 올라가 평범한 날이
+     * 전부 "평소보다 적은 날"이 된다. 중앙값은 5,200으로 버틴다.
+     *
+     * 0인 날은 폰을 두고 다녔거나 동기화가 안 된 날이라 표본에서 뺀다. 그런 날이
+     * 두엇만 끼어도 기준선이 반토막 난다.
+     *
+     * 구간은 자정 기준이라 일기 기준일(04:00)과 어긋나지만, 기준선은 대략적인 값이라
+     * 새벽 몇 시간의 걸음이 중앙값을 흔들지 않는다.
+     */
+    private suspend fun readUsualSteps(client: HealthConnectClient, date: LocalDate): Int {
+        val daily = client.aggregateGroupByPeriod(
+            AggregateGroupByPeriodRequest(
+                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(
+                    date.minusDays(BASELINE_DAYS).atStartOfDay(),
+                    date.atStartOfDay()
+                ),
+                timeRangeSlicer = Period.ofDays(1)
+            )
+        ).mapNotNull { it.result[StepsRecord.COUNT_TOTAL]?.toInt() }
+            .filter { it > 0 }
+            .sorted()
+
+        return if (daily.size >= MIN_BASELINE_SAMPLES) daily[daily.size / 2] else 0
     }
 
     /**

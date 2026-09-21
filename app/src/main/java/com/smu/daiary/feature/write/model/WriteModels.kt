@@ -41,7 +41,12 @@ data class DiarySource(
     val type: BlockType,
     val content: String,
     /** PHOTO 소스일 때 해당 사진의 URI */
-    val imageUri: String? = null
+    val imageUri: String? = null,
+    /**
+     * 그 일이 일어난 시각(epoch millis). 일기를 하루 흐름대로 배열하는 데 쓴다.
+     * 날씨·걸음 수처럼 하루 단위라 시각이 없는 소스는 0.
+     */
+    val occurredAt: Long = 0L
 )
 
 /**
@@ -140,7 +145,9 @@ data class PaymentSelectableItem(
     val displayText: String,
     val amount: Int,
     val category: String = "기타",
-    val isSelected: Boolean = true
+    val isSelected: Boolean = true,
+    /** 결제 시각 (epoch millis). displayText 앞머리의 시각과 같은 값 */
+    val paidAt: Long = 0L
 )
 
 data class PhotoSelectableItem(
@@ -154,5 +161,7 @@ data class PhotoSelectableItem(
     /** EXIF 카메라 정보가 있으면 직접 촬영한 사진. 없으면 스크린샷/수신 이미지 */
     val isCameraPhoto: Boolean = false,
     /** Claude Vision 사진별 분석 결과 (세션 캐시). 미분석이면 null */
-    val analysis: String? = null
+    val analysis: String? = null,
+    /** EXIF 좌표를 지오코딩한 지명("백마동, 고양시"). GPS가 없거나 실패하면 null */
+    val placeName: String? = null
 )

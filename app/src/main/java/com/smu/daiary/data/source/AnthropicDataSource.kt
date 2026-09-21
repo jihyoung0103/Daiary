@@ -7,7 +7,6 @@ import com.smu.daiary.data.source.prompt.diaryPrompt
 import com.smu.daiary.data.source.prompt.followUpQuestionPrompt
 import com.smu.daiary.data.source.prompt.photoAnalysisPrompt
 import com.smu.daiary.data.source.prompt.retrospectPrompt
-import com.smu.daiary.data.source.prompt.reviseQuestionPrompt
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
@@ -138,55 +137,6 @@ class AnthropicDataSource {
             }
         }
 
-    /**
-     * 미리 만들어 둔 질문을 그동안 나온 답변에 맞춰 손본다.
-     * 빈 문자열이면 더 물을 게 없다는 뜻 — 호출부는 그 카드를 건너뛴다.
-     * 실패하면 원래 질문을 그대로 돌려준다(갱신 실패로 질문이 사라지면 안 된다).
-     */
-    suspend fun reviseQuestion(
-        sourceId: String,
-        sourceLabel: String,
-        sourceContent: String,
-        question: String,
-        priorAnswers: String
-    ): String = withContext(Dispatchers.IO) {
-        val prompt = reviseQuestionPrompt(sourceId, sourceLabel, sourceContent, question, priorAnswers)
-
-        val body = JSONObject().apply {
-            put("model", "claude-haiku-4-5-20251001")
-            put("max_tokens", 256)
-            put("messages", JSONArray().apply {
-                put(JSONObject().apply {
-                    put("role", "user")
-                    put("content", prompt)
-                })
-            })
-        }.toString().toRequestBody(jsonMediaType)
-
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(body)
-            .build()
-
-        var raw = ""
-        try {
-            val response = client.newCall(request).execute()
-            raw = response.body?.string() ?: return@withContext question
-            val text = JSONObject(raw)
-                .getJSONArray("content")
-                .getJSONObject(0)
-                .getString("text")
-                .trim()
-                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-
-            JSONObject(text).optString("question").trim()
-        } catch (e: Exception) {
-            android.util.Log.e(TAG, "질문 갱신 실패 — 원래 질문 유지. 응답: $raw", e)
-            question
-        }
-    }
 
     /**
      * 지금까지의 문답 전체를 보고 후속 질문을 만든다.
@@ -306,9 +256,13 @@ class AnthropicDataSource {
             )
 
             val body = JSONObject().apply {
-                put("model", "claude-haiku-4-5-20251001")
-                // 소스 수만큼 문단이 나오므로 통짜 일기(1024)보다 여유를 둔다
-                put("max_tokens", 2048)
+                put("model", "claude-sonnet-5")
+                // thinking 토큰과 본문이 이 예산을 함께 쓴다. 넘치면 JSON이 잘린 채 오고
+                // thinking 값은 그대로 과금되므로 결과물 없이 돈만 나간다.
+                // max_tokens는 한도지 예약이 아니라 넉넉히 잡아도 비용은 늘지 않는다.
+                put("max_tokens", 8192)
+                // Sonnet 5는 생략하면 adaptive가 기본이라 끄려면 명시해야 한다.
+                put("thinking", JSONObject().put("type", "disabled"))
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")
@@ -331,9 +285,31 @@ class AnthropicDataSource {
                 throw Exception("API 오류 (${response.code}): $responseBody")
             }
 
-            val text = JSONObject(responseBody)
-                .getJSONArray("content")
-                .getJSONObject(0)
+            val envelope = JSONObject(responseBody)
+
+            // 모델을 바꿀 때 토큰이 얼마나 더 드는지는 추정이 아니라 실측이 필요하다.
+            // Log는 유닛 테스트에서 스텁(returnDefaultValues)이라 평가 도구에 안 찍히므로 println.
+            // stop_reason을 같이 찍는 이유: 잘린 응답은 out이 상한에 붙어 수치가 오해를 부른다.
+            envelope.optJSONObject("usage")?.let { u ->
+                println(
+                    "💰 [일기] in=${u.optInt("input_tokens")}" +
+                        " cache_read=${u.optInt("cache_read_input_tokens")}" +
+                        " cache_write=${u.optInt("cache_creation_input_tokens")}" +
+                        " out=${u.optInt("output_tokens")}" +
+                        " stop=${envelope.optString("stop_reason")}"
+                )
+            }
+
+            if (envelope.optString("stop_reason") == "max_tokens") {
+                android.util.Log.e(TAG, "일기 생성 — 출력이 max_tokens에 잘림. 상한을 올려야 함")
+            }
+
+            // thinking이 켜져 있으면 content[0]은 thinking 블록이라 text 필드가 없다.
+            // 위치가 아니라 타입으로 골라야 한다.
+            val content = envelope.getJSONArray("content")
+            val text = (0 until content.length())
+                .map { content.getJSONObject(it) }
+                .first { it.optString("type") == "text" }
                 .getString("text")
                 .trim()
                 .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
@@ -379,7 +355,9 @@ class AnthropicDataSource {
 
             val body = JSONObject().apply {
                 put("model", "claude-sonnet-4-6")
-                put("max_tokens", 400)
+                // 중심/주변/글자/추측 네 항목을 모두 채우게 하면서 출력이 길어졌다.
+                // 모자라면 마지막 항목이 문장 중간에 잘려 그대로 일기 입력이 된다.
+                put("max_tokens", 800)
                 put("messages", JSONArray().apply {
                     put(JSONObject().apply {
                         put("role", "user")

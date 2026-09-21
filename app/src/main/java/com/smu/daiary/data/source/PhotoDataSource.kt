@@ -7,19 +7,16 @@ import com.smu.daiary.data.model.PhotoMeta
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
-import java.time.ZoneId
 import android.content.ContentUris
 import androidx.core.net.toUri
 import com.smu.daiary.util.DiaryDateUtil
 
 class PhotoDataSource(private val context: Context) {
 
-    // 대상 날짜의 사진만 조회. 기본값은 일기 기준일(오전 4시 이전이면 전날).
+    // 대상 날짜의 사진만 조회. 구간은 04:00~다음날 04:00 (DiaryDateUtil 기준).
     private fun dayRange(date: LocalDate): Pair<Long, Long> {
-        val zone = ZoneId.systemDefault()
-        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
-        val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
-        return start to end
+        val (start, end) = DiaryDateUtil.dayRange(date)
+        return start.toEpochMilli() to end.toEpochMilli() - 1
     }
 
     /**

@@ -64,7 +64,9 @@ data class PhotoMeta(
 /** 건강 정보 (Health Connect API) */
 data class HealthData(
     val steps: Int = 0,
-    val sleepDurationMinutes: Int = 0
+    val sleepDurationMinutes: Int = 0,
+    /** 지난 7일 걸음 수의 중앙값. 표본이 모자라면 0(= 비교하지 않음) */
+    val usualSteps: Int = 0
 )
 
 /** 결제 내역 (NotificationListenerService) */
