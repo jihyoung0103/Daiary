@@ -1,0 +1,68 @@
+{
+  "mbti": "INTP",
+  "recentDiarySamples": "특별한 일은 없었지만 평범하게 하루를 마무리했다. 내일은 조금 더 부지런히 움직여야겠다.\n\n---\n\n발표 준비 때문에 긴장했는데 무사히 끝나서 다행이었다. 끝나고 나니 몸에 힘이 풀렸다.",
+  "sources": [
+    {
+      "sourceId": "photo_1",
+      "type": "PHOTO",
+      "content": "[촬영 사진, 촬영 17:36]\n중심: 검은색 플라스틱 트레이 위에 양념이 묻은 닭고기 조각 여러 개가 담겨 있다.\n주변: 흰색 종이 포장 박스가 열린 채로 트레이를 감싸고 있으며, 아래쪽에 나무 또는 밝은 색 테이블 표면이 일부 보인다.\n글자: 없음\n추측: 닭고기에 붉은 양념이 발려 있어 양념치킨 또는 구운 양념 닭으로 보이나 조리 방식은 단정할 수 없고, 박스 안쪽 면에 인쇄된 것이 있어 보이나 접혀 있거나 가려져 읽을 수 없다."
+    },
+    {
+      "sourceId": "payment_1",
+      "type": "PAYMENT",
+      "content": "16:35 💳 쿠팡이츠 19,900원"
+    },
+    {
+      "sourceId": "upcoming_1",
+      "type": "CALENDAR_UPCOMING",
+      "content": "[내일] 추분 09:00~09:00"
+    },
+    {
+      "sourceId": "upcoming_2",
+      "type": "CALENDAR_UPCOMING",
+      "content": "[내일] 도미노 알바 15:00~21:30 · 도미노피자 풍동식사점"
+    },
+    {
+      "sourceId": "upcoming_3",
+      "type": "CALENDAR_UPCOMING",
+      "content": "[모레] 추석 연휴 09:00~09:00"
+    },
+    {
+      "sourceId": "weather",
+      "type": "WEATHER",
+      "content": "Goyang-si · 흐림 29°C · 습도 39%"
+    },
+    {
+      "sourceId": "weather_tomorrow",
+      "type": "WEATHER_TOMORROW",
+      "content": "맑음 19°C · 습도 61%"
+    },
+    {
+      "sourceId": "health",
+      "type": "HEALTH",
+      "content": "4,936보 · 평소 8,322보"
+    }
+  ],
+  "qaAnswers": [
+    {
+      "sourceId": "photo_1",
+      "question": "이 양념치킨은 어디서 시키신 건가요?",
+      "answer": "굽네치킨"
+    },
+    {
+      "sourceId": "photo_1",
+      "question": "그 치킨을 먹어보니 맛은 어땠어요?",
+      "answer": "새로나온 파기름떡볶이치킨인데, 불맛의 구운치킨맛이 아주 맛있었어. 근데 어디서 먹어본거같더라"
+    },
+    {
+      "sourceId": "photo_1",
+      "question": "어디서 먹어본 것 같다고 하셨는데, 그게 정확히 어디였어요?",
+      "answer": "그건 잘 모르겠네"
+    },
+    {
+      "sourceId": "emotion",
+      "question": "오늘 기분은 어땠나요?",
+      "answer": "평온"
+    }
+  ]
+}

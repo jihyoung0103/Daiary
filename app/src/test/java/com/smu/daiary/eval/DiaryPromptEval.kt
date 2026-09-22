@@ -34,7 +34,7 @@ import java.io.File
 class DiaryPromptEval {
 
     /** 결과 파일에 붙는 꼬리표. 프롬프트를 고칠 때마다 v1, v2… 로 올린다. */
-    private val label = "v10"
+    private val label = "v11"
 
     private val fixtureDir = File("src/test/resources/fixtures")
     private val outputDir = File("build/eval")
