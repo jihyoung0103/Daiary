@@ -13,6 +13,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 initializeApp();
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
@@ -32,19 +33,41 @@ const error = (res, status, type, message) =>
   res.status(status).json({ type: "error", error: { type, message } });
 
 /**
- * 로그인한 사용자인지 확인한다. 아니면 401을 보내고 false.
+ * 로그인한 사용자의 uid. 아니면 401을 보내고 null.
  *
  * Authorization 헤더는 쓰지 않는다. Cloud Run이 거기 든 JWT를 자기 IAM 토큰으로 보고
  * 함수에 닿기도 전에 HTML 401로 거부한다(Firebase 토큰도 구글 서명 JWT라 걸린다).
  */
-async function authorized(req, res) {
+async function authorizedUid(req, res) {
   try {
-    await getAuth().verifyIdToken(req.get("X-Firebase-Token") || "");
-    return true;
+    return (await getAuth().verifyIdToken(req.get("X-Firebase-Token") || "")).uid;
   } catch {
     error(res, 401, "authentication_error", "로그인이 필요합니다");
+    return null;
+  }
+}
+
+/**
+ * 사용자별 하루 호출 상한. 가입만 하면 누구나 로그인 토큰을 얻으므로, 인증만으로는
+ * 우리 서버를 공짜 Claude로 쓰는 걸 막지 못한다.
+ *
+ * 한도는 정상 사용의 몇 배로 잡는다: 일기 한 편에 카드별 질문·후속 질문·사진 분석·생성까지 수십 회.
+ * 카운터는 quota/{uid}_{KST날짜}. 규칙에 매칭이 없어 앱에서는 읽지도 고치지도 못한다(Admin SDK만).
+ * ponytail: 증가 후 확인이라 동시 요청이 몰리면 한도를 몇 회 넘길 수 있다. 정확히 막아야 하면 트랜잭션으로.
+ * ponytail: 지난 날짜 문서가 쌓인다(사용자당 하루 1개, 수십 바이트). 많아지면 Firestore TTL 정책을 건다.
+ */
+const DAILY_LIMIT = { claude: 200, weather: 100 };
+
+async function withinQuota(uid, kind, res) {
+  const kstDate = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  const ref = getFirestore().doc(`quota/${uid}_${kstDate}`);
+  await ref.set({ [kind]: FieldValue.increment(1) }, { merge: true });
+  const used = (await ref.get()).get(kind);
+  if (used > DAILY_LIMIT[kind]) {
+    error(res, 429, "rate_limit_error", `오늘 사용 한도(${DAILY_LIMIT[kind]}회)를 넘었습니다`);
     return false;
   }
+  return true;
 }
 
 const REGION = "asia-northeast3"; // 서울. 한국 사용자와의 왕복 시간을 줄인다.
@@ -58,7 +81,8 @@ exports.claude = onRequest(
   async (req, res) => {
     if (req.method !== "POST") return error(res, 405, "invalid_request_error", "POST only");
 
-    if (!(await authorized(req, res))) return;
+    const uid = await authorizedUid(req, res);
+    if (!uid) return;
 
     const body = req.body;
     if (!ALLOWED_MODELS.has(body?.model)) {
@@ -67,6 +91,7 @@ exports.claude = onRequest(
     if (!(body.max_tokens > 0 && body.max_tokens <= MAX_TOKENS_CAP)) {
       return error(res, 400, "invalid_request_error", `max_tokens는 1~${MAX_TOKENS_CAP}`);
     }
+    if (!(await withinQuota(uid, "claude", res))) return;
 
     const upstream = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -92,7 +117,8 @@ exports.weather = onRequest(
   { region: REGION, secrets: [OPENWEATHER_API_KEY] },
   async (req, res) => {
     if (req.method !== "GET") return error(res, 405, "invalid_request_error", "GET only");
-    if (!(await authorized(req, res))) return;
+    const uid = await authorizedUid(req, res);
+    if (!uid) return;
 
     const base = WEATHER_PATHS[req.query.type];
     const lat = Number(req.query.lat);
@@ -100,6 +126,7 @@ exports.weather = onRequest(
     if (!base || !Number.isFinite(lat) || !Number.isFinite(lon)) {
       return error(res, 400, "invalid_request_error", "type=current|forecast, lat, lon 필요");
     }
+    if (!(await withinQuota(uid, "weather", res))) return;
 
     const url = new URL(base);
     url.search = new URLSearchParams({
