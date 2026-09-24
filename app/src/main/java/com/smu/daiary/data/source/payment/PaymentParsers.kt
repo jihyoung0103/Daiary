@@ -154,27 +154,74 @@ class ShinhanCardParser : PaymentParser {
         )
     }
 
-    /**
-     * "승인일시: 07/07 20:21"을 timestamp로 변환. 알림에 연도가 없으므로 수신 시점의 연도를 사용한다.
-     * 단, 연말/연초 경계(예: 1/1에 도착한 12/31 결제)에서 미래로 계산되면 작년으로 보정한다.
-     * 파싱 실패 시 알림 수신 시각으로 폴백.
-     */
+    /** "승인일시: 07/07 20:21" → timestamp. 파싱 실패 시 알림 수신 시각으로 폴백. */
     private fun parsePaidAt(body: String): Long {
         val m = paidAtRegex.find(body) ?: return System.currentTimeMillis()
         val (month, day, hour, minute) = m.destructured
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.MONTH, month.toInt() - 1)
-            set(Calendar.DAY_OF_MONTH, day.toInt())
-            set(Calendar.HOUR_OF_DAY, hour.toInt())
-            set(Calendar.MINUTE, minute.toInt())
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+        return PaymentParsing.timestampOf(month.toInt(), day.toInt(), hour.toInt(), minute.toInt())
+    }
+}
+
+/**
+ * 현대카드(앱카드) 알림 파서.
+ *
+ * 실제 알림 형식(알림 기록으로 확인, 2026-09):
+ *   title: "현대카드"
+ *   text:  "조지형 님, 현대 네이버 승인 9,200원 일시불, 9/22 21:18
+ *           바니스비떼
+ *           누적423,985원"
+ *
+ * 신한카드와 다른 점 둘 — 그대로 베끼면 둘 다 틀린다.
+ * - 금액이 두 번 나온다("승인 9,200원", "누적423,985원"). 누적은 콜론도 공백도 없이
+ *   붙어 있어 신한식 "라벨[:：]" 앵커가 안 먹는다. "승인" 바로 뒤를 앵커로 잡는다.
+ * - 가맹점에 라벨이 없다. 둘째 줄에 단독으로 온다. 승인 줄과 누적 줄을 빼고 남는 줄이다.
+ *
+ * 알림이 접힌 형태로 와서 가맹점 줄이 없으면 null을 돌려준다(금액만 남기지 않는다).
+ * 가짜 가맹점명은 그대로 일기 문장이 되어 "현대카드 결제에 들렀다"가 된다.
+ */
+class HyundaiCardParser : PaymentParser {
+    override val packageId = "com.hyundaicard.appcard"
+
+    private val amountRegex = Regex("""승인\s*([\d,]+)원""")
+    // "9/22 21:18" — 월에 앞자리 0이 없다
+    private val paidAtRegex = Regex("""(\d{1,2})/(\d{1,2})\s+(\d{1,2}):(\d{2})""")
+
+    override fun parse(title: String, text: String): PaymentData? {
+        val body = "$title\n$text"
+        if (!body.contains("승인")) return null      // 취소·거절 알림 제외
+
+        val amount = amountRegex.find(body)?.groupValues?.get(1)
+            ?.replace(",", "")?.toIntOrNull() ?: return null
+        val merchant = merchantOf(body) ?: run {
+            // 금액은 잡혔는데 가맹점 줄이 없다 = 알림이 접혀 왔다는 뜻.
+            // "파싱 실패"만 찍히면 결제 알림이 아닌 경우와 구분이 안 되므로 따로 남긴다.
+            android.util.Log.w("HyundaiCardParser", "가맹점 줄 없음(알림이 접혀 왔을 수 있음): $body")
+            return null
         }
-        // 시계 오차 여유(1일)를 넘어 미래로 계산되면 작년 결제로 간주.
-        if (cal.timeInMillis > System.currentTimeMillis() + 24 * 60 * 60 * 1000L) {
-            cal.add(Calendar.YEAR, -1)
-        }
-        return cal.timeInMillis
+
+        return PaymentData(
+            merchant = merchant,
+            amount = amount,
+            paidAt = parsePaidAt(body),
+            category = PaymentCategory.of(merchant)
+        )
+    }
+
+    /** 승인 줄·누적 줄·카드사명을 뺀 첫 줄이 가맹점이다. */
+    private fun merchantOf(body: String): String? =
+        body.lineSequence()
+            .map { it.trim() }
+            .firstOrNull {
+                it.isNotBlank() &&
+                    !it.contains("승인") &&
+                    !it.startsWith("누적") &&
+                    it != "현대카드"
+            }
+
+    private fun parsePaidAt(body: String): Long {
+        val m = paidAtRegex.find(body) ?: return System.currentTimeMillis()
+        val (month, day, hour, minute) = m.destructured
+        return PaymentParsing.timestampOf(month.toInt(), day.toInt(), hour.toInt(), minute.toInt())
     }
 }
 
@@ -205,6 +252,7 @@ object PaymentParserRegistry {
         NaverPayParser(),                          // 네이버 앱 경유
         NaverPayParser("com.naverfin.payments"),   // 네이버페이 앱 경유
         ShinhanCardParser(),
+        HyundaiCardParser(),
         TestPaymentParser()
     )
 
