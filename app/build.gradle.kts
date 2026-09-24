@@ -27,8 +27,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val apiKey = localProps["ANTHROPIC_API_KEY"] as String? ?: ""
-        buildConfigField("String", "ANTHROPIC_API_KEY", "\"$apiKey\"")
+        // ANTHROPIC_API_KEY는 APK에 넣지 않는다(디컴파일로 추출 가능). 키는 Cloud Functions 프록시에만 있다.
+        // local.properties의 값은 프롬프트 평가 도구(src/test/.../eval)만 직접 읽는다.
 
         val weatherApiKey = localProps["OPENWEATHER_API_KEY"] as String? ?: ""
         buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherApiKey\"")

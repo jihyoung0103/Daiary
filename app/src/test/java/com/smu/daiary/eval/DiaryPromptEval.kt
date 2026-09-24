@@ -45,7 +45,12 @@ class DiaryPromptEval {
         check(fixtures.isNotEmpty()) { "fixture가 없다: ${fixtureDir.absolutePath}" }
 
         outputDir.mkdirs()
-        val dataSource = AnthropicDataSource()
+        // 유닛 테스트엔 Firebase 로그인이 없어 프록시 대신 키로 직접 부른다. 작업 디렉터리가 app/이라 상위 폴더.
+        val apiKey = java.util.Properties()
+            .apply { File("../local.properties").inputStream().use { load(it) } }
+            .getProperty("ANTHROPIC_API_KEY")
+        checkNotNull(apiKey) { "local.properties에 ANTHROPIC_API_KEY가 없다" }
+        val dataSource = AnthropicDataSource(directApiKey = apiKey)
 
         fixtures.forEach { file ->
             val fx = parseFixture(file)
