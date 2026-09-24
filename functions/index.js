@@ -13,7 +13,9 @@ const { onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, FieldPath } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
+const functionsV1 = require("firebase-functions/v1");
 
 initializeApp();
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
@@ -136,3 +138,40 @@ exports.weather = onRequest(
     res.status(upstream.status).type("application/json").send(await upstream.text());
   }
 );
+
+/**
+ * 회원 탈퇴(Auth 계정 삭제) 시 그 사용자의 데이터를 전부 지운다.
+ *
+ * 앱의 탈퇴는 Auth 계정만 지운다. 데이터를 앱에서 먼저 지우면, 이어지는 계정 삭제가
+ * "최근 로그인 필요"로 실패할 때 계정은 남고 일기만 사라진다. 그래서 계정이 실제로
+ * 지워진 뒤 서버가 지운다. 앱이 도중에 꺼져도 확실히 실행된다.
+ * (Auth 삭제 트리거는 2세대에 없어 1세대 API를 쓴다.)
+ */
+exports.deleteUserData = functionsV1
+  .region(REGION)
+  .auth.user()
+  .onDelete(async (user) => {
+    const uid = user.uid;
+    const db = getFirestore();
+    const userDoc = db.doc(`users/${uid}`);
+
+    // 무엇을 지웠는지 남긴다 — "탈퇴하면 지워진다"를 로그로 확인할 수 있게. 내용은 남기지 않고 개수만.
+    const counts = {};
+    for (const col of await userDoc.listCollections()) {
+      counts[col.id] = (await col.count().get()).data().count;
+    }
+    await db.recursiveDelete(userDoc);
+
+    const bucket = getStorage().bucket();
+    const [files] = await bucket.getFiles({ prefix: `users/${uid}/` });
+    await bucket.deleteFiles({ prefix: `users/${uid}/` });
+
+    // quota 문서 id는 "{uid}_{날짜}". '_' 다음 문자('`')까지의 범위가 이 사용자 것 전부다.
+    const quota = await db.collection("quota")
+      .where(FieldPath.documentId(), ">=", `${uid}_`)
+      .where(FieldPath.documentId(), "<", `${uid}\``)
+      .get();
+    await Promise.all(quota.docs.map((d) => d.ref.delete()));
+
+    console.log(`탈퇴 데이터 삭제 uid=${uid}`, JSON.stringify({ firestore: counts, storageFiles: files.length, quotaDocs: quota.size }));
+  });
