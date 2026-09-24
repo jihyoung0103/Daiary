@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
                                         showPaymentListenerOnboarding = false
                                     },
                                     title = { Text(text = "결제 알림 자동 수집", color = dialogText) },
-                                    text = { Text(text = "오늘 쓴 결제 내역을 일기에 자동으로 담을 수 있어요.\n설정에서 Daiary 알림 접근을 허용하면 결제 기록이 블록으로 추가됩니다.", color = dialogText) },
+                                    text = { Text(text = "오늘 쓴 결제 내역을 일기에 자동으로 담을 수 있어요.\n설정에서 D.log 알림 접근을 허용하면 결제 기록이 블록으로 추가됩니다.", color = dialogText) },
                                     confirmButton = {
                                         TextButton(onClick = {
                                             prefs.edit().putBoolean("payment_listener_onboarding_shown", true).apply()
@@ -343,7 +343,7 @@ class MainActivity : ComponentActivity() {
                                 AlertDialog(
                                     onDismissRequest = { showHealthConnectFallback = false },
                                     title = { Text("건강 데이터 권한 설정", color = dialogText) },
-                                    text = { Text("Health Connect 앱에서 Daiary의 걸음 수, 수면 데이터 접근 권한을 허용해주세요.", color = dialogText) },
+                                    text = { Text("Health Connect 앱에서 D.log의 걸음 수, 수면 데이터 접근 권한을 허용해주세요.", color = dialogText) },
                                     confirmButton = {
                                         TextButton(onClick = {
                                             showHealthConnectFallback = false

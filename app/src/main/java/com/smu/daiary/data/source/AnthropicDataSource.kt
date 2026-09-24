@@ -1,6 +1,5 @@
 package com.smu.daiary.data.source
 
-import com.smu.daiary.BuildConfig
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.data.source.prompt.cardQuestionPrompt
 import com.smu.daiary.data.source.prompt.contextQuestionsPrompt
@@ -15,7 +14,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -42,7 +43,16 @@ data class GeneratedBlock(
 
 private const val TAG = "AnthropicDataSource"
 
-class AnthropicDataSource {
+/**
+ * Claude 호출 창구.
+ *
+ * 앱은 API 키를 갖지 않는다(APK에 넣으면 디컴파일로 꺼낼 수 있다). 대신 Firebase 로그인 토큰을
+ * 붙여 우리 서버의 프록시(functions/index.js)로 보내고, 키는 서버가 붙인다.
+ *
+ * @param directApiKey 프롬프트 평가 도구(JVM 유닛 테스트)처럼 Firebase 로그인이 없는 곳에서만
+ *   키로 Anthropic을 직접 부른다. 앱에서는 null.
+ */
+class AnthropicDataSource(private val directApiKey: String? = null) {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -51,6 +61,19 @@ class AnthropicDataSource {
         .build()
 
     private val jsonMediaType = "application/json".toMediaType()
+
+    /** Messages API 요청 본문을 보낸다. 프록시와 Anthropic 모두 같은 형식으로 응답한다. */
+    private suspend fun send(body: RequestBody): Response {
+        val request = Request.Builder().post(body)
+        if (directApiKey != null) {
+            request.url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", directApiKey)
+                .addHeader("anthropic-version", "2023-06-01")
+        } else {
+            request.url("$FUNCTIONS_BASE_URL/claude").addHeader(PROXY_TOKEN_HEADER, proxyIdToken())
+        }
+        return client.newCall(request.build()).execute()
+    }
 
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         withContext(Dispatchers.IO) {
@@ -73,16 +96,10 @@ class AnthropicDataSource {
                 })
             }.toString().toRequestBody(jsonMediaType)
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
             var rawText = ""
             try {
-                val response = client.newCall(request).execute()
+                val response = send(body)
                 val responseBody = response.body?.string() ?: run {
                     android.util.Log.e(TAG, "질문 생성 — 빈 응답")
                     return@withContext emptyList()
@@ -170,16 +187,10 @@ class AnthropicDataSource {
             })
         }.toString().toRequestBody(jsonMediaType)
 
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(body)
-            .build()
 
         var raw = ""
         try {
-            val response = client.newCall(request).execute()
+            val response = send(body)
             raw = response.body?.string() ?: return@withContext ""
             val text = JSONObject(raw)
                 .getJSONArray("content")
@@ -218,16 +229,10 @@ class AnthropicDataSource {
             })
         }.toString().toRequestBody(jsonMediaType)
 
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(body)
-            .build()
 
         var raw = ""
         try {
-            val response = client.newCall(request).execute()
+            val response = send(body)
             val responseBody = response.body?.string() ?: return@withContext FollowUpResult()
             raw = responseBody
             val text = JSONObject(responseBody)
@@ -324,14 +329,8 @@ class AnthropicDataSource {
                 })
             }.toString().toRequestBody(jsonMediaType)
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
-            val response = client.newCall(request).execute()
+            val response = send(body)
             val responseBody = response.body?.string() ?: throw Exception("빈 응답")
 
             if (!response.isSuccessful) {
@@ -433,15 +432,9 @@ class AnthropicDataSource {
                 })
             }.toString().toRequestBody(jsonMediaType)
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
             try {
-                val response = client.newCall(request).execute()
+                val response = send(body)
                 val responseBody = response.body?.string().orEmpty()
 
                 if (responseBody.isBlank()) return@withContext ""
@@ -496,14 +489,8 @@ class AnthropicDataSource {
                 })
             }.toString().toRequestBody(jsonMediaType)
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
-            val response = client.newCall(request).execute()
+            val response = send(body)
             val responseBody = response.body?.string() ?: throw Exception("빈 응답")
 
             if (!response.isSuccessful) {
