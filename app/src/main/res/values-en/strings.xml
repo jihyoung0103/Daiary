@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Daiary</string>
+    <string name="app_name">D.log</string>
     <string name="welcome_subtitle">Write today\'s diary.</string>
     <string name="month_year_label">%1$d / %2$d</string>
     <string name="nav_calendar">Calendar</string>
@@ -88,7 +88,7 @@
     <string name="hour_label">Hour</string>
     <string name="minute_label">Min</string>
     <string name="dialog_notification_listener_title">Notification Access Required</string>
-    <string name="dialog_notification_listener_message">Daiary needs notification access to automatically detect payment activity.\nPlease enable Daiary in the settings screen.</string>
+    <string name="dialog_notification_listener_message">D.log needs notification access to automatically detect payment activity.\nPlease enable D.log in the settings screen.</string>
     <string name="dialog_notification_listener_confirm">Go to Settings</string>
     <string name="dialog_logout_title">Logout</string>
     <string name="dialog_logout_message">Are you sure you want to log out?</string>
