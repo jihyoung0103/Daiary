@@ -118,6 +118,7 @@ fun PrivacyPolicyScreen(
                 R.string.privacy_s4_title to R.string.privacy_s4_body,
                 R.string.privacy_s5_title to R.string.privacy_s5_body,
                 R.string.privacy_s6_title to R.string.privacy_s6_body,
+                R.string.privacy_s7_title to R.string.privacy_s7_body,
             )
 
             sections.forEach { (titleRes, bodyRes) ->
