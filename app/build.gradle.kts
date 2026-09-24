@@ -1,14 +1,7 @@
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
-}
-
-val localProps = Properties().also { props ->
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { props.load(it) }
 }
 
 android {
@@ -27,11 +20,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // ANTHROPIC_API_KEY는 APK에 넣지 않는다(디컴파일로 추출 가능). 키는 Cloud Functions 프록시에만 있다.
-        // local.properties의 값은 프롬프트 평가 도구(src/test/.../eval)만 직접 읽는다.
-
-        val weatherApiKey = localProps["OPENWEATHER_API_KEY"] as String? ?: ""
-        buildConfigField("String", "OPENWEATHER_API_KEY", "\"$weatherApiKey\"")
+        // 외부 API 키(Claude·OpenWeather)는 APK에 넣지 않는다(디컴파일로 추출 가능).
+        // 키는 Cloud Functions 프록시(functions/)에만 있다. local.properties의 ANTHROPIC_API_KEY는
+        // 프롬프트 평가 도구(src/test/.../eval)만 직접 읽는다.
     }
 
     buildTypes {

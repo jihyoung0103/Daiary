@@ -1,6 +1,5 @@
 package com.smu.daiary.data.source
 
-import com.google.firebase.auth.FirebaseAuth
 import com.smu.daiary.data.model.RetrospectType
 import com.smu.daiary.data.source.prompt.contextQuestionsPrompt
 import com.smu.daiary.data.source.prompt.diaryPrompt
@@ -10,7 +9,6 @@ import com.smu.daiary.data.source.prompt.retrospectPrompt
 import com.smu.daiary.feature.retrospect.RetrospectAiResult
 import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -44,9 +42,6 @@ data class GeneratedBlock(
 
 private const val TAG = "AnthropicDataSource"
 
-/** functions/index.js의 claude 함수. 리전·프로젝트가 바뀌면 같이 바꾼다. */
-private const val PROXY_URL = "https://asia-northeast3-daiary-58328.cloudfunctions.net/claude"
-
 /**
  * Claude 호출 창구.
  *
@@ -74,12 +69,7 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
                 .addHeader("x-api-key", directApiKey)
                 .addHeader("anthropic-version", "2023-06-01")
         } else {
-            // 토큰은 1시간짜리라 SDK가 캐시하고, 만료됐을 때만 새로 받아온다.
-            val idToken = FirebaseAuth.getInstance().currentUser
-                ?.getIdToken(false)?.await()?.token
-                ?: throw IllegalStateException("로그인하지 않아 AI를 호출할 수 없음")
-            // Authorization 헤더로 보내면 Cloud Run이 자기 IAM 토큰으로 오인해 거부한다
-            request.url(PROXY_URL).addHeader("X-Firebase-Token", idToken)
+            request.url("$FUNCTIONS_BASE_URL/claude").addHeader(PROXY_TOKEN_HEADER, proxyIdToken())
         }
         return client.newCall(request.build()).execute()
     }
