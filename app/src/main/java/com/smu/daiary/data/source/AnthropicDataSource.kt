@@ -78,7 +78,8 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
             val idToken = FirebaseAuth.getInstance().currentUser
                 ?.getIdToken(false)?.await()?.token
                 ?: throw IllegalStateException("로그인하지 않아 AI를 호출할 수 없음")
-            request.url(PROXY_URL).addHeader("Authorization", "Bearer $idToken")
+            // Authorization 헤더로 보내면 Cloud Run이 자기 IAM 토큰으로 오인해 거부한다
+            request.url(PROXY_URL).addHeader("X-Firebase-Token", idToken)
         }
         return client.newCall(request.build()).execute()
     }

@@ -37,7 +37,9 @@ exports.claude = onRequest(
   async (req, res) => {
     if (req.method !== "POST") return error(res, 405, "invalid_request_error", "POST only");
 
-    const idToken = (req.get("Authorization") || "").replace(/^Bearer /, "");
+    // Authorization 헤더는 쓰지 않는다. Cloud Run이 거기 든 JWT를 자기 IAM 토큰으로 보고
+    // 함수에 닿기도 전에 HTML 401로 거부한다(Firebase 토큰도 구글 서명 JWT라 걸린다).
+    const idToken = req.get("X-Firebase-Token") || "";
     try {
       await getAuth().verifyIdToken(idToken);
     } catch {
