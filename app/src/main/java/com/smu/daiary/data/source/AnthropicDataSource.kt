@@ -187,16 +187,10 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
             })
         }.toString().toRequestBody(jsonMediaType)
 
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(body)
-            .build()
 
         var raw = ""
         try {
-            val response = client.newCall(request).execute()
+            val response = send(body)
             raw = response.body?.string() ?: return@withContext ""
             val text = JSONObject(raw)
                 .getJSONArray("content")
