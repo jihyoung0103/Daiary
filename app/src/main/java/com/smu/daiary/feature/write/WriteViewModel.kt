@@ -731,77 +731,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
 
     /** 사진 URI를 Base64 문자열로 변환 — Claude Vision API 전달용 */
-    private fun encodeImage(uriString: String): EncodedImage? {
-        return try {
-            val uri = Uri.parse(uriString)
-
-            val mimeTypeFromResolver =
-                context.contentResolver.getType(uri)
-
-            val bytes =
-                context.contentResolver
-                    .openInputStream(uri)
-                    ?.use { input ->
-                        input.readBytes()
-                    } ?: return null
-
-            val mediaType =
-                detectImageMediaType(bytes, mimeTypeFromResolver)
-
-            val base64 =
-                Base64.encodeToString(
-                    bytes,
-                    Base64.NO_WRAP
-                )
-
-            EncodedImage(
-                base64 = base64,
-                mediaType = mediaType
-            )
-
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "이미지 인코딩 실패",
-                e
-            )
-            null
-        }
-    }
-
     /**
-     * Claude Vision에 넘길 media_type을 결정한다.
-     * ContentResolver가 알려준 MIME을 우선 쓰되, 없거나 지원하지 않는 형식이면
-     * 바이트 앞부분의 매직 넘버로 직접 판별한다(갤러리 앱이 MIME을 비워 보내는 경우 대비).
+     * AI 분석용 인코딩. 원본 바이트가 아니라 축소·재인코딩한 JPEG를 보낸다 —
+     * EXIF(GPS·기기·시각)가 빠지고 전송량(=이미지 토큰)도 준다. 장소 이름은 따로 붙인다(photoSourcesOf).
      */
-    private fun detectImageMediaType(
-        bytes: ByteArray,
-        resolverMimeType: String?
-    ): String {
-        val normalized =
-            when (resolverMimeType?.lowercase()) {
-                "image/jpeg", "image/jpg" -> "image/jpeg"
-                "image/png" -> "image/png"
-                "image/webp" -> "image/webp"
-                else -> null
-            }
-
-        if (normalized != null) return normalized
-
-        return when {
-            bytes.size >= 3 &&
-                    bytes[0] == 0xFF.toByte() &&
-                    bytes[1] == 0xD8.toByte() &&
-                    bytes[2] == 0xFF.toByte() -> "image/jpeg"
-
-            bytes.size >= 4 &&
-                    bytes[0] == 0x89.toByte() &&
-                    bytes[1] == 0x50.toByte() &&
-                    bytes[2] == 0x4E.toByte() &&
-                    bytes[3] == 0x47.toByte() -> "image/png"
-
-            else -> "image/jpeg"
-        }
+    private fun encodeImage(uriString: String): EncodedImage? = try {
+        val jpeg = photoStorageDataSource.compressToJpeg(Uri.parse(uriString))
+        EncodedImage(base64 = Base64.encodeToString(jpeg, Base64.NO_WRAP), mediaType = "image/jpeg")
+    } catch (e: Exception) {
+        Log.e(TAG, "이미지 인코딩 실패", e)
+        null
     }
 
     // ─────────────────────────────────────────────────────────────

@@ -14,7 +14,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
@@ -63,8 +62,8 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
     private val jsonMediaType = "application/json".toMediaType()
 
     /** Messages API 요청 본문을 보낸다. 프록시와 Anthropic 모두 같은 형식으로 응답한다. */
-    private suspend fun send(body: RequestBody): Response {
-        val request = Request.Builder().post(body)
+    private suspend fun send(body: JSONObject): Response {
+        val request = Request.Builder().post(body.toString().toRequestBody(jsonMediaType))
         if (directApiKey != null) {
             request.url("https://api.anthropic.com/v1/messages")
                 .addHeader("x-api-key", directApiKey)
@@ -94,7 +93,7 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
                         put("content", prompt)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
 
             var rawText = ""
@@ -185,7 +184,7 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
                     put("content", prompt)
                 })
             })
-        }.toString().toRequestBody(jsonMediaType)
+        }
 
 
         var raw = ""
@@ -227,7 +226,7 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
                     put("content", prompt)
                 })
             })
-        }.toString().toRequestBody(jsonMediaType)
+        }
 
 
         var raw = ""
@@ -327,7 +326,7 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
                         put("content", prompt)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
 
             val response = send(body)
@@ -430,7 +429,7 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
                         put("content", contentArray)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
 
             try {
@@ -487,7 +486,7 @@ class AnthropicDataSource(private val directApiKey: String? = null) {
                         put("content", prompt)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
 
             val response = send(body)

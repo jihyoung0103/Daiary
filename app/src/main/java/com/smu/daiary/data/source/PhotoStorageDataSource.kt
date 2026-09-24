@@ -3,7 +3,9 @@ package com.smu.daiary.data.source
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.net.Uri
+import androidx.exifinterface.media.ExifInterface
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
@@ -43,8 +45,14 @@ class PhotoStorageDataSource(private val context: Context) {
             ref.downloadUrl.await().toString()
         }
 
-    /** URI의 이미지를 maxDimension 이내로 축소하고 JPEG 바이트로 압축한다. */
-    private fun compressToJpeg(uri: Uri): ByteArray {
+    /**
+     * URI의 이미지를 maxDimension 이내로 축소하고 JPEG 바이트로 압축한다.
+     *
+     * 다시 인코딩하므로 EXIF(GPS 좌표·촬영 기기·시각)가 전부 빠진다. 업로드뿐 아니라
+     * AI 분석으로 보낼 때도 이걸 거친다 — 원본을 그대로 보내면 집 위치가 외부로 나간다.
+     * EXIF가 빠지면 회전 정보도 사라지므로, 회전은 픽셀에 먼저 적용한다.
+     */
+    fun compressToJpeg(uri: Uri): ByteArray {
         val resolver = context.contentResolver
 
         // 1) 원본 크기만 먼저 읽어 축소 배율(inSampleSize) 계산 — 큰 사진을 통째로 디코드하지 않는다.
@@ -60,11 +68,26 @@ class PhotoStorageDataSource(private val context: Context) {
         val bitmap = resolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, decodeOptions)
         } ?: throw IllegalStateException("이미지를 읽을 수 없습니다: $uri")
+        val upright = rotateUpright(uri, bitmap)
 
         return ByteArrayOutputStream().use { out ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, out)
-            bitmap.recycle()
+            upright.compress(Bitmap.CompressFormat.JPEG, jpegQuality, out)
+            upright.recycle()
             out.toByteArray()
         }
+    }
+
+    /** EXIF 회전값을 픽셀에 적용한다. 세로 사진이 눕지 않게. */
+    private fun rotateUpright(uri: Uri, bitmap: Bitmap): Bitmap {
+        val degrees = context.contentResolver.openInputStream(uri)?.use {
+            ExifInterface(it).rotationDegrees
+        } ?: 0
+        if (degrees == 0) return bitmap
+        val rotated = Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height,
+            Matrix().apply { postRotate(degrees.toFloat()) }, true
+        )
+        bitmap.recycle()
+        return rotated
     }
 }

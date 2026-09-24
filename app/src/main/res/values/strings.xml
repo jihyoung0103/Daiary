@@ -213,16 +213,16 @@
     <string name="notification_channel_desc">매일 일기 작성 알림</string>
 
     <!-- 개인정보 처리방침 -->
-    <string name="privacy_effective_date">시행일: 2025년 1월 1일</string>
+    <string name="privacy_effective_date">시행일: 2026년 9월 25일</string>
     <string name="privacy_intro">D.log(이하 "앱")은 이용자의 개인정보를 소중히 여기며, 개인정보보호법에 따라 아래와 같이 개인정보 처리방침을 안내합니다. 본 앱은 상명대학교 캡스톤팀이 개발한 학술 프로젝트입니다.</string>
     <string name="privacy_s1_title">1. 수집하는 개인정보 항목</string>
-    <string name="privacy_s1_body">• 이메일 주소, 비밀번호(암호화 저장)\n• Google 계정: 이름, 이메일, 프로필 사진\n• 일기 내용, 작성 날짜\n• 날씨·감정·일정 정보\n• 첨부 사진(기기 접근 후 Firebase 저장)</string>
+    <string name="privacy_s1_body">• 이메일 주소, 비밀번호(암호화 저장)\n• Google 계정: 이름, 이메일, 프로필 사진\n• 일기 내용, 작성 날짜, 일기 작성 중 입력한 답변\n• 날씨·감정·일정 정보\n• 결제 알림에서 추출한 가맹점·금액·시각 (알림 원문은 저장하지 않음)\n• 걸음 수·수면 시간의 하루 요약 (Health Connect)\n• 대략적인 위치 (날씨 조회용)\n• 첨부 사진 (기기 접근 후 Firebase 저장)</string>
     <string name="privacy_s2_title">2. 개인정보 수집 목적</string>
     <string name="privacy_s2_body">• 회원 식별 및 인증\n• 일기 데이터 저장·동기화\n• 날씨·일정 기반 초안 자동 생성\n• 서비스 오류 분석 및 품질 개선</string>
     <string name="privacy_s3_title">3. 보유 및 이용기간</string>
     <string name="privacy_s3_body">회원 탈퇴 즉시 모든 개인정보 및 일기 데이터를 삭제합니다. Firebase Firestore에 저장된 데이터는 탈퇴 처리 시 함께 삭제되며, 별도 백업은 보관하지 않습니다.</string>
-    <string name="privacy_s4_title">4. 제3자 제공</string>
-    <string name="privacy_s4_body">이용자의 개인정보를 외부에 제공하지 않습니다. 단, 서비스 운영을 위해 Firebase(Google LLC) 인프라를 이용하며, 해당 서비스의 개인정보 처리방침이 별도로 적용됩니다.</string>
+    <string name="privacy_s4_title">4. 외부 서비스 이용 (처리 위탁·국외 이전)</string>
+    <string name="privacy_s4_body">이용자의 개인정보를 판매하거나 광고 목적으로 제공하지 않습니다. 서비스 제공을 위해 아래 외부 서비스에 필요한 최소한의 정보만 전송합니다.\n\n• Anthropic PBC (미국) — AI 질문·일기·회고 생성.\n  - 일기 작성: 이용자가 선택한 항목(일정, 결제 요약, 건강 요약, 답변)과 선택한 사진. 문체를 맞추기 위해 최근 일기 일부가 함께 전송됩니다. 사진은 위치·기기 정보(EXIF)를 제거한 뒤 전송합니다.\n  - 회고: 해당 기간의 일기 요약과 감정·지출·건강·일정 통계.\n• OpenWeather Ltd. (영국) — 날씨 조회. 대략적인 위치 좌표만 전송합니다.\n• Google LLC (미국) — Firebase 인증 및 데이터 저장.\n\n각 서비스에는 해당 업체의 개인정보 처리방침이 적용됩니다. 일기 작성 시 선택하지 않은 항목과 사진은 AI로 전송되지 않습니다.</string>
     <string name="privacy_s5_title">5. 이용자의 권리</string>
     <string name="privacy_s5_body">• 언제든지 개인정보 열람·수정 요청 가능\n• 앱 내 회원탈퇴를 통해 즉시 데이터 삭제\n• 문의: capstone@smu.ac.kr</string>
     <string name="privacy_s6_title">6. 개인정보 보호책임자</string>
@@ -303,4 +303,9 @@
     <string name="block_move_up">위로 이동</string>
     <string name="block_move_down">아래로 이동</string>
     <string name="question_emotion">오늘 기분은 어땠나요?</string>
+    <!-- 외부 AI 전송 고지 -->
+    <string name="block_selection_ai_notice">선택한 항목만 AI 일기 작성에 쓰여요. 선택하지 않은 정보는 AI로 보내지 않아요.</string>
+    <string name="photo_ai_notice_title">사진은 AI 분석을 위해 전송돼요</string>
+    <string name="photo_ai_notice_message">선택한 사진은 일기 작성을 위해 AI(Anthropic, 미국)로 전송돼 분석돼요.\n\n위치·기기 정보(EXIF)는 지우고 보내며, 선택하지 않은 사진은 전송되지 않아요.</string>
+    <string name="photo_ai_notice_confirm">알겠어요</string>
 </resources>
