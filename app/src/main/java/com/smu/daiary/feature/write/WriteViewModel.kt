@@ -350,12 +350,15 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      *             실제 날짜가 오늘인지로 판단하기 때문이다.
      */
     fun setTargetDate(date: LocalDate?) {
+        // 신규 작성 진입점은 여기 하나뿐이므로, 직전 세션이 저장 없이 끝나 남은 상태를 여기서 전부 비운다.
+        // (resetDraft는 저장 성공 시에만 돈다)
+        //  - 편집 대상 ID: 남으면 saveDraft가 그 문서를 updateDiary로 덮어써 엉뚱한 날짜 일기가 사라진다
+        //  - 초안: 남으면 질문 화면이 draft != null을 보고 곧장 미리보기로 넘어가, 이전 일기(다른 날짜·
+        //    이번 날씨가 섞인)를 새 일기로 저장하게 된다 — 같은 날짜 일기가 여러 편 생긴 원인
+        // resetDraft가 targetDate도 비우므로 먼저 부르고 나서 날짜를 정한다
+        resetDraft()
         targetDate = date
         _writingDate.value = date ?: DiaryDateUtil.diaryDate()
-        // 신규 작성 진입점은 여기 하나뿐이므로, 직전 편집 세션이 저장 없이 끝나 남아 있던
-        // 편집 대상 ID를 여기서 끊는다. 남겨두면 saveDraft가 그 문서를 updateDiary로
-        // 덮어써서 엉뚱한 날짜의 일기가 통째로 사라진다. (resetDraft는 저장 성공 시에만 돈다)
-        _existingEntryId.value = null
     }
 
     /** AI 프롬프트에 문체 참고용으로 넘길 최근 일기 샘플 (최대 2개) */
