@@ -299,4 +299,19 @@
     <string name="block_move_up">Move up</string>
     <string name="block_move_down">Move down</string>
     <string name="question_emotion">How did you feel today?</string>
+
+    <!-- 일기 조회 타임라인 시간대 -->
+    <string name="timeline_slot_all_day">All day</string>
+    <string name="timeline_slot_dawn">Late night</string>
+    <string name="timeline_slot_morning">Morning</string>
+    <string name="timeline_slot_afternoon">Afternoon</string>
+    <string name="timeline_slot_evening">Evening</string>
+    <string name="timeline_slot_night">Night</string>
+    <string name="timeline_slot_tomorrow">Tomorrow</string>
+    <string name="timeline_header_date_pattern">EEEE, MMM d</string>
+    <string name="timeline_header_last">Last entry at %1$s</string>
+    <string name="timeline_summary_weather">Weather</string>
+    <string name="timeline_summary_mood">Mood</string>
+    <string name="timeline_summary_blocks">Entries</string>
+    <string name="timeline_summary_blocks_value">%1$d</string>
 </resources>
