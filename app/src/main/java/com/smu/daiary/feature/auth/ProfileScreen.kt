@@ -71,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -82,6 +83,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import com.smu.daiary.BuildConfig
 import com.smu.daiary.R
+import com.smu.daiary.ui.components.WaveHeader
+import com.smu.daiary.ui.components.pullUp
+import com.smu.daiary.ui.components.waveHeaderColor
 import com.smu.daiary.feature.notification.cancelNotification
 import com.smu.daiary.feature.notification.scheduleNotification
 import com.smu.daiary.feature.retrospect.RetrospectDebugSeeder
@@ -233,25 +237,19 @@ fun ProfileScreen(
         modifier = modifier,
         containerColor = bg,
         topBar = {
+            // 제목은 아래 물결 헤더가 보여주므로 앱바는 헤더와 같은 색의 뒤로가기 줄만 남긴다
             TopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.screen_profile),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = textPrimary
-                    )
-                },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = textPrimary
+                            tint = White
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = bg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = waveHeaderColor()),
                 windowInsets = WindowInsets(0)
             )
         }
@@ -261,11 +259,16 @@ fun ProfileScreen(
                 .fillMaxWidth()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp),
+        ) {
+        WaveHeader(title = stringResource(R.string.screen_profile), height = 140.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = ScreenPaddingHorizontal),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── 계정 섹션 ──────────────────────────────────────────────────────
-            ProfileCard {
+            // ── 계정 섹션: 헤더 물결 위로 겹쳐 올린다 ──────────────────────────
+            ProfileCard(modifier = Modifier.pullUp(56.dp), elevation = 4.dp) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -450,6 +453,7 @@ fun ProfileScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
         }
     }
 
@@ -736,9 +740,15 @@ fun ProfileScreen(
 }
 
 @Composable
-private fun ProfileCard(content: @Composable () -> Unit) {
+private fun ProfileCard(
+    modifier: Modifier = Modifier,
+    elevation: Dp = 0.dp,
+    content: @Composable () -> Unit
+) {
     val isDark = LocalDarkTheme.current
     Surface(
+        modifier = modifier,
+        shadowElevation = elevation,
         shape = RoundedCornerShape(CardCornerRadius),
         color = if (isDark) SurfaceDark else ProfileColors.CardBg,
         border = BorderStroke(0.5.dp, if (isDark) BorderDark else ProfileColors.Border)

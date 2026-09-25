@@ -68,6 +68,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import com.smu.daiary.R
+import com.smu.daiary.ui.components.WaveHeader
+import com.smu.daiary.ui.components.pullUp
+import com.smu.daiary.ui.components.waveHeaderColor
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.Black
 import com.smu.daiary.ui.theme.CardCornerRadius
@@ -87,16 +90,11 @@ import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontFamily
 import com.smu.daiary.feature.write.model.TimeSlot
 import com.smu.daiary.feature.write.model.timeSlot
-import com.smu.daiary.ui.theme.DewDark
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -213,7 +211,7 @@ fun DiaryDetailScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = headerBg(isDark, wc)),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = waveHeaderColor()),
                 windowInsets = WindowInsets(0)
             )
         }
@@ -290,9 +288,6 @@ fun DiaryDetailScreen(
     } // Box
 }
 
-/** 헤더 바탕색. 앱바와 페이지 헤더가 이어져 보이도록 둘 다 이 색을 쓴다 */
-private fun headerBg(isDark: Boolean, wc: WriteColorScheme): Color = if (isDark) DewDark else wc.Accent
-
 /** 페이저 한 페이지: 날짜 헤더 + 하루 요약 + 타임라인. 일기가 없으면 헤더 아래 빈 상태(생성하기). */
 @Composable
 private fun DiaryDayContent(
@@ -310,12 +305,7 @@ private fun DiaryDayContent(
             .verticalScroll(rememberScrollState())
             .padding(bottom = ScreenPaddingVertical)
     ) {
-        DayHeader(
-            date = date,
-            blocks = entry?.blocks.orEmpty(),
-            bg = headerBg(isDark, wc),
-            wave = if (isDark) wc.AccentLight else wc.MintGreen
-        )
+        DayHeader(date = date, blocks = entry?.blocks.orEmpty())
 
         if (entry == null) {
             Column(
@@ -338,18 +328,15 @@ private fun DiaryDayContent(
             return@Column
         }
 
-        // 헤더 위로 44dp 겹쳐 올리되, 아래 여백은 그만큼 줄여 빈틈이 생기지 않게 한다
         DaySummaryCard(
             entry = entry,
             modifier = Modifier
+                .pullUp(44.dp)
                 .padding(horizontal = ScreenPaddingHorizontal)
-                .offset(y = (-44).dp)
         )
 
         Column(
-            modifier = Modifier
-                .padding(horizontal = ScreenPaddingHorizontal)
-                .offset(y = (-16).dp),
+            modifier = Modifier.padding(start = ScreenPaddingHorizontal, end = ScreenPaddingHorizontal, top = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             DiaryTimeline(
@@ -386,9 +373,9 @@ private fun DiaryDayContent(
     }
 }
 
-/** 앱바 아래로 이어지는 색 띠: 날짜 제목과 블록 수, 아래쪽에 물결. 요약 카드가 이 위로 겹쳐 올라온다 */
+/** 날짜 제목과 마지막 기록 시각을 담은 헤더. 요약 카드가 이 위로 겹쳐 올라온다 */
 @Composable
-private fun DayHeader(date: LocalDate, blocks: List<DiaryBodyBlock>, bg: Color, wave: Color) {
+private fun DayHeader(date: LocalDate, blocks: List<DiaryBodyBlock>) {
     val locale = LocalConfiguration.current.locales[0]
     val title = date.format(DateTimeFormatter.ofPattern(stringResource(R.string.timeline_header_date_pattern), locale))
     // 내일 이야기는 오늘의 기록이 아니므로 마지막 기록 시각에서 뺀다
@@ -399,49 +386,7 @@ private fun DayHeader(date: LocalDate, blocks: List<DiaryBodyBlock>, bg: Color, 
         Instant.ofEpochMilli(lastAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
     ) else null
 
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(if (blocks.isEmpty()) 120.dp else 168.dp)
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(bg)
-            .drawBehind {
-                val w = size.width
-                val h = size.height
-                val front = Path().apply {
-                    moveTo(0f, h - 40.dp.toPx())
-                    cubicTo(w * 0.26f, h - 80.dp.toPx(), w * 0.54f, h - 8.dp.toPx(), w, h - 64.dp.toPx())
-                    lineTo(w, h)
-                    lineTo(0f, h)
-                    close()
-                }
-                val back = Path().apply {
-                    moveTo(0f, h - 12.dp.toPx())
-                    cubicTo(w * 0.33f, h - 36.dp.toPx(), w * 0.66f, h, w, h - 22.dp.toPx())
-                    lineTo(w, h)
-                    lineTo(0f, h)
-                    close()
-                }
-                drawPath(front, wave)
-                drawPath(back, Black.copy(alpha = 0.15f))
-            }
-            .padding(horizontal = 24.dp)
-    ) {
-        Column {
-            Text(
-                text = title,
-                fontFamily = FontFamily.Serif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
-                lineHeight = 34.sp,
-                color = White
-            )
-            if (subtitle != null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = subtitle, fontSize = 13.sp, color = White.copy(alpha = 0.85f))
-            }
-        }
-    }
+    WaveHeader(title = title, subtitle = subtitle, height = if (blocks.isEmpty()) 120.dp else 168.dp)
 }
 
 /** 헤더에 겹쳐 올라오는 하루 요약: 날씨 · 기분 · 블록 수 */
