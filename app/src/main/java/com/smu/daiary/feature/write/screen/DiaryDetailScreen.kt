@@ -169,7 +169,9 @@ fun DiaryDetailScreen(
 
     // isDeleting 오버레이와 사진 확대 Dialog가 TopAppBar까지 덮도록 Scaffold의 형제로 겹쳐 쌓는다.
     Box(modifier = Modifier.fillMaxSize()) {
+    // 시스템 바 여백은 MainActivity의 바깥 Scaffold가 이미 준다. 여기서 또 주면 하단이 한 번 더 비어 보인다
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier,
         containerColor = wc.Bg,
         topBar = {

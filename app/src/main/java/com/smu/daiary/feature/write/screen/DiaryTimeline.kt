@@ -43,7 +43,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private val RailWidth = 32.dp
+/** 타임라인 세로선 칸의 폭. 선은 이 칸의 가운데를 지난다. 일기 목록도 같은 값을 쓴다 */
+internal val RailWidth = 32.dp
 /** 카드 첫 줄(시각·태그) 높이의 가운데. 점과 선 끝이 여기에 맞는다 */
 private val DotCenterY = 23.dp
 private val TimeFormat = DateTimeFormatter.ofPattern("HH:mm")
@@ -78,7 +79,7 @@ fun DiaryTimeline(
 }
 
 /** 행 전체 높이에 걸쳐 레일 중앙에 세로선을 그린다. to가 있으면 그 높이에서 끊는다 */
-private fun Modifier.rail(color: Color, to: Dp? = null) = drawBehind {
+internal fun Modifier.rail(color: Color, to: Dp? = null) = drawBehind {
     val x = RailWidth.toPx() / 2
     drawLine(color, Offset(x, 0f), Offset(x, to?.toPx() ?: size.height), strokeWidth = 2.dp.toPx())
 }

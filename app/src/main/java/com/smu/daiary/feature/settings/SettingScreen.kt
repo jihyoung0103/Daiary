@@ -1,5 +1,6 @@
 package com.smu.daiary.feature.settings
 
+import androidx.compose.foundation.layout.WindowInsets
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -96,7 +97,9 @@ fun SettingsScreen(
     }
     var showSavedMessage by remember { mutableStateOf(false) }
 
+    // 시스템 바 여백은 MainActivity의 바깥 Scaffold가 이미 준다. 여기서 또 주면 하단이 한 번 더 비어 보인다
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier,
         containerColor = bgColor,
         topBar = {

@@ -44,6 +44,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
+import com.smu.daiary.feature.dashboard.DashboardScreen
+import com.smu.daiary.ui.components.MainTab
+import com.smu.daiary.ui.components.DlogBottomBar
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
@@ -364,6 +370,16 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
 
+                            // 하단 탭 바는 탭 화면(캘린더·일기·대시보드·프로필)에서만 보인다.
+                            // 바가 보일 땐 바가 시스템 내비게이션 바 자리까지 맡으므로 화면엔 아래 여백을 주지 않는다
+                            val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+                            val currentTab = MainTab.entries.firstOrNull { it.route == currentRoute }
+                            val screenPadding =
+                                if (currentTab != null) PaddingValues(top = innerPadding.calculateTopPadding())
+                                else innerPadding
+
+                            Column(modifier = Modifier.fillMaxSize()) {
+                            Box(modifier = Modifier.weight(1f)) {
                             // 네비게이션 구조
                             NavHost(
                                 navController = navController,
@@ -373,19 +389,16 @@ class MainActivity : ComponentActivity() {
                                 composable("main") {
                                     // UI
                                     HomeScreen(
-                                        modifier = Modifier.padding(innerPadding),
+                                        modifier = Modifier.padding(screenPadding),
                                         diaries = diaries,
                                         isLoading = isLoading,
                                         error = homeError,
                                         onRetry = { homeViewModel.loadDiaries(userId) },
-                                        onStartDiary = { startWriting(null) },
-                                        onProfileClick = { navController.navigate("profile") },
                                         onDiaryClick = { entry ->
                                             viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                             navController.navigate("diary_detail")
                                         },
                                         onWriteDiary = { dateStr -> startWriting(LocalDate.parse(dateStr)) },
-                                        onViewAllDiaries = { navController.navigate("diary_list") },
                                         weeklyBannerStatus = weeklyBannerStatus,
                                         monthlyBannerStatus = monthlyBannerStatus,
                                         weeklyBannerSubLabel = retrospectViewModel.weeklyPeriod.rangeLabel,
@@ -442,7 +455,7 @@ class MainActivity : ComponentActivity() {
                                     RetrospectLoadingScreen(
                                         periodLabel = periodLabel,
                                         state = retrospectState,
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "retrospect_card": 카드 리캡 화면
@@ -459,7 +472,7 @@ class MainActivity : ComponentActivity() {
                                                     navController.navigate("diary_detail")
                                                 }
                                             },
-                                            modifier = Modifier.padding(innerPadding)
+                                            modifier = Modifier.padding(screenPadding)
                                         )
                                     }
                                 }
@@ -474,19 +487,19 @@ class MainActivity : ComponentActivity() {
                                                     retrospectViewModel.showFullRecap()
                                                     navController.navigate("retrospect_card")
                                                 },
-                                                modifier = Modifier.padding(innerPadding)
+                                                modifier = Modifier.padding(screenPadding)
                                             )
                                         }
                                         is RetrospectState.Error -> {
                                             RetrospectSummaryErrorScreen(
                                                 message = s.message,
                                                 onBack = { navController.popBackStack() },
-                                                modifier = Modifier.padding(innerPadding)
+                                                modifier = Modifier.padding(screenPadding)
                                             )
                                         }
                                         // Loading 및 그 외 전환 상태 — Firestore fetch 완료 전 blank 화면 방지
                                         else -> {
-                                            RetrospectSummaryLoadingScreen(modifier = Modifier.padding(innerPadding))
+                                            RetrospectSummaryLoadingScreen(modifier = Modifier.padding(screenPadding))
                                         }
                                     }
                                 }
@@ -502,7 +515,7 @@ class MainActivity : ComponentActivity() {
                                         },
                                         onBack = { navController.popBackStack() },
                                         onRetry = { writeViewModel.loadBlocks(userId) },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "context_qna": 맥락 질답 화면
@@ -519,7 +532,7 @@ class MainActivity : ComponentActivity() {
                                             writeViewModel.clearDraftOnly()
                                             navController.popBackStack()
                                         },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "draft_preview": 초안 미리보기 화면
@@ -557,7 +570,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
 
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "diary_edit": 일기 편집 화면
@@ -582,7 +595,7 @@ class MainActivity : ComponentActivity() {
                                             }
                                         },
                                         onBack = { navController.popBackStack() },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "profile": 프로필 화면
@@ -590,7 +603,6 @@ class MainActivity : ComponentActivity() {
                                     ProfileScreen(
                                         authViewModel = authViewModel,
                                         navController = navController,
-                                        onBack = { navController.popBackStack() },
                                         isDarkMode = isDarkTheme.value,
                                         onDarkModeChange = { enabled ->
                                             isDarkTheme.value = enabled
@@ -599,28 +611,28 @@ class MainActivity : ComponentActivity() {
                                         onPrivacyPolicy = { navController.navigate("privacy_policy") },
                                         onTermsOfService = { navController.navigate("terms_of_service") },
                                         onEditProfile = { navController.navigate("profile_edit") },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "privacy_policy": 개인정보 처리방침 화면
                                 composable("privacy_policy") {
                                     PrivacyPolicyScreen(
                                         onBack = { navController.popBackStack() },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "terms_of_service": 서비스 이용약관 화면
                                 composable("terms_of_service") {
                                     TermsOfServiceScreen(
                                         onBack = { navController.popBackStack() },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "profile_edit": 프로필 편집 화면
                                 composable("profile_edit") {
                                     ProfileEditScreen(
                                         onBack = { navController.popBackStack() },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 // "diary_detail": 일기 상세 화면 (날짜 기반, 좌우 스와이프로 인접 날짜 이동)
@@ -642,7 +654,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             },
                                             onBack = { navController.popBackStack() },
-                                            modifier = Modifier.padding(innerPadding)
+                                            modifier = Modifier.padding(screenPadding)
                                         )
                                     }
                                 }
@@ -655,17 +667,45 @@ class MainActivity : ComponentActivity() {
                                             viewingDate = runCatching { LocalDate.parse(entry.date) }.getOrNull()
                                             navController.navigate("diary_detail")
                                         },
-                                        onBack = { navController.popBackStack() },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
+                                    )
+                                }
+                                // "dashboard": 기록 대시보드 (하단 탭)
+                                composable("dashboard") {
+                                    DashboardScreen(
+                                        diaries = diaries,
+                                        isLoading = isLoading,
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
                                 composable("settings") {
                                     SettingsScreen(
                                         onBack = { navController.popBackStack() },
                                         onConfirm = { navController.popBackStack() },
-                                        modifier = Modifier.padding(innerPadding)
+                                        modifier = Modifier.padding(screenPadding)
                                     )
                                 }
+                            }
+                            }
+                            if (currentTab != null) {
+                                DlogBottomBar(
+                                    current = currentTab,
+                                    onTabClick = { tab ->
+                                        if (tab == MainTab.CALENDAR) {
+                                            navController.popBackStack("main", inclusive = false)
+                                        } else {
+                                            navController.navigate(tab.route) {
+                                                // 탭끼리 오갈 땐 스택을 쌓지 않는다. 뒤로가기는 캘린더로 돌아간다
+                                                popUpTo("main") { saveState = true }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        }
+                                    },
+                                    onWriteClick = { startWriting(null) },
+                                    bottomInset = innerPadding.calculateBottomPadding()
+                                )
+                            }
                             }
                         }
 
