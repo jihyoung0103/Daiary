@@ -1,5 +1,8 @@
 package com.smu.daiary.feature.write.model
 
+import java.time.Instant
+import java.time.ZoneId
+
 enum class BlockType(val label: String) {
     PAYMENT("결제 내역"),
     PHOTO("사진"),
@@ -61,8 +64,45 @@ data class DiaryBodyBlock(
     val sourceId: String? = null,
     val text: String = "",
     /** 사진 블록이면 본문에 함께 표시할 사진. 저장 시 Storage URL로 치환됨 */
-    val imageUri: String? = null
+    val imageUri: String? = null,
+    /** 소스의 DiarySource.occurredAt을 그대로 옮긴 값. 타임라인 조회에 쓴다. 옛 일기·하루 단위 소스면 0 */
+    val occurredAt: Long = 0L
 )
+
+/** 타임라인 조회에서 블록이 묶이는 시간대 */
+enum class TimeSlot { ALL_DAY, DAWN, MORNING, AFTERNOON, EVENING, NIGHT, TOMORROW }
+
+/**
+ * sourceId("payment_2", "weather_tomorrow"…)로 원래 소스 타입을 되찾는다.
+ * id 규칙은 WriteViewModel의 ContentBlock id / buildSources와 맞춰야 한다. 수동 블록·옛 일기면 null.
+ */
+fun DiaryBodyBlock.sourceType(): BlockType? {
+    val id = sourceId ?: return null
+    return when {
+        id == "weather_tomorrow" -> BlockType.WEATHER_TOMORROW
+        id.startsWith("weather") -> BlockType.WEATHER
+        id.startsWith("upcoming") || id == "calendar_upcoming" -> BlockType.CALENDAR_UPCOMING
+        id.startsWith("calendar") -> BlockType.CALENDAR
+        id.startsWith("payment") -> BlockType.PAYMENT
+        id.startsWith("photo") -> BlockType.PHOTO
+        id.startsWith("health") -> BlockType.HEALTH
+        else -> null
+    }
+}
+
+/** 내일 이야기(향후 일정·내일 날씨)는 시각이 있어도 내일로, 시각 없는 나머지는 종일로 묶는다. */
+fun DiaryBodyBlock.timeSlot(zone: ZoneId = ZoneId.systemDefault()): TimeSlot {
+    val type = sourceType()
+    if (type == BlockType.WEATHER_TOMORROW || type == BlockType.CALENDAR_UPCOMING) return TimeSlot.TOMORROW
+    if (occurredAt <= 0L) return TimeSlot.ALL_DAY
+    return when (Instant.ofEpochMilli(occurredAt).atZone(zone).hour) {
+        in 0..4 -> TimeSlot.DAWN
+        in 5..10 -> TimeSlot.MORNING
+        in 11..16 -> TimeSlot.AFTERNOON
+        in 17..20 -> TimeSlot.EVENING
+        else -> TimeSlot.NIGHT
+    }
+}
 
 /**
  * 저장 시 업로드/치환 대상이 되는 사진 URI 목록.

@@ -303,4 +303,19 @@
     <string name="block_move_up">위로 이동</string>
     <string name="block_move_down">아래로 이동</string>
     <string name="question_emotion">오늘 기분은 어땠나요?</string>
+
+    <!-- 일기 조회 타임라인 시간대 -->
+    <string name="timeline_slot_all_day">종일</string>
+    <string name="timeline_slot_dawn">새벽</string>
+    <string name="timeline_slot_morning">아침</string>
+    <string name="timeline_slot_afternoon">낮</string>
+    <string name="timeline_slot_evening">저녁</string>
+    <string name="timeline_slot_night">밤</string>
+    <string name="timeline_slot_tomorrow">내일</string>
+    <string name="timeline_header_date_pattern">M월 d일 EEEE</string>
+    <string name="timeline_header_last">마지막 기록 %1$s</string>
+    <string name="timeline_summary_weather">날씨</string>
+    <string name="timeline_summary_mood">기분</string>
+    <string name="timeline_summary_blocks">기록</string>
+    <string name="timeline_summary_blocks_value">%1$d개</string>
 </resources>
