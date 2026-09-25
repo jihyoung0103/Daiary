@@ -306,4 +306,19 @@
     <string name="photo_ai_notice_title">Photos are sent for AI analysis</string>
     <string name="photo_ai_notice_message">Photos you select are sent to an AI service (Anthropic, USA) to help write your diary.\n\nLocation and device metadata (EXIF) are removed first, and unselected photos are never sent.</string>
     <string name="photo_ai_notice_confirm">Got it</string>
+
+    <!-- 일기 조회 타임라인 시간대 -->
+    <string name="timeline_slot_all_day">All day</string>
+    <string name="timeline_slot_dawn">Late night</string>
+    <string name="timeline_slot_morning">Morning</string>
+    <string name="timeline_slot_afternoon">Afternoon</string>
+    <string name="timeline_slot_evening">Evening</string>
+    <string name="timeline_slot_night">Night</string>
+    <string name="timeline_slot_tomorrow">Tomorrow</string>
+    <string name="timeline_header_date_pattern">EEEE, MMM d</string>
+    <string name="timeline_header_last">Last entry at %1$s</string>
+    <string name="timeline_summary_weather">Weather</string>
+    <string name="timeline_summary_mood">Mood</string>
+    <string name="timeline_summary_blocks">Entries</string>
+    <string name="timeline_summary_blocks_value">%1$d</string>
 </resources>

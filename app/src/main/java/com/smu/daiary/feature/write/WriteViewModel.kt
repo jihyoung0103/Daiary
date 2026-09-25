@@ -1670,7 +1670,8 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                         id = UUID.randomUUID().toString(),
                         sourceId = source.sourceId,
                         text = gen.text,
-                        imageUri = source.imageUri
+                        imageUri = source.imageUri,
+                        occurredAt = source.occurredAt
                     )
                 }
 

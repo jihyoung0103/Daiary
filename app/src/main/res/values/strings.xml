@@ -310,4 +310,19 @@
     <string name="photo_ai_notice_title">사진은 AI 분석을 위해 전송돼요</string>
     <string name="photo_ai_notice_message">선택한 사진은 일기 작성을 위해 AI(Anthropic, 미국)로 전송돼 분석돼요.\n\n위치·기기 정보(EXIF)는 지우고 보내며, 선택하지 않은 사진은 전송되지 않아요.</string>
     <string name="photo_ai_notice_confirm">알겠어요</string>
+
+    <!-- 일기 조회 타임라인 시간대 -->
+    <string name="timeline_slot_all_day">종일</string>
+    <string name="timeline_slot_dawn">새벽</string>
+    <string name="timeline_slot_morning">아침</string>
+    <string name="timeline_slot_afternoon">낮</string>
+    <string name="timeline_slot_evening">저녁</string>
+    <string name="timeline_slot_night">밤</string>
+    <string name="timeline_slot_tomorrow">내일</string>
+    <string name="timeline_header_date_pattern">M월 d일 EEEE</string>
+    <string name="timeline_header_last">마지막 기록 %1$s</string>
+    <string name="timeline_summary_weather">날씨</string>
+    <string name="timeline_summary_mood">기분</string>
+    <string name="timeline_summary_blocks">기록</string>
+    <string name="timeline_summary_blocks_value">%1$d개</string>
 </resources>

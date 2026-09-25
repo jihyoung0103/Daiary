@@ -85,6 +85,21 @@ import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.weatherColor
 import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontFamily
+import com.smu.daiary.feature.write.model.TimeSlot
+import com.smu.daiary.feature.write.model.timeSlot
+import com.smu.daiary.ui.theme.DewDark
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import androidx.compose.ui.window.Dialog
 
 private val weatherIcons: Map<String, ImageVector> = mapOf(
@@ -102,15 +117,6 @@ private val emotionIcons: Map<String, ImageVector> = mapOf(
     "화남" to Icons.Outlined.SentimentVeryDissatisfied,
     "설렘" to Icons.Outlined.FavoriteBorder
 )
-
-@Composable
-private fun formatDate(raw: String): String {
-    val template = stringResource(R.string.date_format_full)
-    return runCatching {
-        val d = LocalDate.parse(raw)
-        String.format(template, d.year, d.monthValue, d.dayOfMonth)
-    }.getOrDefault(raw)
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,21 +175,15 @@ fun DiaryDetailScreen(
         modifier = modifier,
         containerColor = wc.Bg,
         topBar = {
+            // 날짜는 페이지 헤더가 보여주므로 앱바는 헤더와 같은 색의 버튼 줄만 남긴다
             TopAppBar(
-                title = {
-                    Text(
-                        text = formatDate(currentDate.toString()),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = wc.TextPrimary
-                    )
-                },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = wc.TextPrimary
+                            tint = White
                         )
                     }
                 },
@@ -195,8 +195,8 @@ fun DiaryDetailScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.btn_delete),
-                                color = errorColor,
-                                fontWeight = FontWeight.Bold,
+                                color = White,
+                                fontWeight = FontWeight.Medium,
                                 fontSize = 16.sp
                             )
                         }
@@ -206,14 +206,14 @@ fun DiaryDetailScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.btn_edit_diary),
-                                color = wc.Accent,
+                                color = White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = headerBg(isDark, wc)),
                 windowInsets = WindowInsets(0)
             )
         }
@@ -290,7 +290,10 @@ fun DiaryDetailScreen(
     } // Box
 }
 
-/** 페이저 한 페이지: 특정 날짜의 일기 내용, 없으면 빈 상태(생성하기). */
+/** 헤더 바탕색. 앱바와 페이지 헤더가 이어져 보이도록 둘 다 이 색을 쓴다 */
+private fun headerBg(isDark: Boolean, wc: WriteColorScheme): Color = if (isDark) DewDark else wc.Accent
+
+/** 페이저 한 페이지: 날짜 헤더 + 하루 요약 + 타임라인. 일기가 없으면 헤더 아래 빈 상태(생성하기). */
 @Composable
 private fun DiaryDayContent(
     date: LocalDate,
@@ -301,115 +304,218 @@ private fun DiaryDayContent(
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
 
-    if (entry == null) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = stringResource(R.string.empty_diary_placeholder), fontSize = 15.sp, color = wc.TextMuted)
-            if (!date.isAfter(DiaryDateUtil.diaryDate())) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onWrite,
-                    colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
-                ) {
-                    Text(text = stringResource(R.string.btn_create_diary), color = White, fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-        return
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(bottom = ScreenPaddingVertical)
     ) {
-        if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty() ||
-            entry.customWeatherText.isNotEmpty() || entry.customEmotionText.isNotEmpty()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+        DayHeader(
+            date = date,
+            blocks = entry?.blocks.orEmpty(),
+            bg = headerBg(isDark, wc),
+            wave = if (isDark) wc.AccentLight else wc.MintGreen
+        )
+
+        if (entry == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 64.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val weatherIcon = weatherIcons[entry.weather]
-                when {
-                    weatherIcon != null -> DetailMetaChip(
-                        icon = weatherIcon,
-                        label = localizedWeatherLabel(entry.weather),
-                        tint = weatherColor(entry.weather, isDark)
-                    )
-                    entry.customWeatherText.isNotBlank() ->
-                        DetailMetaChip(icon = Icons.Outlined.WbSunny, label = entry.customWeatherText, tint = wc.TextMuted)
+                Text(text = stringResource(R.string.empty_diary_placeholder), fontSize = 15.sp, color = wc.TextMuted)
+                if (!date.isAfter(DiaryDateUtil.diaryDate())) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = onWrite,
+                        colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
+                    ) {
+                        Text(text = stringResource(R.string.btn_create_diary), color = White, fontWeight = FontWeight.Medium)
+                    }
                 }
-                val emotionIcon = emotionIcons[entry.emotion]
-                when {
-                    emotionIcon != null ->
-                        DetailMetaChip(icon = emotionIcon, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
-                    entry.customEmotionText.isNotBlank() ->
-                        DetailMetaChip(icon = Icons.Outlined.SentimentNeutral, label = entry.customEmotionText, tint = wc.TextMuted)
+            }
+            return@Column
+        }
+
+        // 헤더 위로 44dp 겹쳐 올리되, 아래 여백은 그만큼 줄여 빈틈이 생기지 않게 한다
+        DaySummaryCard(
+            entry = entry,
+            modifier = Modifier
+                .padding(horizontal = ScreenPaddingHorizontal)
+                .offset(y = (-44).dp)
+        )
+
+        Column(
+            modifier = Modifier
+                .padding(horizontal = ScreenPaddingHorizontal)
+                .offset(y = (-16).dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            DiaryTimeline(
+                blocks = entry.blocks,
+                fallbackText = entry.content,
+                onPhotoClick = onImageClick
+            )
+
+            if (entry.photos.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.attached_photos),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = wc.TextMuted
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(entry.photos) { uri ->
+                        PhotoThumbnail(
+                            model = uri,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clickable { onImageClick(uri) },
+                            shape = RoundedCornerShape(CardCornerRadius),
+                            errorIconSize = 32.dp
+                        )
+                    }
                 }
             }
         }
+    }
+}
 
-        DiaryBodyBlocks(
-            blocks = entry.blocks,
-            fallbackText = entry.content,
-            onPhotoClick = onImageClick
-        )
+/** 앱바 아래로 이어지는 색 띠: 날짜 제목과 블록 수, 아래쪽에 물결. 요약 카드가 이 위로 겹쳐 올라온다 */
+@Composable
+private fun DayHeader(date: LocalDate, blocks: List<DiaryBodyBlock>, bg: Color, wave: Color) {
+    val locale = LocalConfiguration.current.locales[0]
+    val title = date.format(DateTimeFormatter.ofPattern(stringResource(R.string.timeline_header_date_pattern), locale))
+    // 내일 이야기는 오늘의 기록이 아니므로 마지막 기록 시각에서 뺀다
+    val lastAt = blocks.filter { it.timeSlot() != TimeSlot.TOMORROW }.maxOfOrNull { it.occurredAt } ?: 0L
+    // 블록 수는 요약 카드가 보여주므로 헤더엔 시각이 있을 때만 마지막 기록을 적는다
+    val subtitle = if (lastAt > 0L) stringResource(
+        R.string.timeline_header_last,
+        Instant.ofEpochMilli(lastAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
+    ) else null
 
-        if (entry.photos.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.attached_photos),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = wc.TextMuted
-            )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(entry.photos) { uri ->
-                    PhotoThumbnail(
-                        model = uri,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clickable { onImageClick(uri) },
-                        shape = RoundedCornerShape(CardCornerRadius),
-                        errorIconSize = 32.dp
-                    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(if (blocks.isEmpty()) 120.dp else 168.dp)
+            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+            .background(bg)
+            .drawBehind {
+                val w = size.width
+                val h = size.height
+                val front = Path().apply {
+                    moveTo(0f, h - 40.dp.toPx())
+                    cubicTo(w * 0.26f, h - 80.dp.toPx(), w * 0.54f, h - 8.dp.toPx(), w, h - 64.dp.toPx())
+                    lineTo(w, h)
+                    lineTo(0f, h)
+                    close()
                 }
+                val back = Path().apply {
+                    moveTo(0f, h - 12.dp.toPx())
+                    cubicTo(w * 0.33f, h - 36.dp.toPx(), w * 0.66f, h, w, h - 22.dp.toPx())
+                    lineTo(w, h)
+                    lineTo(0f, h)
+                    close()
+                }
+                drawPath(front, wave)
+                drawPath(back, Black.copy(alpha = 0.15f))
             }
+            .padding(horizontal = 24.dp)
+    ) {
+        Column {
+            Text(
+                text = title,
+                fontFamily = FontFamily.Serif,
+                fontWeight = FontWeight.Bold,
+                fontSize = 28.sp,
+                lineHeight = 34.sp,
+                color = White
+            )
+            if (subtitle != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = subtitle, fontSize = 13.sp, color = White.copy(alpha = 0.85f))
+            }
+        }
+    }
+}
+
+/** 헤더에 겹쳐 올라오는 하루 요약: 날씨 · 기분 · 블록 수 */
+@Composable
+private fun DaySummaryCard(entry: DiaryEntry, modifier: Modifier = Modifier) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
+
+    val weatherIcon = weatherIcons[entry.weather]
+    val weatherLabel = when {
+        weatherIcon != null -> localizedWeatherLabel(entry.weather)
+        entry.customWeatherText.isNotBlank() -> entry.customWeatherText
+        else -> "-"
+    }
+    val emotionIcon = emotionIcons[entry.emotion]
+    val emotionLabel = when {
+        emotionIcon != null -> localizedEmotionLabel(entry.emotion)
+        entry.customEmotionText.isNotBlank() -> entry.customEmotionText
+        else -> "-"
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = if (isDark) wc.SurfaceBg else White,
+        border = BorderStroke(0.5.dp, wc.Border),
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(vertical = 16.dp)
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SummaryCell(
+                icon = weatherIcon ?: Icons.Outlined.WbSunny,
+                tint = if (weatherIcon != null) weatherColor(entry.weather, isDark) else wc.TextMuted,
+                value = weatherLabel,
+                caption = stringResource(R.string.timeline_summary_weather)
+            )
+            VerticalDivider(color = wc.Border)
+            SummaryCell(
+                icon = emotionIcon ?: Icons.Outlined.SentimentNeutral,
+                tint = if (emotionIcon != null) emotionColor(entry.emotion, isDark) else wc.TextMuted,
+                value = emotionLabel,
+                caption = stringResource(R.string.timeline_summary_mood)
+            )
+            VerticalDivider(color = wc.Border)
+            SummaryCell(
+                icon = Icons.Outlined.Timeline,
+                tint = wc.Accent,
+                value = stringResource(R.string.timeline_summary_blocks_value, entry.blocks.size.coerceAtLeast(1)),
+                caption = stringResource(R.string.timeline_summary_blocks)
+            )
         }
     }
 }
 
 @Composable
-private fun DetailMetaChip(icon: ImageVector, label: String, tint: Color? = null) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+private fun RowScope.SummaryCell(icon: ImageVector, tint: Color, value: String, caption: String) {
+    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint ?: wc.Accent,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = wc.TextMuted
-        )
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        Text(text = value, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = wc.TextPrimary, maxLines = 1)
+        Text(text = caption, fontSize = 11.sp, color = wc.TextMuted)
     }
 }
+
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @OptIn(ExperimentalMaterial3Api::class)

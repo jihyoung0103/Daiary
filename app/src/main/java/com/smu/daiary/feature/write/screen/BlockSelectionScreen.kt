@@ -738,7 +738,7 @@ private fun weatherIconFor(content: String): ImageVector {
 }
 
 @Composable
-private fun blockTypeLabel(type: BlockType): String = when (type) {
+internal fun blockTypeLabel(type: BlockType): String = when (type) {
     BlockType.PAYMENT           -> stringResource(R.string.block_type_payment)
     BlockType.PHOTO             -> stringResource(R.string.block_type_photo)
     BlockType.CALENDAR          -> stringResource(R.string.block_type_calendar)
