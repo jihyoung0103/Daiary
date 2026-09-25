@@ -77,16 +77,20 @@ class PhotoStorageDataSource(private val context: Context) {
         }
     }
 
-    /** EXIF 회전값을 픽셀에 적용한다. 세로 사진이 눕지 않게. */
+    /**
+     * EXIF 방향값(회전 + 좌우 반전)을 픽셀에 적용한다. 세로 사진이 눕거나 전면 카메라 사진이 뒤집히지 않게.
+     * 반전이 낀 방향(2·4·5·7)은 회전한 뒤 좌우로 뒤집으면 된다 — Glide TransformationUtils와 같은 순서.
+     */
     private fun rotateUpright(uri: Uri, bitmap: Bitmap): Bitmap {
-        val degrees = context.contentResolver.openInputStream(uri)?.use {
-            ExifInterface(it).rotationDegrees
-        } ?: 0
-        if (degrees == 0) return bitmap
-        val rotated = Bitmap.createBitmap(
-            bitmap, 0, 0, bitmap.width, bitmap.height,
-            Matrix().apply { postRotate(degrees.toFloat()) }, true
-        )
+        val (degrees, flipped) = context.contentResolver.openInputStream(uri)?.use {
+            ExifInterface(it).let { exif -> exif.rotationDegrees to exif.isFlipped }
+        } ?: (0 to false)
+        if (degrees == 0 && !flipped) return bitmap
+        val matrix = Matrix().apply {
+            postRotate(degrees.toFloat())
+            if (flipped) postScale(-1f, 1f)
+        }
+        val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
         bitmap.recycle()
         return rotated
     }
