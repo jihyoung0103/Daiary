@@ -213,20 +213,22 @@
     <string name="notification_channel_desc">매일 일기 작성 알림</string>
 
     <!-- 개인정보 처리방침 -->
-    <string name="privacy_effective_date">시행일: 2025년 1월 1일</string>
+    <string name="privacy_effective_date">시행일: 2026년 9월 25일</string>
     <string name="privacy_intro">D.log(이하 "앱")은 이용자의 개인정보를 소중히 여기며, 개인정보보호법에 따라 아래와 같이 개인정보 처리방침을 안내합니다. 본 앱은 상명대학교 캡스톤팀이 개발한 학술 프로젝트입니다.</string>
     <string name="privacy_s1_title">1. 수집하는 개인정보 항목</string>
-    <string name="privacy_s1_body">• 이메일 주소, 비밀번호(암호화 저장)\n• Google 계정: 이름, 이메일, 프로필 사진\n• 일기 내용, 작성 날짜\n• 날씨·감정·일정 정보\n• 첨부 사진(기기 접근 후 Firebase 저장)</string>
+    <string name="privacy_s1_body">• 이메일 주소, 비밀번호 (Firebase 인증이 암호화하여 보관)\n• Google 계정: 이름, 이메일, 프로필 사진\n• 표시 이름, 프로필 사진 (프로필 편집 시)\n• MBTI (선택 입력, 기기에만 저장)\n• 일기 내용, 작성 날짜, 일기 작성 중 입력한 답변\n• 날씨·감정 정보, 기기 캘린더의 일정\n• 결제 알림에서 추출한 가맹점·금액·시각 (알림 원문은 저장하지 않음)\n• 걸음 수·수면 시간의 하루 요약 (Health Connect)\n• 대략적인 위치 (날씨 조회용), 사진의 촬영 시각·촬영 장소 이름\n• 첨부 사진 (Firebase 저장)\n• 서비스 이용 기록: 날짜별 AI·날씨 호출 횟수 (남용 방지용)\n\n캘린더·사진·위치·결제 알림·건강 정보는 이용자가 기기에서 해당 권한을 허용한 경우에만 수집합니다.</string>
     <string name="privacy_s2_title">2. 개인정보 수집 목적</string>
-    <string name="privacy_s2_body">• 회원 식별 및 인증\n• 일기 데이터 저장·동기화\n• 날씨·일정 기반 초안 자동 생성\n• 서비스 오류 분석 및 품질 개선</string>
+    <string name="privacy_s2_body">• 회원 식별 및 인증\n• 일기 데이터 저장·동기화\n• AI 기반 질문·일기 초안·회고 생성\n• 서비스 남용 방지 (사용자별 호출 횟수 관리)\n• 서비스 오류 분석 및 품질 개선</string>
     <string name="privacy_s3_title">3. 보유 및 이용기간</string>
-    <string name="privacy_s3_body">회원 탈퇴 즉시 모든 개인정보 및 일기 데이터를 삭제합니다. Firebase Firestore에 저장된 데이터는 탈퇴 처리 시 함께 삭제되며, 별도 백업은 보관하지 않습니다.</string>
-    <string name="privacy_s4_title">4. 제3자 제공</string>
-    <string name="privacy_s4_body">이용자의 개인정보를 외부에 제공하지 않습니다. 단, 서비스 운영을 위해 Firebase(Google LLC) 인프라를 이용하며, 해당 서비스의 개인정보 처리방침이 별도로 적용됩니다.</string>
+    <string name="privacy_s3_body">회원 탈퇴 시 서버에 저장된 개인정보(프로필, 일기, 수집 데이터, 회고, 사진, 이용 기록)는 자동으로 즉시 삭제되며, 별도 백업은 보관하지 않습니다.\n\n• 기기에만 저장된 정보(MBTI 등 설정)는 앱을 삭제하면 함께 삭제됩니다.\n• 외부 서비스(4항)로 이미 전송된 정보는 탈퇴로 즉시 삭제되지 않으며, 각 업체의 정책에 따라 보관 후 삭제됩니다.</string>
+    <string name="privacy_s4_title">4. 외부 서비스 이용 (처리 위탁·국외 이전)</string>
+    <string name="privacy_s4_body">이용자의 개인정보를 판매하거나 광고 목적으로 제공하지 않습니다. 서비스 제공을 위해 아래 외부 서비스에 필요한 최소한의 정보만, 해당 기능을 사용하는 시점에 암호화된 네트워크로 전송합니다.\n\n• Anthropic PBC (미국) — AI 질문·일기·회고 생성.\n  - 일기 작성: 이용자가 선택한 항목(일정, 결제 요약, 건강 요약, 답변)과 선택한 사진, 사진의 촬영 시각·장소 이름, MBTI. 문체를 맞추기 위해 최근 일기 일부가 함께 전송됩니다. 사진은 위치·기기 정보(EXIF)를 제거한 뒤 전송합니다.\n  - 회고: 해당 기간의 일기 요약과 감정·지출·건강·일정 통계.\n• OpenWeather Ltd. (영국) — 날씨 조회. 대략적인 위치 좌표만 전송합니다.\n• Google LLC (미국) — Firebase 인증 및 데이터 저장.\n\n보유 기간은 각 업체의 개인정보 처리방침에 따릅니다.\n\n[전송을 원하지 않는 경우] 일기 작성 시 항목과 사진을 선택하지 않으면 AI로 전송되지 않습니다. 이 경우 해당 내용에 대한 AI 질문과 초안은 제공되지 않습니다.</string>
     <string name="privacy_s5_title">5. 이용자의 권리</string>
-    <string name="privacy_s5_body">• 언제든지 개인정보 열람·수정 요청 가능\n• 앱 내 회원탈퇴를 통해 즉시 데이터 삭제\n• 문의: capstone@smu.ac.kr</string>
-    <string name="privacy_s6_title">6. 개인정보 보호책임자</string>
-    <string name="privacy_s6_body">소속: 상명대학교 캡스톤팀\n이메일: capstone@smu.ac.kr\n앱 버전: 1.0</string>
+    <string name="privacy_s5_body">• 언제든지 개인정보 열람·수정·삭제·처리정지 요청 가능\n• 앱 내 회원탈퇴를 통해 서버 데이터 즉시 삭제\n• 기기 설정에서 캘린더·사진·위치·알림 접근·Health Connect 권한을 언제든 철회 가능 (철회 후에는 해당 정보를 수집하지 않음)\n• 문의: jihyoung0103@gmail.com</string>
+    <string name="privacy_s6_title">6. 개인정보의 안전성 확보 조치</string>
+    <string name="privacy_s6_body">• 모든 통신은 암호화(HTTPS)하여 전송\n• 본인 계정으로만 자신의 데이터에 접근할 수 있도록 서버 접근 규칙 적용\n• 외부 API 키는 앱에 포함하지 않고 서버에서만 관리\n• AI로 보내는 사진에서 위치·기기 정보(EXIF) 제거\n• 결제 알림은 기기에서 필요한 항목만 추출하고 원문은 저장하지 않음</string>
+    <string name="privacy_s7_title">7. 개인정보 보호책임자</string>
+    <string name="privacy_s7_body">소속: 상명대학교 컴퓨터과학과 Team Daiary\n이메일: jihyoung0103@gmail.com\n앱 버전: 1.0</string>
 
     <!-- Task 1: 일기 삭제 -->
     <string name="btn_delete">삭제</string>
@@ -303,6 +305,11 @@
     <string name="block_move_up">위로 이동</string>
     <string name="block_move_down">아래로 이동</string>
     <string name="question_emotion">오늘 기분은 어땠나요?</string>
+    <!-- 외부 AI 전송 고지 -->
+    <string name="block_selection_ai_notice">선택한 항목만 AI 일기 작성에 쓰여요. 선택하지 않은 정보는 AI로 보내지 않아요.</string>
+    <string name="photo_ai_notice_title">사진은 AI 분석을 위해 전송돼요</string>
+    <string name="photo_ai_notice_message">선택한 사진은 일기 작성을 위해 AI(Anthropic, 미국)로 전송돼 분석돼요.\n\n위치·기기 정보(EXIF)는 지우고 보내며, 선택하지 않은 사진은 전송되지 않아요.</string>
+    <string name="photo_ai_notice_confirm">알겠어요</string>
 
     <!-- 일기 조회 타임라인 시간대 -->
     <string name="timeline_slot_all_day">종일</string>

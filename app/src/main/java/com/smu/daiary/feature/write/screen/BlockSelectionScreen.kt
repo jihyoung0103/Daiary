@@ -1,5 +1,7 @@
 package com.smu.daiary.feature.write.screen
 
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.model.*
 
@@ -46,6 +48,7 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -116,6 +119,35 @@ fun BlockSelectionScreen(
     var upcomingExpanded by remember { mutableStateOf(false) }
     var photoExpanded by remember { mutableStateOf(false) }
     var paymentExpanded by remember { mutableStateOf(false) }
+
+    // 사진은 내용(픽셀)이 그대로 외부 AI로 가는 유일한 데이터라, 처음 고를 때 한 번 알린다.
+    // 확인하면 보류해 둔 동작(선택·갤러리 열기)을 이어서 실행한다.
+    val context = LocalContext.current
+    val settings = remember { context.getSharedPreferences("daiary_settings", Context.MODE_PRIVATE) }
+    var pendingPhotoAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun withPhotoNotice(action: () -> Unit) {
+        if (settings.getBoolean(KEY_PHOTO_AI_NOTICE_SEEN, false)) action() else pendingPhotoAction = action
+    }
+    pendingPhotoAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { pendingPhotoAction = null },
+            title = { Text(stringResource(R.string.photo_ai_notice_title), color = wc.TextPrimary) },
+            text = { Text(stringResource(R.string.photo_ai_notice_message), color = wc.TextPrimary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    settings.edit().putBoolean(KEY_PHOTO_AI_NOTICE_SEEN, true).apply()
+                    pendingPhotoAction = null
+                    action()
+                }) { Text(stringResource(R.string.photo_ai_notice_confirm), color = wc.Accent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingPhotoAction = null }) {
+                    Text(stringResource(R.string.cancel), color = wc.TextMuted)
+                }
+            },
+            containerColor = wc.SurfaceBg
+        )
+    }
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -217,6 +249,13 @@ fun BlockSelectionScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                item {
+                    Text(
+                        text = stringResource(R.string.block_selection_ai_notice),
+                        fontSize = 13.sp,
+                        color = wc.TextMuted
+                    )
+                }
                 items(blocks) { block ->
                     when (block.type) {
 
@@ -279,9 +318,14 @@ fun BlockSelectionScreen(
                                 Spacer(Modifier.height(4.dp))
                                 PhotoDetailSelector(
                                     photos = photos,
-                                    onToggle = { uri -> viewModel.togglePhoto(uri) },
+                                    onToggle = { uri ->
+                                        // 해제는 알릴 게 없다. 켜는 순간만 고지 대상이다.
+                                        val selecting = photos.any { it.uri == uri && !it.isSelected }
+                                        if (selecting) withPhotoNotice { viewModel.togglePhoto(uri) }
+                                        else viewModel.togglePhoto(uri)
+                                    },
                                     onRemove = { uri -> viewModel.removeSelectablePhoto(uri) },
-                                    onAddFromGallery = { galleryLauncher.launch("image/*") }
+                                    onAddFromGallery = { withPhotoNotice { galleryLauncher.launch("image/*") } }
                                 )
                             }
                         }
@@ -704,3 +748,5 @@ internal fun blockTypeLabel(type: BlockType): String = when (type) {
     BlockType.WEATHER_TOMORROW  -> stringResource(R.string.block_type_weather_tomorrow)
     BlockType.PHOTO_LOCATION    -> stringResource(R.string.block_type_photo_location)
 }
+
+private const val KEY_PHOTO_AI_NOTICE_SEEN = "photo_ai_notice_seen"
