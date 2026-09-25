@@ -55,6 +55,8 @@ import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.feature.retrospect.BannerStatus
 import com.smu.daiary.feature.retrospect.RetrospectBanner
 import com.smu.daiary.ui.components.SkeletonBox
+import com.smu.daiary.ui.components.WaveHeader
+import com.smu.daiary.ui.components.pullUp
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.CardCornerRadius
@@ -164,12 +166,18 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(horizontal = 0.dp)
             ) {
-                TopBarSection(yearMonth = visibleMonth)
                 Column(
                     modifier = Modifier
                         .weight(1f)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    MonthHeader(
+                        yearMonth = visibleMonth,
+                        diaryCount = if (isLoading || error != null) null
+                        else diaries.count { it.date.startsWith(visibleMonth.toString()) }
+                    )
+                    // 달력 카드는 헤더 물결 위로 겹쳐 올린다
+                    Box(modifier = Modifier.pullUp(64.dp)) {
                     when {
                         error != null -> CalendarErrorPlaceholder(onRetry = onRetry)
                         isLoading -> CalendarCardSkeleton()
@@ -189,6 +197,7 @@ fun HomeScreen(
                                 selectedDate = null
                             }
                         )
+                    }
                     }
                     Column(
                         modifier = Modifier
@@ -297,32 +306,16 @@ fun HomeScreen(
     }
 }
 
+/** 연도·"N월의 기록"·이번 달 일기 수를 담은 물결 헤더. 달력 카드가 이 위로 겹쳐 올라온다 */
 @Composable
-private fun TopBarSection(yearMonth: YearMonth) {
-    val isDark = LocalDarkTheme.current
-    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .padding(horizontal = ScreenPaddingHorizontal),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Column {
-            Text(
-                text = stringResource(R.string.year_label, yearMonth.year),
-                fontSize = 12.sp,
-                color = mc.textMuted,
-                modifier = Modifier.padding(bottom = 2.dp)
-            )
-            Text(
-                text = stringResource(R.string.month_record_title, yearMonth.monthValue),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Medium,
-                color = mc.textPrimary
-            )
-        }
-    }
+private fun MonthHeader(yearMonth: YearMonth, diaryCount: Int?) {
+    WaveHeader(
+        overline = stringResource(R.string.year_label, yearMonth.year),
+        title = stringResource(R.string.month_record_title, yearMonth.monthValue),
+        subtitle = diaryCount?.let { stringResource(R.string.month_record_count, it) },
+        height = 196.dp,
+        topPadding = 28.dp
+    )
 }
 
 @Composable
@@ -356,7 +349,8 @@ private fun CalendarCard(
     Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(CardCornerRadius)
+            shape = RoundedCornerShape(CardCornerRadius),
+            shadowElevation = 4.dp
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -446,7 +440,8 @@ private fun CalendarCardSkeleton() {
     Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(CardCornerRadius)
+            shape = RoundedCornerShape(CardCornerRadius),
+            shadowElevation = 4.dp
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 SkeletonBox(
@@ -500,7 +495,8 @@ private fun CalendarErrorPlaceholder(onRetry: () -> Unit) {
     Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
         Surface(
             color = mc.calCard,
-            shape = RoundedCornerShape(CardCornerRadius)
+            shape = RoundedCornerShape(CardCornerRadius),
+            shadowElevation = 4.dp
         ) {
             Column(
                 modifier = Modifier

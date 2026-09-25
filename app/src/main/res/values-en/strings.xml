@@ -321,4 +321,5 @@
     <string name="timeline_summary_mood">Mood</string>
     <string name="timeline_summary_blocks">Entries</string>
     <string name="timeline_summary_blocks_value">%1$d</string>
+    <string name="month_record_count">%1$d entries this month</string>
 </resources>
