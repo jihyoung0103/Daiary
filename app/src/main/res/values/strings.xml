@@ -4,6 +4,9 @@
     <string name="month_year_label">%1$d년 %2$d월</string>
     <string name="nav_calendar">캘린더</string>
     <string name="nav_profile">프로필</string>
+    <string name="nav_diaries">일기</string>
+    <string name="nav_dashboard">대시보드</string>
+    <string name="nav_write">일기 쓰기</string>
 
     <!-- TODO: Firebase Console에서 Google 로그인 활성화 후 google-services.json 재다운로드 시 자동 교체됨 -->
     <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
@@ -326,4 +329,20 @@
     <string name="timeline_summary_blocks">기록</string>
     <string name="timeline_summary_blocks_value">%1$d개</string>
     <string name="month_record_count">이번 달 일기 %1$d개</string>
+
+    <!-- 대시보드 -->
+    <string name="dashboard_title">기록 대시보드</string>
+    <string name="dashboard_total">지금까지 일기 %1$d개</string>
+    <string name="dashboard_this_month">이번 달</string>
+    <string name="dashboard_streak">연속 기록</string>
+    <string name="dashboard_longest">최장 연속</string>
+    <string name="dashboard_count_value">%1$d개</string>
+    <string name="dashboard_days_value">%1$d일</string>
+    <string name="dashboard_empty">아직 쓴 일기가 없어요. 일기를 쓰면 여기에 기록이 쌓여요.</string>
+    <string name="dashboard_section_monthly">최근 6개월</string>
+    <string name="dashboard_section_emotion">기분</string>
+    <string name="dashboard_section_weather">날씨</string>
+    <string name="dashboard_section_sources">일기에 쓰인 데이터</string>
+    <string name="dashboard_month_label">%1$d월</string>
+    <string name="list_entry_date_pattern">d일 (E)</string>
 </resources>

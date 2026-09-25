@@ -5,6 +5,9 @@
     <string name="month_year_label">%1$d / %2$d</string>
     <string name="nav_calendar">Calendar</string>
     <string name="nav_profile">Profile</string>
+    <string name="nav_diaries">Diaries</string>
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_write">Write diary</string>
 
     <!-- Common -->
     <string name="back">Back</string>
@@ -322,4 +325,20 @@
     <string name="timeline_summary_blocks">Entries</string>
     <string name="timeline_summary_blocks_value">%1$d</string>
     <string name="month_record_count">%1$d entries this month</string>
+
+    <!-- 대시보드 -->
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_total">%1$d diaries so far</string>
+    <string name="dashboard_this_month">This month</string>
+    <string name="dashboard_streak">Streak</string>
+    <string name="dashboard_longest">Longest</string>
+    <string name="dashboard_count_value">%1$d</string>
+    <string name="dashboard_days_value">%1$d days</string>
+    <string name="dashboard_empty">No diaries yet. Your stats will show up here once you write one.</string>
+    <string name="dashboard_section_monthly">Last 6 months</string>
+    <string name="dashboard_section_emotion">Mood</string>
+    <string name="dashboard_section_weather">Weather</string>
+    <string name="dashboard_section_sources">Data used in diaries</string>
+    <string name="dashboard_month_label">M%1$d</string>
+    <string name="list_entry_date_pattern">EEE, MMM d</string>
 </resources>

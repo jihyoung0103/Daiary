@@ -164,7 +164,6 @@ private object ProfileColors {
 fun ProfileScreen(
     authViewModel: AuthViewModel,
     navController: NavController,
-    onBack: () -> Unit,
     isDarkMode: Boolean,
     onDarkModeChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -233,26 +232,11 @@ fun ProfileScreen(
         isLoadingPhoto = false
     }
 
+    // 시스템 바 여백은 MainActivity의 바깥 Scaffold가 이미 준다. 여기서 또 주면 하단이 한 번 더 비어 보인다
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier,
-        containerColor = bg,
-        topBar = {
-            // 제목은 아래 물결 헤더가 보여주므로 앱바는 헤더와 같은 색의 뒤로가기 줄만 남긴다
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                            contentDescription = stringResource(R.string.back),
-                            tint = White
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = waveHeaderColor()),
-                windowInsets = WindowInsets(0)
-            )
-        }
+        containerColor = bg
     ) { padding ->
         Column(
             modifier = Modifier
@@ -260,7 +244,8 @@ fun ProfileScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-        WaveHeader(title = stringResource(R.string.screen_profile), height = 140.dp)
+        // 하단 탭 화면이라 앱바(뒤로가기) 없이 헤더가 맨 위에 온다
+        WaveHeader(title = stringResource(R.string.screen_profile), height = 168.dp, topPadding = 28.dp)
         Column(
             modifier = Modifier
                 .fillMaxWidth()

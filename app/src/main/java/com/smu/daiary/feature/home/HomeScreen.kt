@@ -130,11 +130,8 @@ fun HomeScreen(
     isLoading: Boolean = false,
     error: String? = null,
     onRetry: () -> Unit = {},
-    onStartDiary: () -> Unit = {},
-    onProfileClick: () -> Unit = {},
     onDiaryClick: (DiaryEntry) -> Unit = {},
     onWriteDiary: (String) -> Unit = {},
-    onViewAllDiaries: () -> Unit = {},
     weeklyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     monthlyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     weeklyBannerSubLabel: String = "",
@@ -263,44 +260,8 @@ fun HomeScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    // 작성한 모든 일기를 일기 날짜순으로 보는 리스트 페이지 진입
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = ScreenPaddingHorizontal)
-                            .clickable(onClick = onViewAllDiaries),
-                        color = if (isDark) DewDark else Dew,
-                        shape = RoundedCornerShape(CardCornerRadius)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "모든 일기 보기",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isDark) TextPrimaryDark else Ink
-                            )
-                            Text(
-                                text = "→",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isDark) TextPrimaryDark else Ink
-                            )
-                        }
-                    }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
-                BottomNavBar(
-                    onCalendarClick = { /* 현재 탭 */ },
-                    onFabClick = onStartDiary,
-                    onProfileClick = onProfileClick
-                )
             }
         }
     }
@@ -589,92 +550,6 @@ private fun CalendarDayCell(
                         .clip(CircleShape)
                         .background(if (isSelected) mc.calCard else diaryEmotionColor)
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BottomNavBar(
-    onCalendarClick: () -> Unit,
-    onFabClick: () -> Unit,
-    onProfileClick: () -> Unit
-) {
-    val isDark = LocalDarkTheme.current
-    val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
-    Surface(
-        color = mc.surfacePhone,
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(mc.border)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = ScreenPaddingHorizontal, vertical = 16.dp)
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.clickable(onClick = onCalendarClick)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CalendarMonth,
-                        contentDescription = stringResource(R.string.nav_calendar),
-                        tint = mc.accentPurple,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.nav_calendar),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = mc.accentPurple
-                    )
-                }
-                FloatingActionButton(
-                    onClick = onFabClick,
-                    modifier = Modifier.size(50.dp),
-                    containerColor = mc.accentPurple,
-                    contentColor = mc.calCard,
-                    shape = CircleShape,
-                    elevation = FloatingActionButtonDefaults.elevation(
-                        defaultElevation = 8.dp,
-                        pressedElevation = 8.dp
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.clickable(onClick = onProfileClick)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = stringResource(R.string.nav_profile),
-                        tint = mc.navInactive,
-                        modifier = Modifier.size(22.dp)
-                    )
-                    Text(
-                        text = stringResource(R.string.nav_profile),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = mc.navInactive
-                    )
-                }
             }
         }
     }
