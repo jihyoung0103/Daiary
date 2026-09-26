@@ -11,6 +11,7 @@ import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.data.repository.DailyDataRepository
 import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import com.smu.daiary.data.repository.DiaryRepository
 import com.smu.daiary.data.model.CalendarEvent
@@ -1773,6 +1774,30 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val to = from + offset
             if (from < 0 || to !in draft.blocks.indices) return@update draft
             draft.copy(blocks = draft.blocks.toMutableList().apply { Collections.swap(this, from, to) })
+        }
+    }
+
+    private var rotateJob: Job? = null
+
+    /**
+     * 사진 블록의 사진을 시계 방향 90° 돌린다. 방향 정보 없이 올라가 누워 버린 옛 사진을 고치는 용도.
+     * 돌린 사진은 캐시 파일(로컬 URI)로 바꿔 두고, 저장할 때 기존 업로드 경로가 새로 올린다.
+     * 파일 작업이 끝나기 전 연타는 무시한다(같은 원본을 두 번 돌려 한 번만 반영되는 것 방지).
+     */
+    fun rotateBlockPhoto(blockId: String) {
+        if (rotateJob?.isActive == true) return
+        val source = _draft.value?.blocks?.firstOrNull { it.id == blockId }?.imageUri ?: return
+        rotateJob = viewModelScope.launch {
+            val rotated = runCatching { photoStorageDataSource.rotateToCacheFile(source) }
+                .onFailure { Log.w(TAG, "사진 회전 실패: $source", it) }
+                .getOrNull() ?: return@launch
+            _draft.update { d ->
+                d?.copy(
+                    blocks = d.blocks.map { if (it.id == blockId) it.copy(imageUri = rotated) else it },
+                    // 첨부 목록에도 같은 사진이 있으면 함께 바꿔야 저장 후 누운 옛 사진이 첨부로 남지 않는다
+                    photos = d.photos.map { if (it == source) rotated else it }
+                )
+            }
         }
     }
 

@@ -348,4 +348,5 @@
     <string name="dashboard_section_sources">일기에 쓰인 데이터</string>
     <string name="dashboard_month_label">%1$d월</string>
     <string name="list_entry_date_pattern">d일 (E)</string>
+    <string name="block_rotate_photo">사진 회전</string>
 </resources>

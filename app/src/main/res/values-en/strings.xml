@@ -344,4 +344,5 @@
     <string name="dashboard_section_sources">Data used in diaries</string>
     <string name="dashboard_month_label">M%1$d</string>
     <string name="list_entry_date_pattern">EEE, MMM d</string>
+    <string name="block_rotate_photo">Rotate photo</string>
 </resources>
