@@ -46,6 +46,27 @@ class PhotoStorageDataSource(private val context: Context) {
         }
 
     /**
+     * 사진을 시계 방향 90° 돌려 캐시 폴더에 JPEG로 저장하고 그 file:// URI를 돌려준다.
+     * 이미 업로드된 사진(https)은 받아서 돌리고, 기기 사진은 [compressToJpeg]로 방향·크기를 먼저 맞춘다.
+     * 돌린 파일은 로컬 URI라 저장할 때 [uploadDiaryPhoto]가 새로 올린다. 옛 Storage 파일은 그대로 남는다.
+     */
+    suspend fun rotateToCacheFile(source: String): String = withContext(Dispatchers.IO) {
+        val bytes = if (source.startsWith("http")) java.net.URL(source).openStream().use { it.readBytes() }
+        else compressToJpeg(Uri.parse(source))
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            ?: throw IllegalStateException("이미지를 읽을 수 없습니다: $source")
+        val rotated = Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height, Matrix().apply { postRotate(90f) }, true
+        )
+        bitmap.recycle()
+        val dir = java.io.File(context.cacheDir, "rotated").apply { mkdirs() }
+        val file = java.io.File(dir, "${UUID.randomUUID()}.jpg")
+        file.outputStream().use { rotated.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+        rotated.recycle()
+        Uri.fromFile(file).toString()
+    }
+
+    /**
      * URI의 이미지를 maxDimension 이내로 축소하고 JPEG 바이트로 압축한다.
      *
      * 다시 인코딩하므로 EXIF(GPS 좌표·촬영 기기·시각)가 전부 빠진다. 업로드뿐 아니라
