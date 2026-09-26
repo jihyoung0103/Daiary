@@ -26,6 +26,9 @@
     <!-- HomeScreen -->
     <string name="year_label">%1$d</string>
     <string name="month_record_title">Month %1$d Record</string>
+    <string name="prev_month">Previous month</string>
+    <string name="next_month">Next month</string>
+    <string name="calendar_today">Today</string>
     <string name="recent_record">Recent</string>
     <string name="no_diary_on_date">No diary for this day</string>
     <string name="no_diaries_yet">No diaries written yet</string>

@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -47,7 +50,9 @@ fun WaveHeader(
     overline: String? = null,
     subtitle: String? = null,
     /** 위에 앱바가 없는 화면(홈)은 제목이 상태바에 붙지 않게 띄운다 */
-    topPadding: Dp = 0.dp
+    topPadding: Dp = 0.dp,
+    /** 제목 줄 오른쪽에 붙는 요소(홈의 달 이동 버튼 등) */
+    titleTrailing: (@Composable RowScope.() -> Unit)? = null
 ) {
     val bg = waveHeaderColor()
     val wave = if (LocalDarkTheme.current) Color(0xFF3A6B52) else Fern
@@ -78,21 +83,25 @@ fun WaveHeader(
                 drawPath(front, wave)
                 drawPath(back, Black.copy(alpha = 0.15f))
             }
-            .padding(start = 24.dp, end = 24.dp, top = topPadding)
+            .padding(start = 24.dp, end = if (titleTrailing != null) 12.dp else 24.dp, top = topPadding)
     ) {
         Column {
             if (overline != null) {
                 Text(text = overline, fontSize = 13.sp, color = White.copy(alpha = 0.85f))
                 Spacer(modifier = Modifier.height(2.dp))
             }
-            Text(
-                text = title,
-                fontFamily = FontFamily.Serif,
-                fontWeight = FontWeight.Bold,
-                fontSize = 28.sp,
-                lineHeight = 34.sp,
-                color = White
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 28.sp,
+                    lineHeight = 34.sp,
+                    color = White,
+                    modifier = Modifier.weight(1f)
+                )
+                titleTrailing?.invoke(this)
+            }
             if (subtitle != null) {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(text = subtitle, fontSize = 13.sp, color = White.copy(alpha = 0.85f))

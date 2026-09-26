@@ -28,6 +28,9 @@
     <!-- HomeScreen -->
     <string name="year_label">%1$d년</string>
     <string name="month_record_title">%1$d월의 기록</string>
+    <string name="prev_month">이전 달</string>
+    <string name="next_month">다음 달</string>
+    <string name="calendar_today">오늘</string>
     <string name="recent_record">최근 기록</string>
     <string name="no_diary_on_date">이 날의 일기가 없어요</string>
     <string name="no_diaries_yet">아직 작성된 일기가 없어요</string>
