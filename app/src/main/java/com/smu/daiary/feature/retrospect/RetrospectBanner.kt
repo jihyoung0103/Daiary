@@ -1,6 +1,8 @@
 package com.smu.daiary.feature.retrospect
 
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.res.stringResource
+import com.smu.daiary.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,24 +51,26 @@ fun RetrospectBanner(
     val textColor = if (creatable) White else if (isDark) TextPrimaryDark else Ink
 
     Surface(
-        modifier = modifier.clickable(enabled = status != BannerStatus.INSUFFICIENT, onClick = onClick),
+        modifier = modifier.clickable(enabled = status != BannerStatus.INSUFFICIENT && status != BannerStatus.LOADING, onClick = onClick),
         color = background,
         shape = RoundedCornerShape(CardCornerRadius)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
             Text(
-                text = if (status == BannerStatus.INSUFFICIENT) "일기를 더 작성하면 볼 수 있어요" else subLabel,
+                // 반폭 카드라 360dp에서 글자 폭이 123dp뿐이다. 문구는 그 안에 한 줄로 들어가게 짧게 둔다
+                text = if (status == BannerStatus.INSUFFICIENT) stringResource(R.string.retrospect_banner_insufficient) else subLabel,
                 fontSize = 12.sp,
                 // 초록 배경 위 흰 글씨는 0.7이면 대비가 모자라 더 진하게
                 color = textColor.copy(alpha = if (creatable) 0.9f else 0.7f),
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             // 옆 배너와 높이를 맞출 때 남는 공간은 버튼 줄 위로 몰아 버튼이 바닥에 붙게 한다
             Spacer(modifier = Modifier.height(8.dp))
             Spacer(modifier = Modifier.weight(1f))
-            if (status != BannerStatus.INSUFFICIENT) {
+            // 판정 전(LOADING)엔 생성/보기 버튼 줄을 숨긴다
+            if (status != BannerStatus.INSUFFICIENT && status != BannerStatus.LOADING) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -84,9 +88,9 @@ fun RetrospectBanner(
                     )
                     Text(
                         text = when (status) {
-                            BannerStatus.SAVED -> "보기→"
-                            BannerStatus.UPDATABLE -> "업데이트→"
-                            else -> "생성→"
+                            BannerStatus.SAVED -> stringResource(R.string.banner_action_view)
+                            BannerStatus.UPDATABLE -> stringResource(R.string.banner_action_update)
+                            else -> stringResource(R.string.banner_action_create)
                         },
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,

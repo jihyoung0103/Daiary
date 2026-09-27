@@ -37,10 +37,10 @@ import com.smu.daiary.feature.write.screen.blockTypeLabel
 import com.smu.daiary.feature.write.screen.localizedEmotionLabel
 import com.smu.daiary.feature.write.screen.localizedWeatherLabel
 import com.smu.daiary.ui.components.WaveHeader
-import com.smu.daiary.ui.components.pullUp
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.CardCornerRadius
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.Ivory
 import com.smu.daiary.ui.theme.Linen
@@ -88,7 +88,6 @@ fun DashboardScreen(
         WaveHeader(
             title = stringResource(R.string.dashboard_title),
             subtitle = if (isLoading) null else stringResource(R.string.dashboard_total, stats.total),
-            height = 196.dp,
             topPadding = 28.dp
         )
 
@@ -100,16 +99,15 @@ fun DashboardScreen(
         }
 
         Column(
-            modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal),
+            modifier = Modifier.padding(start = ScreenPaddingHorizontal, end = ScreenPaddingHorizontal, top = ScreenPaddingVertical),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // 핵심 수치는 차트가 아니라 숫자 타일로
             Surface(
-                modifier = Modifier.fillMaxWidth().pullUp(64.dp),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
                 color = c.card,
-                border = BorderStroke(0.5.dp, c.border),
-                shadowElevation = 4.dp
+                border = BorderStroke(0.5.dp, c.border)
             ) {
                 Row(Modifier.padding(vertical = 18.dp).height(IntrinsicSize.Min)) {
                     StatTile(stringResource(R.string.dashboard_this_month), stringResource(R.string.dashboard_count_value, stats.thisMonth), c)

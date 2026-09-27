@@ -1,8 +1,5 @@
 package com.smu.daiary.feature.auth
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import androidx.core.app.NotificationCompat
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
@@ -49,16 +46,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,27 +65,25 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.core.os.LocaleListCompat
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
-import com.smu.daiary.BuildConfig
 import com.smu.daiary.R
 import com.smu.daiary.ui.components.WaveHeader
-import com.smu.daiary.ui.components.pullUp
 import com.smu.daiary.ui.components.waveHeaderColor
 import com.smu.daiary.feature.notification.cancelNotification
 import com.smu.daiary.feature.notification.scheduleNotification
-import com.smu.daiary.feature.retrospect.RetrospectDebugSeeder
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.CardCornerRadius
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Error
@@ -112,40 +104,6 @@ import com.smu.daiary.ui.theme.White
 private fun isNotificationListenerEnabled(context: Context): Boolean {
     val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
     return flat?.contains(context.packageName) == true
-}
-
-private fun showTestPaymentNotification(
-    context: Context,
-    merchant: String,
-    amount: Int
-) {
-    val channelId = "test_payment_channel"
-
-    val manager =
-        context.getSystemService(Context.NOTIFICATION_SERVICE)
-                as NotificationManager
-
-    val channel =
-        NotificationChannel(
-            channelId,
-            "테스트 결제 알림",
-            NotificationManager.IMPORTANCE_HIGH
-        )
-
-    manager.createNotificationChannel(channel)
-
-    val notification =
-        NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("[테스트 결제]")
-            .setContentText("$merchant ${String.format("%,d", amount)}원 결제")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build()
-
-    manager.notify(
-        System.currentTimeMillis().toInt(),
-        notification
-    )
 }
 
 private object ProfileColors {
@@ -212,8 +170,6 @@ fun ProfileScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showNotificationListenerDialog by remember { mutableStateOf(false) }
-    var isSeedingRetrospect by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
 
     var customPhotoUrl by remember { mutableStateOf<String?>(null) }
     var firestoreDisplayName by remember { mutableStateOf("") }
@@ -245,15 +201,15 @@ fun ProfileScreen(
                 .verticalScroll(rememberScrollState())
         ) {
         // 하단 탭 화면이라 앱바(뒤로가기) 없이 헤더가 맨 위에 온다
-        WaveHeader(title = stringResource(R.string.screen_profile), height = 168.dp, topPadding = 28.dp)
+        WaveHeader(title = stringResource(R.string.screen_profile), topPadding = 28.dp)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = ScreenPaddingHorizontal),
+                .padding(start = ScreenPaddingHorizontal, end = ScreenPaddingHorizontal, top = ScreenPaddingVertical),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── 계정 섹션: 헤더 물결 위로 겹쳐 올린다 ──────────────────────────
-            ProfileCard(modifier = Modifier.pullUp(56.dp), elevation = 4.dp) {
+            // ── 계정 섹션: 헤더 아래 첫 카드 ──────────────────────────
+            ProfileCard {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -281,6 +237,8 @@ fun ProfileScreen(
                                 AsyncImage(
                                     model = customPhotoUrl,
                                     contentDescription = stringResource(R.string.profile_photo_desc),
+                                    // 원을 꽉 채우도록 가운데 기준으로 잘라 표시(기본 Fit은 사진 전체가 들어가 빈 공간이 생긴다)
+                                    contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .clip(CircleShape)
@@ -404,36 +362,6 @@ fun ProfileScreen(
                         labelColor = dangerColor,
                         onClick = { showDeleteDialog = true }
                     )
-                }
-            }
-
-            // ── 개발자 옵션 섹션 (디버그 빌드 전용) ──────────────────────────────
-            if (BuildConfig.DEBUG) {
-                ProfileSectionLabel("개발자 옵션")
-                ProfileCard {
-                    Column {
-                        SimpleRow(
-                            label = if (isSeedingRetrospect) "생성 중..." else "회고 테스트 데이터 생성 (최근 10일)",
-                            onClick = {
-                                val uid = currentUser?.uid
-                                if (uid == null || isSeedingRetrospect) return@SimpleRow
-                                isSeedingRetrospect = true
-                                coroutineScope.launch {
-                                    runCatching { RetrospectDebugSeeder.seedTestData(uid) }
-                                    isSeedingRetrospect = false
-                                    Toast.makeText(context, "테스트 일기 10일치를 생성했어요", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        )
-                        ProfileDivider()
-                        SimpleRow(
-                            label = "테스트 결제 알림 보내기",
-                            onClick = {
-                                showTestPaymentNotification(context, "스타벅스", 4500)
-                                Toast.makeText(context, "테스트 결제 알림을 보냈어요", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    }
                 }
             }
 
@@ -727,13 +655,11 @@ fun ProfileScreen(
 @Composable
 private fun ProfileCard(
     modifier: Modifier = Modifier,
-    elevation: Dp = 0.dp,
     content: @Composable () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
     Surface(
         modifier = modifier,
-        shadowElevation = elevation,
         shape = RoundedCornerShape(CardCornerRadius),
         color = if (isDark) SurfaceDark else ProfileColors.CardBg,
         border = BorderStroke(0.5.dp, if (isDark) BorderDark else ProfileColors.Border)

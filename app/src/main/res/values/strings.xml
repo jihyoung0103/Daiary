@@ -171,6 +171,11 @@
     <string name="emotion_calm">평온</string>
     <string name="emotion_angry">화남</string>
     <string name="emotion_excited">설렘</string>
+    <string name="emotion_other">기타</string>
+    <string name="retrospect_banner_insufficient">일기가 더 필요해요</string>
+    <string name="banner_action_view">보기</string>
+    <string name="banner_action_create">생성</string>
+    <string name="banner_action_update">업데이트</string>
 
     <!-- 블록 타입 라벨 -->
     <string name="block_type_payment">결제 내역</string>
@@ -196,7 +201,8 @@
     <string name="block_weather_content">%1$s · %2$s %3$d°C · 습도 %4$d%%</string>
     <string name="block_weather_tomorrow_content">%1$s %2$d°C · 습도 %3$d%%</string>
     <string name="block_weather_unavailable">날씨 정보를 가져올 수 없습니다</string>
-    <string name="block_calendar_empty">오늘 등록된 일정이 없습니다</string>
+    <string name="block_calendar_empty">등록된 일정이 없습니다</string>
+    <string name="block_calendar_empty_today">오늘 등록된 일정이 없습니다</string>
     <string name="block_calendar_unavailable">캘린더 정보를 가져올 수 없습니다</string>
     <string name="block_photo_count">오늘 찍은 사진 %1$d장</string>
     <string name="block_photo_selection_content">오늘 찍은 사진 %1$d장 · 선택 %2$d장</string>
@@ -312,7 +318,9 @@
     <string name="block_move_down">아래로 이동</string>
     <string name="question_emotion">오늘 기분은 어땠나요?</string>
     <!-- 외부 AI 전송 고지 -->
-    <string name="block_selection_ai_notice">선택한 항목만 AI 일기 작성에 쓰여요. 선택하지 않은 정보는 AI로 보내지 않아요.</string>
+    <string name="block_selection_ai_notice">선택한 항목만 AI 일기 작성에 쓰여요.\n선택하지 않은 정보는 AI로 보내지 않아요.</string>
+    <string name="block_selection_info_title">AI에 보내는 정보</string>
+    <string name="block_selection_info_desc">안내 보기</string>
     <string name="photo_ai_notice_title">사진은 AI 분석을 위해 전송돼요</string>
     <string name="photo_ai_notice_message">선택한 사진은 일기 작성을 위해 AI(Anthropic, 미국)로 전송돼 분석돼요.\n\n위치·기기 정보(EXIF)는 지우고 보내며, 선택하지 않은 사진은 전송되지 않아요.</string>
     <string name="photo_ai_notice_confirm">알겠어요</string>

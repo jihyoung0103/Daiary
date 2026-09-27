@@ -2,8 +2,8 @@ package com.smu.daiary.feature.retrospect
 
 import com.smu.daiary.data.model.RetrospectReport
 
-/** 배너 노출 상태. UPDATABLE = 저장된 회고가 있지만 그 뒤 기간 내 일기 수가 달라져 다시 만들 수 있음 */
-enum class BannerStatus { NOT_CREATED, SAVED, INSUFFICIENT, UPDATABLE }
+/** 배너 노출 상태. LOADING = 판정 전(앱 시작 직후). UPDATABLE = 저장된 회고가 있지만 그 뒤 기간 내 일기 수가 달라져 다시 만들 수 있음 */
+enum class BannerStatus { LOADING, NOT_CREATED, SAVED, INSUFFICIENT, UPDATABLE }
 
 /** 회고를 만들 수 있는 최소 일기 수 */
 internal const val MIN_DIARY_COUNT = 3

@@ -56,3 +56,5 @@ val Black = Color(0xFF000000)
 // Error / 경고
 val Error = Color(0xFFD32F2F)
 val ErrorDark = Color(0xFFC85C56)
+/** 다크 배경 위 에러 "글자"용. ErrorDark는 #121714 위에서 4.42:1이라 부족하다(에러 스낵바 배경용으로는 유지) */
+val ErrorTextDark = Color(0xFFE57373)
