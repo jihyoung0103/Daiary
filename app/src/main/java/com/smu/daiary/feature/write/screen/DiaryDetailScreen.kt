@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
@@ -73,7 +75,7 @@ import com.smu.daiary.ui.theme.Black
 import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Error
-import com.smu.daiary.ui.theme.ErrorDark
+import com.smu.daiary.ui.theme.ErrorTextDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
@@ -85,6 +87,13 @@ import com.smu.daiary.ui.theme.emotionColor
 import com.smu.daiary.ui.theme.weatherColor
 import com.smu.daiary.util.DiaryDateUtil
 import java.time.LocalDate
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.ui.platform.LocalConfiguration
+import java.time.format.DateTimeFormatter
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 
 private val weatherIcons: Map<String, ImageVector> = mapOf(
@@ -103,15 +112,6 @@ private val emotionIcons: Map<String, ImageVector> = mapOf(
     "설렘" to Icons.Outlined.FavoriteBorder
 )
 
-@Composable
-private fun formatDate(raw: String): String {
-    val template = stringResource(R.string.date_format_full)
-    return runCatching {
-        val d = LocalDate.parse(raw)
-        String.format(template, d.year, d.monthValue, d.dayOfMonth)
-    }.getOrDefault(raw)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiaryDetailScreen(
@@ -128,7 +128,8 @@ fun DiaryDetailScreen(
     val wc = if (isDark) WriteColorsDark else WriteColors
     val dialogBg = if (isDark) SurfaceDark else White
     val dialogText = if (isDark) TextPrimaryDark else Ink
-    val errorColor = if (isDark) ErrorDark else Error
+    // 삭제 버튼 + 삭제 확인 다이얼로그 버튼. 다크는 ErrorDark(4.42:1) 대신 글자용 ErrorTextDark
+    val errorColor = if (isDark) ErrorTextDark else Error
 
     // 인접 날짜를 좌우 페이지로 넘기는 무한 페이저. 중앙(startIndex)을 initialDate로 매핑.
     val startIndex = 50_000
@@ -136,6 +137,8 @@ fun DiaryDetailScreen(
     fun dateOf(page: Int): LocalDate = initialDate.plusDays((page - startIndex).toLong())
     val currentDate = dateOf(pagerState.currentPage)
     val currentEntry = diaries.firstOrNull { it.date == currentDate.toString() }
+    val locale = LocalConfiguration.current.locales[0]
+    val datePattern = stringResource(R.string.timeline_header_date_pattern)
 
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
@@ -165,17 +168,22 @@ fun DiaryDetailScreen(
 
     // isDeleting 오버레이와 사진 확대 Dialog가 TopAppBar까지 덮도록 Scaffold의 형제로 겹쳐 쌓는다.
     Box(modifier = Modifier.fillMaxSize()) {
+    // 시스템 바 여백은 MainActivity의 바깥 Scaffold가 이미 준다. 여기서 또 주면 하단이 한 번 더 비어 보인다
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier,
         containerColor = wc.Bg,
         topBar = {
+            // 날짜는 뒤로가기 바로 옆. 다른 화면 앱바 제목과 같은 18sp Medium
             TopAppBar(
                 title = {
                     Text(
-                        text = formatDate(currentDate.toString()),
+                        text = currentDate.format(DateTimeFormatter.ofPattern(datePattern, locale)),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
-                        color = wc.TextPrimary
+                        color = wc.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 navigationIcon = {
@@ -190,17 +198,6 @@ fun DiaryDetailScreen(
                 actions = {
                     if (currentEntry != null) {
                         TextButton(
-                            onClick = { showDeleteDialog = true },
-                            enabled = !isDeleting
-                        ) {
-                            Text(
-                                text = stringResource(R.string.btn_delete),
-                                color = errorColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
-                        TextButton(
                             onClick = { onEdit(currentEntry) },
                             enabled = !isDeleting
                         ) {
@@ -211,8 +208,27 @@ fun DiaryDetailScreen(
                                 fontSize = 16.sp
                             )
                         }
+                        TextButton(
+                            onClick = { showDeleteDialog = true },
+                            enabled = !isDeleting
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                tint = errorColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.btn_delete),
+                                color = errorColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 },
+                // 다른 상단바(블록 선택·초안 미리보기 등)와 같은 아이보리 배경. scrollBehavior가 없어 그림자는 0
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
@@ -290,7 +306,7 @@ fun DiaryDetailScreen(
     } // Box
 }
 
-/** 페이저 한 페이지: 특정 날짜의 일기 내용, 없으면 빈 상태(생성하기). */
+/** 페이저 한 페이지: 하루 요약 + 타임라인(날짜는 앱바 제목). 일기가 없으면 빈 상태(생성하기). */
 @Composable
 private fun DiaryDayContent(
     date: LocalDate,
@@ -301,115 +317,149 @@ private fun DiaryDayContent(
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
 
-    if (entry == null) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(text = stringResource(R.string.empty_diary_placeholder), fontSize = 15.sp, color = wc.TextMuted)
-            if (!date.isAfter(DiaryDateUtil.diaryDate())) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = onWrite,
-                    colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
-                ) {
-                    Text(text = stringResource(R.string.btn_create_diary), color = White, fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-        return
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(bottom = ScreenPaddingVertical)
     ) {
-        if (entry.weather.isNotEmpty() || entry.emotion.isNotEmpty() ||
-            entry.customWeatherText.isNotEmpty() || entry.customEmotionText.isNotEmpty()) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+        if (entry == null) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 64.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val weatherIcon = weatherIcons[entry.weather]
-                when {
-                    weatherIcon != null -> DetailMetaChip(
-                        icon = weatherIcon,
-                        label = localizedWeatherLabel(entry.weather),
-                        tint = weatherColor(entry.weather, isDark)
-                    )
-                    entry.customWeatherText.isNotBlank() ->
-                        DetailMetaChip(icon = Icons.Outlined.WbSunny, label = entry.customWeatherText, tint = wc.TextMuted)
+                Text(text = stringResource(R.string.empty_diary_placeholder), fontSize = 15.sp, color = wc.TextMuted)
+                if (!date.isAfter(DiaryDateUtil.diaryDate())) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = onWrite,
+                        colors = ButtonDefaults.buttonColors(containerColor = wc.Accent)
+                    ) {
+                        Text(text = stringResource(R.string.btn_create_diary), color = White, fontWeight = FontWeight.Medium)
+                    }
                 }
-                val emotionIcon = emotionIcons[entry.emotion]
-                when {
-                    emotionIcon != null ->
-                        DetailMetaChip(icon = emotionIcon, label = localizedEmotionLabel(entry.emotion), tint = emotionColor(entry.emotion, isDark))
-                    entry.customEmotionText.isNotBlank() ->
-                        DetailMetaChip(icon = Icons.Outlined.SentimentNeutral, label = entry.customEmotionText, tint = wc.TextMuted)
+            }
+            return@Column
+        }
+
+        DaySummaryCard(
+            entry = entry,
+            modifier = Modifier
+                .padding(top = ScreenPaddingVertical)
+                .padding(horizontal = ScreenPaddingHorizontal)
+        )
+
+        Column(
+            modifier = Modifier.padding(start = ScreenPaddingHorizontal, end = ScreenPaddingHorizontal, top = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            DiaryTimeline(
+                blocks = entry.blocks,
+                fallbackText = entry.content,
+                onPhotoClick = onImageClick
+            )
+
+            if (entry.photos.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.attached_photos),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = wc.TextMuted
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(entry.photos) { uri ->
+                        PhotoThumbnail(
+                            model = uri,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clickable { onImageClick(uri) },
+                            shape = RoundedCornerShape(CardCornerRadius),
+                            errorIconSize = 32.dp
+                        )
+                    }
                 }
             }
         }
+    }
+}
 
-        DiaryBodyBlocks(
-            blocks = entry.blocks,
-            fallbackText = entry.content,
-            onPhotoClick = onImageClick
-        )
+/** 헤더 아래 하루 요약: 날씨 · 기분 · 블록 수 */
+@Composable
+private fun DaySummaryCard(entry: DiaryEntry, modifier: Modifier = Modifier) {
+    val isDark = LocalDarkTheme.current
+    val wc = if (isDark) WriteColorsDark else WriteColors
 
-        if (entry.photos.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.attached_photos),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = wc.TextMuted
+    val weatherIcon = weatherIcons[entry.weather]
+    val weatherLabel = when {
+        weatherIcon != null -> localizedWeatherLabel(entry.weather)
+        entry.customWeatherText.isNotBlank() -> entry.customWeatherText
+        else -> "-"
+    }
+    val emotionIcon = emotionIcons[entry.emotion]
+    val emotionLabel = when {
+        emotionIcon != null -> localizedEmotionLabel(entry.emotion)
+        entry.customEmotionText.isNotBlank() -> entry.customEmotionText
+        else -> "-"
+    }
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = if (isDark) wc.SurfaceBg else White,
+        border = BorderStroke(0.5.dp, wc.Border)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(vertical = 16.dp)
+                .height(IntrinsicSize.Min),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SummaryCell(
+                icon = weatherIcon ?: Icons.Outlined.WbSunny,
+                tint = if (weatherIcon != null) weatherColor(entry.weather, isDark) else wc.TextMuted,
+                value = weatherLabel,
+                caption = stringResource(R.string.timeline_summary_weather)
             )
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(entry.photos) { uri ->
-                    PhotoThumbnail(
-                        model = uri,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clickable { onImageClick(uri) },
-                        shape = RoundedCornerShape(CardCornerRadius),
-                        errorIconSize = 32.dp
-                    )
-                }
-            }
+            VerticalDivider(color = wc.Border)
+            SummaryCell(
+                icon = emotionIcon ?: Icons.Outlined.SentimentNeutral,
+                tint = if (emotionIcon != null) emotionColor(entry.emotion, isDark) else wc.TextMuted,
+                value = emotionLabel,
+                caption = stringResource(R.string.timeline_summary_mood)
+            )
+            VerticalDivider(color = wc.Border)
+            SummaryCell(
+                icon = Icons.Outlined.Timeline,
+                tint = wc.Accent,
+                value = stringResource(R.string.timeline_summary_blocks_value, entry.blocks.size.coerceAtLeast(1)),
+                caption = stringResource(R.string.timeline_summary_blocks)
+            )
         }
     }
 }
 
 @Composable
-private fun DetailMetaChip(icon: ImageVector, label: String, tint: Color? = null) {
-    val isDark = LocalDarkTheme.current
-    val wc = if (isDark) WriteColorsDark else WriteColors
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+private fun RowScope.SummaryCell(icon: ImageVector, tint: Color, value: String, caption: String) {
+    val wc = if (LocalDarkTheme.current) WriteColorsDark else WriteColors
+    Column(
+        modifier = Modifier
+            .weight(1f)
+            .padding(horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = tint ?: wc.Accent,
-            modifier = Modifier.size(16.dp)
-        )
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = wc.TextMuted
-        )
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+        Text(text = value, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = wc.TextPrimary, maxLines = 1)
+        Text(text = caption, fontSize = 11.sp, color = wc.TextMuted)
     }
 }
+
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @OptIn(ExperimentalMaterial3Api::class)

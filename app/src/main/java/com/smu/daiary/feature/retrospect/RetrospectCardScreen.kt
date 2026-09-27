@@ -511,6 +511,11 @@ fun SummaryContent(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("${report.periodLabel} 요약", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor)
+        // 기간 중에 만든 회고는 그날까지의 기록이라, 언제 기준인지 밝혀 둔다(새 일기가 생기면 홈에서 업데이트)
+        val basis = basisLabelOf(report)
+        if (basis.isNotEmpty()) {
+            Text(basis, fontSize = 12.sp, color = textColor.copy(alpha = 0.7f))
+        }
         Spacer(Modifier.height(8.dp))
         val topEmotion = report.emotionDistribution.entries.maxByOrNull { it.value }
         if (topEmotion != null) {

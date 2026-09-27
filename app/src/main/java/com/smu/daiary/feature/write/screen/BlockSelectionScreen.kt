@@ -1,5 +1,7 @@
 package com.smu.daiary.feature.write.screen
 
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
 import com.smu.daiary.feature.write.WriteViewModel
 import com.smu.daiary.feature.write.model.*
 
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
@@ -46,6 +49,7 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.Umbrella
 import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -117,6 +121,67 @@ fun BlockSelectionScreen(
     var photoExpanded by remember { mutableStateOf(false) }
     var paymentExpanded by remember { mutableStateOf(false) }
 
+    // 사진은 내용(픽셀)이 그대로 외부 AI로 가는 유일한 데이터라, 처음 고를 때 한 번 알린다.
+    // 확인하면 보류해 둔 동작(선택·갤러리 열기)을 이어서 실행한다.
+    val context = LocalContext.current
+    val settings = remember { context.getSharedPreferences("daiary_settings", Context.MODE_PRIVATE) }
+    var pendingPhotoAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun withPhotoNotice(action: () -> Unit) {
+        if (settings.getBoolean(KEY_PHOTO_AI_NOTICE_SEEN, false)) action() else pendingPhotoAction = action
+    }
+    // 상단바 (i) 안내 팝업. 사진 AI 고지 다이얼로그와 같은 형식(제목·본문·확인)
+    var showAiNotice by remember { mutableStateOf(false) }
+    if (showAiNotice) {
+        AlertDialog(
+            onDismissRequest = { showAiNotice = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.block_selection_info_title),
+                        color = wc.TextPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { showAiNotice = false }, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = stringResource(R.string.close_desc),
+                            tint = wc.TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            },
+            text = { Text(stringResource(R.string.block_selection_ai_notice), color = wc.TextPrimary) },
+            confirmButton = {
+                TextButton(onClick = { showAiNotice = false }) {
+                    Text(stringResource(R.string.confirm), color = wc.Accent)
+                }
+            },
+            containerColor = wc.SurfaceBg
+        )
+    }
+
+    pendingPhotoAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { pendingPhotoAction = null },
+            title = { Text(stringResource(R.string.photo_ai_notice_title), color = wc.TextPrimary) },
+            text = { Text(stringResource(R.string.photo_ai_notice_message), color = wc.TextPrimary) },
+            confirmButton = {
+                TextButton(onClick = {
+                    settings.edit().putBoolean(KEY_PHOTO_AI_NOTICE_SEEN, true).apply()
+                    pendingPhotoAction = null
+                    action()
+                }) { Text(stringResource(R.string.photo_ai_notice_confirm), color = wc.Accent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingPhotoAction = null }) {
+                    Text(stringResource(R.string.cancel), color = wc.TextMuted)
+                }
+            },
+            containerColor = wc.SurfaceBg
+        )
+    }
+
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris: List<Uri> ->
@@ -134,7 +199,9 @@ fun BlockSelectionScreen(
         }
     }
 
+    // 시스템 바 여백은 MainActivity의 바깥 Scaffold가 이미 준다. 여기서 또 주면 하단이 한 번 더 비어 보인다
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier,
         containerColor = wc.Bg,
         snackbarHost = {
@@ -145,12 +212,22 @@ fun BlockSelectionScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = stringResource(R.string.screen_block_selection),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = wc.TextPrimary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.screen_block_selection),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = wc.TextPrimary
+                        )
+                        IconButton(onClick = { showAiNotice = true }, modifier = Modifier.size(36.dp)) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = stringResource(R.string.block_selection_info_desc),
+                                tint = wc.TextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -279,9 +356,14 @@ fun BlockSelectionScreen(
                                 Spacer(Modifier.height(4.dp))
                                 PhotoDetailSelector(
                                     photos = photos,
-                                    onToggle = { uri -> viewModel.togglePhoto(uri) },
+                                    onToggle = { uri ->
+                                        // 해제는 알릴 게 없다. 켜는 순간만 고지 대상이다.
+                                        val selecting = photos.any { it.uri == uri && !it.isSelected }
+                                        if (selecting) withPhotoNotice { viewModel.togglePhoto(uri) }
+                                        else viewModel.togglePhoto(uri)
+                                    },
                                     onRemove = { uri -> viewModel.removeSelectablePhoto(uri) },
-                                    onAddFromGallery = { galleryLauncher.launch("image/*") }
+                                    onAddFromGallery = { withPhotoNotice { galleryLauncher.launch("image/*") } }
                                 )
                             }
                         }
@@ -694,7 +776,7 @@ private fun weatherIconFor(content: String): ImageVector {
 }
 
 @Composable
-private fun blockTypeLabel(type: BlockType): String = when (type) {
+internal fun blockTypeLabel(type: BlockType): String = when (type) {
     BlockType.PAYMENT           -> stringResource(R.string.block_type_payment)
     BlockType.PHOTO             -> stringResource(R.string.block_type_photo)
     BlockType.CALENDAR          -> stringResource(R.string.block_type_calendar)
@@ -704,3 +786,5 @@ private fun blockTypeLabel(type: BlockType): String = when (type) {
     BlockType.WEATHER_TOMORROW  -> stringResource(R.string.block_type_weather_tomorrow)
     BlockType.PHOTO_LOCATION    -> stringResource(R.string.block_type_photo_location)
 }
+
+private const val KEY_PHOTO_AI_NOTICE_SEEN = "photo_ai_notice_seen"

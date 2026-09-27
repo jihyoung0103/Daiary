@@ -41,6 +41,28 @@ object PaymentParsing {
         return merchant to amount
     }
 
+    /**
+     * 알림에 적힌 "9/22 21:18" 같은 월·일·시·분을 timestamp로 바꾼다.
+     *
+     * 카드 알림에는 연도가 없어 수신 시점의 연도를 쓴다. 다만 연말/연초 경계에서
+     * (1/1에 도착한 12/31 결제) 미래로 계산되므로 그때는 작년으로 보정한다.
+     * 시계 오차를 감안해 하루치 여유를 둔다.
+     */
+    fun timestampOf(month: Int, day: Int, hour: Int, minute: Int): Long {
+        val cal = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.MONTH, month - 1)
+            set(java.util.Calendar.DAY_OF_MONTH, day)
+            set(java.util.Calendar.HOUR_OF_DAY, hour)
+            set(java.util.Calendar.MINUTE, minute)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        if (cal.timeInMillis > System.currentTimeMillis() + 24 * 60 * 60 * 1000L) {
+            cal.add(java.util.Calendar.YEAR, -1)
+        }
+        return cal.timeInMillis
+    }
+
     /** 같은 결제로 볼 시간 창. paidAt이 "알림 수신 시각"인 파서가 있어 밀리초 비교가 불가능하다. */
     private const val DUPLICATE_WINDOW_MS = 5 * 60_000L
 

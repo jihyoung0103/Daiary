@@ -11,6 +11,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material3.Icon
+import com.smu.daiary.ui.theme.BorderDark
+import com.smu.daiary.ui.theme.Linen
+import com.smu.daiary.ui.theme.Stone
+import com.smu.daiary.ui.theme.TextSecondaryDark
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -21,6 +29,11 @@ import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.TextPrimaryDark
+import com.smu.daiary.ui.theme.White
+import com.smu.daiary.ui.components.waveHeaderColor
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
+import com.smu.daiary.R
 
 /** 일기 배너 상태 — 선택된(또는 오늘) 날짜 기준으로 결정된다. */
 enum class DiaryBannerState {
@@ -48,8 +61,20 @@ fun DiaryBanner(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
-    val background = if (isDark) DewDark else Dew
-    val textColor = if (isDark) TextPrimaryDark else Ink
+    // 지금 만들 수 있으면 헤더색으로 칠해 눈에 띄게 한다
+    val creatable = state == DiaryBannerState.WRITABLE
+    // 미래 날짜는 누를 수 없다는 게 한눈에 보이도록 회색으로 비활성 처리한다
+    val disabled = state == DiaryBannerState.FUTURE
+    val background = when {
+        creatable -> waveHeaderColor()
+        disabled -> if (isDark) BorderDark else Linen
+        else -> if (isDark) DewDark else Dew
+    }
+    val textColor = when {
+        creatable -> White
+        disabled -> if (isDark) TextSecondaryDark else Stone
+        else -> if (isDark) TextPrimaryDark else Ink
+    }
 
     Surface(
         modifier = modifier
@@ -65,28 +90,37 @@ fun DiaryBanner(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            // weight로 오른쪽 "보기→"/"생성→" 자리를 남기고, 긴 본문은 한 줄 말줄임
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                 Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
                 Text(
                     text = if (state == DiaryBannerState.FUTURE) "아직 작성할 수 없어요" else subLabel,
                     fontSize = 12.sp,
-                    color = textColor.copy(alpha = 0.7f)
+                    // 초록 배경 위 흰 글씨는 0.7이면 대비가 모자라 더 진하게
+                    color = textColor.copy(alpha = if (creatable || disabled) 0.9f else 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             when (state) {
                 DiaryBannerState.HAS_DIARY -> Text(
-                    text = "보기→",
+                    text = stringResource(R.string.banner_action_view),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = textColor
                 )
                 DiaryBannerState.WRITABLE -> Text(
-                    text = "생성→",
+                    text = stringResource(R.string.banner_action_create),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = textColor
                 )
-                DiaryBannerState.FUTURE -> {}
+                DiaryBannerState.FUTURE -> Icon(
+                    imageVector = Icons.Outlined.Lock,
+                    contentDescription = null,
+                    tint = textColor,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }

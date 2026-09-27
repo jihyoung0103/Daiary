@@ -31,6 +31,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
+import androidx.compose.material.icons.automirrored.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -186,7 +187,9 @@ fun DiaryEditScreen(
         )
     }
 
+    // 시스템 바 여백은 MainActivity의 바깥 Scaffold가 이미 준다. 여기서 또 주면 하단이 한 번 더 비어 보인다
     Scaffold(
+        contentWindowInsets = WindowInsets(0),
         modifier = modifier,
         containerColor = wc.Bg,
         topBar = {
@@ -303,6 +306,7 @@ fun DiaryEditScreen(
                                 onMoveUp = { viewModel.moveBlock(block.id, -1) },
                                 onMoveDown = { viewModel.moveBlock(block.id, 1) },
                                 onRemove = { viewModel.removeBlock(block.id) },
+                                onRotatePhoto = { viewModel.rotateBlockPhoto(block.id) },
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -394,6 +398,7 @@ private fun BlockEditRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onRemove: () -> Unit,
+    onRotatePhoto: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
@@ -423,6 +428,11 @@ private fun BlockEditRow(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // 누운 사진을 바로잡는 회전 버튼. 사진 블록에만 둔다
+            if (block.imageUri != null) {
+                BlockIconButton(Icons.AutoMirrored.Outlined.RotateRight, stringResource(R.string.block_rotate_photo), onClick = onRotatePhoto)
+                Spacer(Modifier.width(2.dp))
+            }
             BlockIconButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.block_move_up), enabled = !isFirst, onClick = onMoveUp)
             BlockIconButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.block_move_down), enabled = !isLast, onClick = onMoveDown)
             Spacer(Modifier.width(2.dp))

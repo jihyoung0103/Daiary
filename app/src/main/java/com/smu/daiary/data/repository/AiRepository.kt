@@ -17,6 +17,13 @@ class AiRepository(
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         dataSource.generateContextQuestions(blocks)
 
+    suspend fun generateCardQuestion(
+        sourceLabel: String,
+        sourceContent: String,
+        allSourcesText: String,
+        priorAnswers: String
+    ): String = dataSource.generateCardQuestion(sourceLabel, sourceContent, allSourcesText, priorAnswers)
+
     suspend fun generateFollowUpQuestion(
         sourceContent: String,
         turns: List<QnaTurn>

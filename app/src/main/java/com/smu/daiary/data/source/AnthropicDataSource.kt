@@ -1,7 +1,7 @@
 package com.smu.daiary.data.source
 
-import com.smu.daiary.BuildConfig
 import com.smu.daiary.data.model.RetrospectType
+import com.smu.daiary.data.source.prompt.cardQuestionPrompt
 import com.smu.daiary.data.source.prompt.contextQuestionsPrompt
 import com.smu.daiary.data.source.prompt.diaryPrompt
 import com.smu.daiary.data.source.prompt.followUpQuestionPrompt
@@ -15,6 +15,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -41,7 +42,16 @@ data class GeneratedBlock(
 
 private const val TAG = "AnthropicDataSource"
 
-class AnthropicDataSource {
+/**
+ * Claude 호출 창구.
+ *
+ * 앱은 API 키를 갖지 않는다(APK에 넣으면 디컴파일로 꺼낼 수 있다). 대신 Firebase 로그인 토큰을
+ * 붙여 우리 서버의 프록시(functions/index.js)로 보내고, 키는 서버가 붙인다.
+ *
+ * @param directApiKey 프롬프트 평가 도구(JVM 유닛 테스트)처럼 Firebase 로그인이 없는 곳에서만
+ *   키로 Anthropic을 직접 부른다. 앱에서는 null.
+ */
+class AnthropicDataSource(private val directApiKey: String? = null) {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -50,6 +60,19 @@ class AnthropicDataSource {
         .build()
 
     private val jsonMediaType = "application/json".toMediaType()
+
+    /** Messages API 요청 본문을 보낸다. 프록시와 Anthropic 모두 같은 형식으로 응답한다. */
+    private suspend fun send(body: JSONObject): Response {
+        val request = Request.Builder().post(body.toString().toRequestBody(jsonMediaType))
+        if (directApiKey != null) {
+            request.url("https://api.anthropic.com/v1/messages")
+                .addHeader("x-api-key", directApiKey)
+                .addHeader("anthropic-version", "2023-06-01")
+        } else {
+            request.url("$FUNCTIONS_BASE_URL/claude").addHeader(PROXY_TOKEN_HEADER, proxyIdToken())
+        }
+        return client.newCall(request.build()).execute()
+    }
 
     suspend fun generateContextQuestions(blocks: List<ContentBlock>): List<ContextQuestion> =
         withContext(Dispatchers.IO) {
@@ -70,18 +93,12 @@ class AnthropicDataSource {
                         put("content", prompt)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
             var rawText = ""
             try {
-                val response = client.newCall(request).execute()
+                val response = send(body)
                 val responseBody = response.body?.string() ?: run {
                     android.util.Log.e(TAG, "질문 생성 — 빈 응답")
                     return@withContext emptyList()
@@ -143,6 +160,52 @@ class AnthropicDataSource {
      * 대화를 마칠 때는 question이 비고 closing에 마무리 한마디가 온다.
      * 호출이 실패하면 둘 다 빈 문자열 — 호출부는 조용히 카드를 넘긴다.
      */
+    /**
+     * 카드 한 장의 첫 질문을 만든다. 빈 문자열이면 물을 것이 없다는 뜻 — 호출부는 그 카드를 건너뛴다.
+     *
+     * 카드마다 1회씩 호출한다. 일괄 생성(1회)보다 호출이 늘지만, 그래야 질문이
+     * 앞선 답변을 보고 만들어진다. 실패하면 빈 문자열이라 그 카드만 조용히 넘어간다.
+     */
+    suspend fun generateCardQuestion(
+        sourceLabel: String,
+        sourceContent: String,
+        allSourcesText: String,
+        priorAnswers: String
+    ): String = withContext(Dispatchers.IO) {
+        val prompt = cardQuestionPrompt(sourceLabel, sourceContent, allSourcesText, priorAnswers)
+
+        val body = JSONObject().apply {
+            put("model", "claude-haiku-4-5-20251001")
+            // 한 문장짜리 JSON 하나만 받는다
+            put("max_tokens", 256)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", prompt)
+                })
+            })
+        }
+
+
+        var raw = ""
+        try {
+            val response = send(body)
+            raw = response.body?.string() ?: return@withContext ""
+            val text = JSONObject(raw)
+                .getJSONArray("content")
+                .getJSONObject(0)
+                .getString("text")
+                .trim()
+                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+            JSONObject(text).optString("question").trim()
+        } catch (e: Exception) {
+            // 빈 문자열은 "물을 게 없다"와 "호출이 실패했다"가 같은 모양이라 로그로만 갈린다.
+            android.util.Log.e(TAG, "카드 질문 생성 실패 — 응답: $raw", e)
+            ""
+        }
+    }
+
     suspend fun generateFollowUpQuestion(
         sourceContent: String,
         turns: List<QnaTurn>
@@ -163,18 +226,12 @@ class AnthropicDataSource {
                     put("content", prompt)
                 })
             })
-        }.toString().toRequestBody(jsonMediaType)
+        }
 
-        val request = Request.Builder()
-            .url("https://api.anthropic.com/v1/messages")
-            .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-            .addHeader("anthropic-version", "2023-06-01")
-            .post(body)
-            .build()
 
         var raw = ""
         try {
-            val response = client.newCall(request).execute()
+            val response = send(body)
             val responseBody = response.body?.string() ?: return@withContext FollowUpResult()
             raw = responseBody
             val text = JSONObject(responseBody)
@@ -269,16 +326,10 @@ class AnthropicDataSource {
                         put("content", prompt)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
-            val response = client.newCall(request).execute()
+            val response = send(body)
             val responseBody = response.body?.string() ?: throw Exception("빈 응답")
 
             if (!response.isSuccessful) {
@@ -317,14 +368,28 @@ class AnthropicDataSource {
             val blocksArray = JSONObject(text).getJSONArray("blocks")
             val validIds = sources.map { it.sourceId }.toSet()
 
-            (0 until blocksArray.length()).mapNotNull { i ->
+            // 버려지는 블록은 소리 없이 사라져 "일기에서 소재가 통째로 빠졌다"로만 관측된다.
+            // 모델이 낸 것과 살아남은 것을 함께 찍어 두 원인(애초에 안 냈다 / 내놨는데 버렸다)을
+            // 로그만 보고 가를 수 있게 한다.
+            val dropped = mutableListOf<String>()
+            val blocks = (0 until blocksArray.length()).mapNotNull { i ->
                 val obj = blocksArray.getJSONObject(i)
-                val sourceId = obj.optString("sourceId").takeIf { it in validIds }
-                    ?: return@mapNotNull null   // 모르는 sourceId를 지어냈으면 버린다
+                val rawId = obj.optString("sourceId")
+                val sourceId = rawId.takeIf { it in validIds }
+                    ?: return@mapNotNull null.also { dropped += "$rawId(모르는 id)" }
                 val blockText = obj.optString("text").trim().takeIf { it.isNotBlank() }
-                    ?: return@mapNotNull null
+                    ?: return@mapNotNull null.also { dropped += "$rawId(빈 본문)" }
                 GeneratedBlock(sourceId = sourceId, text = blockText)
             }
+
+            val missing = validIds - blocks.map { it.sourceId }.toSet()
+            android.util.Log.d(
+                TAG,
+                "일기 블록: 모델 응답 ${blocksArray.length()}개 → 유효 ${blocks.size}개 / 소스 ${sources.size}개" +
+                    (if (dropped.isEmpty()) "" else " | 버림: ${dropped.joinToString()}") +
+                    (if (missing.isEmpty()) "" else " | 문단 없음: ${missing.joinToString()}")
+            )
+            blocks
         }
 
     /**
@@ -364,17 +429,11 @@ class AnthropicDataSource {
                         put("content", contentArray)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
             try {
-                val response = client.newCall(request).execute()
+                val response = send(body)
                 val responseBody = response.body?.string().orEmpty()
 
                 if (responseBody.isBlank()) return@withContext ""
@@ -427,16 +486,10 @@ class AnthropicDataSource {
                         put("content", prompt)
                     })
                 })
-            }.toString().toRequestBody(jsonMediaType)
+            }
 
-            val request = Request.Builder()
-                .url("https://api.anthropic.com/v1/messages")
-                .addHeader("x-api-key", BuildConfig.ANTHROPIC_API_KEY)
-                .addHeader("anthropic-version", "2023-06-01")
-                .post(body)
-                .build()
 
-            val response = client.newCall(request).execute()
+            val response = send(body)
             val responseBody = response.body?.string() ?: throw Exception("빈 응답")
 
             if (!response.isSuccessful) {

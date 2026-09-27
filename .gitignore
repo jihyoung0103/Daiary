@@ -12,3 +12,6 @@ google-services.json
 CLAUDE.md
 .claude/worktrees/
 .claude/settings.local.json
+
+# Cloud Functions
+functions/node_modules/

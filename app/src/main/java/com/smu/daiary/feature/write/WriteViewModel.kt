@@ -11,6 +11,7 @@ import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.data.repository.DailyDataRepository
 import com.smu.daiary.feature.write.model.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import com.smu.daiary.data.repository.DiaryRepository
 import com.smu.daiary.data.model.CalendarEvent
@@ -18,6 +19,7 @@ import com.smu.daiary.data.source.CalendarDataSource
 import com.smu.daiary.data.source.PhotoDataSource
 import com.smu.daiary.data.source.WeatherDataSource
 import com.smu.daiary.R
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -300,6 +302,12 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
     /** 오늘 걸음 수가 평소와 크게 다른가. 블록을 만들 때 판정해 두고 질문 대상 판단에 쓴다 */
     private var stepsNoteworthy = false
 
+    /** 오늘의 소재 전체를 한 줄씩 적은 목록. 카드별 질문 생성에 "앞으로 올 소재"로 넘긴다 */
+    private var allSourcesText = ""
+
+    /** sourceId → 진행 중인 첫 질문 생성. 미리 띄워 두고 카드에 도착했을 때 결과만 받는다 */
+    private val questionJobs = mutableMapOf<String, Deferred<String>>()
+
     /** Claude API 호출 진행 중 여부 */
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
@@ -343,12 +351,15 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
      *             실제 날짜가 오늘인지로 판단하기 때문이다.
      */
     fun setTargetDate(date: LocalDate?) {
+        // 신규 작성 진입점은 여기 하나뿐이므로, 직전 세션이 저장 없이 끝나 남은 상태를 여기서 전부 비운다.
+        // (resetDraft는 저장 성공 시에만 돈다)
+        //  - 편집 대상 ID: 남으면 saveDraft가 그 문서를 updateDiary로 덮어써 엉뚱한 날짜 일기가 사라진다
+        //  - 초안: 남으면 질문 화면이 draft != null을 보고 곧장 미리보기로 넘어가, 이전 일기(다른 날짜·
+        //    이번 날씨가 섞인)를 새 일기로 저장하게 된다 — 같은 날짜 일기가 여러 편 생긴 원인
+        // resetDraft가 targetDate도 비우므로 먼저 부르고 나서 날짜를 정한다
+        resetDraft()
         targetDate = date
         _writingDate.value = date ?: DiaryDateUtil.diaryDate()
-        // 신규 작성 진입점은 여기 하나뿐이므로, 직전 편집 세션이 저장 없이 끝나 남아 있던
-        // 편집 대상 ID를 여기서 끊는다. 남겨두면 saveDraft가 그 문서를 updateDiary로
-        // 덮어써서 엉뚱한 날짜의 일기가 통째로 사라진다. (resetDraft는 저장 성공 시에만 돈다)
-        _existingEntryId.value = null
     }
 
     /** AI 프롬프트에 문체 참고용으로 넘길 최근 일기 샘플 (최대 2개) */
@@ -532,9 +543,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                                 isSelected = true
                             ))
                         } else {
+                            // 오늘만 올 수 있는 분기(과거 날짜는 todayEvents = events). 아래 "향후 일정" 카드와
+                            // 헷갈리지 않게 오늘을 명시한다
                             blocks.add(ContentBlock(
                                 id = "calendar_summary", type = BlockType.CALENDAR,
-                                content = localizedContext().getString(R.string.block_calendar_empty),
+                                content = localizedContext().getString(R.string.block_calendar_empty_today),
                                 isSelected = false
                             ))
                         }
@@ -724,77 +737,16 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         }
 
     /** 사진 URI를 Base64 문자열로 변환 — Claude Vision API 전달용 */
-    private fun encodeImage(uriString: String): EncodedImage? {
-        return try {
-            val uri = Uri.parse(uriString)
-
-            val mimeTypeFromResolver =
-                context.contentResolver.getType(uri)
-
-            val bytes =
-                context.contentResolver
-                    .openInputStream(uri)
-                    ?.use { input ->
-                        input.readBytes()
-                    } ?: return null
-
-            val mediaType =
-                detectImageMediaType(bytes, mimeTypeFromResolver)
-
-            val base64 =
-                Base64.encodeToString(
-                    bytes,
-                    Base64.NO_WRAP
-                )
-
-            EncodedImage(
-                base64 = base64,
-                mediaType = mediaType
-            )
-
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "이미지 인코딩 실패",
-                e
-            )
-            null
-        }
-    }
-
     /**
-     * Claude Vision에 넘길 media_type을 결정한다.
-     * ContentResolver가 알려준 MIME을 우선 쓰되, 없거나 지원하지 않는 형식이면
-     * 바이트 앞부분의 매직 넘버로 직접 판별한다(갤러리 앱이 MIME을 비워 보내는 경우 대비).
+     * AI 분석용 인코딩. 원본 바이트가 아니라 축소·재인코딩한 JPEG를 보낸다 —
+     * EXIF(GPS·기기·시각)가 빠지고 전송량(=이미지 토큰)도 준다. 장소 이름은 따로 붙인다(photoSourcesOf).
      */
-    private fun detectImageMediaType(
-        bytes: ByteArray,
-        resolverMimeType: String?
-    ): String {
-        val normalized =
-            when (resolverMimeType?.lowercase()) {
-                "image/jpeg", "image/jpg" -> "image/jpeg"
-                "image/png" -> "image/png"
-                "image/webp" -> "image/webp"
-                else -> null
-            }
-
-        if (normalized != null) return normalized
-
-        return when {
-            bytes.size >= 3 &&
-                    bytes[0] == 0xFF.toByte() &&
-                    bytes[1] == 0xD8.toByte() &&
-                    bytes[2] == 0xFF.toByte() -> "image/jpeg"
-
-            bytes.size >= 4 &&
-                    bytes[0] == 0x89.toByte() &&
-                    bytes[1] == 0x50.toByte() &&
-                    bytes[2] == 0x4E.toByte() &&
-                    bytes[3] == 0x47.toByte() -> "image/png"
-
-            else -> "image/jpeg"
-        }
+    private fun encodeImage(uriString: String): EncodedImage? = try {
+        val jpeg = photoStorageDataSource.compressToJpeg(Uri.parse(uriString))
+        EncodedImage(base64 = Base64.encodeToString(jpeg, Base64.NO_WRAP), mediaType = "image/jpeg")
+    } catch (e: Exception) {
+        Log.e(TAG, "이미지 인코딩 실패", e)
+        null
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1288,43 +1240,48 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
 
             if (!askSteps) Log.d(TAG, "⤫ [health] 평소와 비슷하고 다른 소재가 있어 질문 제외")
 
-            // AI가 만든 질문은 전부 자유 입력으로 받는다. 선택지를 주면 답이 평이해지고
-            // 질문과 무관한 선택지가 섞여서 초안의 재료로 쓸 만한 답이 안 나온다.
-            // 선택지가 남는 건 감정 질문뿐 — 답변이 일기의 emotion 필드로 저장되고 회고 집계에 쓰인다.
+            // 질문은 여기서 만들지 않는다. 카드 한 장씩, 앞선 답변을 보고 만든다.
+            // 한꺼번에 만들면 질문이 답변을 못 본다 — 걸음 수 카드에서 "바운디 콘서트에
+            // 갔다"는 답이 나온 뒤에도 네 장 뒤 사진 카드가 "누구의 공연을 보셨어요?"를
+            // 물어 "바운디라고 몇번말하냐"를 들었다.
             //
-            // distinctBy: 한 블록에 질문이 2개 이상 나오면 답변 맵(blockId 키)에서 서로 덮어써
-            // 답변이 조용히 사라진다. 프롬프트가 뭘 뱉든 여기서 막는다.
-            val questions = aiRepository.generateContextQuestions(questionInput)
-                .distinctBy { it.blockId }
-                .map { it.copy(quickOptions = emptyList()) }
+            // 대신 일괄 생성이 갖고 있던 "앞으로 올 소재까지 보는 눈"을 잃지 않도록
+            // 전체 목록을 만들어 매 호출에 함께 넘긴다.
+            questionJobs.clear()
+            allSourcesText = sources.joinToString("\n") {
+                "- [${it.type.label}] ${it.content.replace("\n", " ").take(120)}"
+            }
 
-            Log.d(TAG, "===== 생성된 질문 ${questions.size}개 (블럭 ${questionInput.size}개) =====")
-            questions.forEach { Log.d(TAG, "- [${it.blockId}] ${it.question}") }
-
-            // 카드 = 소재 1개. 첫 질문이 1턴이 되고, 답변에 따라 후속 턴이 아래로 쌓인다.
-            val sourceById = sources.associateBy { it.sourceId }
-
-            val cards = questions.map { q ->
+            // 카드 = 소재 1개. turns가 비어 있으면 아직 질문을 만들지 않은 카드다.
+            val aiCards = questionInput.map { block ->
+                val src = sources.first { it.sourceId == block.id }
                 QnaCard(
-                    sourceId = q.blockId,
-                    sourceContent = sourceById[q.blockId]?.content.orEmpty(),
-                    sourceLabel = sourceById[q.blockId]?.type?.label.orEmpty(),
-                    imageUri = sourceById[q.blockId]?.imageUri,
-                    turns = listOf(QnaTurn(question = q.question))
+                    sourceId = src.sourceId,
+                    sourceContent = src.content,
+                    sourceLabel = src.type.label,
+                    imageUri = src.imageUri,
+                    turns = emptyList()
                 )
             }
             val calendarCards = sources
                 .filter { it.type == BlockType.CALENDAR }
                 .map { calendarConfirmCard(it) }
 
-            // AI 질문은 소스를 건너뛸 수 있어서, 순서는 questions가 아니라 sources를 따른다.
-            // 그래야 일정 확인 카드도 제자리에 들어가고 순서가 매번 같다.
-            val bySource = (cards + calendarCards).associateBy { it.sourceId }
+            // 순서는 소스 순서를 따른다. 그래야 일정 확인 카드도 제자리에 들어간다.
+            val bySource = (aiCards + calendarCards).associateBy { it.sourceId }
             // 넓은 소재(날씨·걸음 수)를 앞으로. sortedBy는 안정 정렬이라 나머지는 원래 순서를 지킨다.
             val ordered = sources.mapNotNull { bySource[it.sourceId] }.sortedBy { card ->
                 CARD_ORDER_FIRST.indexOf(card.sourceId).takeIf { it >= 0 } ?: CARD_ORDER_FIRST.size
             }
             _qnaCards.value = ordered + emotionCard()
+
+            Log.d(TAG, "===== 카드 ${ordered.size + 1}장 (블럭 ${questionInput.size}개) =====")
+
+            // 첫 카드만 기다렸다 띄운다. 로딩 화면이 이미 떠 있어 대기가 드러나지 않는다.
+            var first = 0
+            val total = ordered.size + 1
+            while (first < total && !ensureQuestion(first)) first++
+            _currentCardIndex.value = first.coerceAtMost(total - 1)
         } catch (e: Exception) {
             Log.e(TAG, "❌ 질문 생성 실패 — 감정 질문만 남김", e)
             _qnaCards.value = listOf(emotionCard())
@@ -1332,6 +1289,74 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             _isGeneratingQuestions.value = false
         }
     }
+
+    /**
+     * 카드의 첫 질문을 채운다. 물을 것이 없으면 false — 호출부가 그 카드를 건너뛴다.
+     * 고정 질문 카드(일정·감정)는 turns가 이미 있어 그대로 통과한다.
+     */
+    private suspend fun ensureQuestion(index: Int): Boolean {
+        val card = _qnaCards.value?.getOrNull(index) ?: return false
+        if (card.turns.isNotEmpty()) return true
+
+        prefetchQuestion(index)
+        val question = runCatching { questionJobs[card.sourceId]?.await() }
+            .onFailure { Log.e(TAG, "❌ [${card.sourceId}] 질문 생성 실패 — 카드 건너뜀", it) }
+            .getOrNull()
+            .orEmpty()
+
+        if (question.isBlank()) {
+            Log.d(TAG, "⤫ [${card.sourceId}] 물을 것이 없어 카드 건너뜀")
+            return false
+        }
+
+        Log.d(TAG, "- [${card.sourceId}] $question")
+        _qnaCards.value = _qnaCards.value?.toMutableList()?.also { list ->
+            list[index] = list[index].copy(turns = listOf(QnaTurn(question = question)))
+        }
+        return true
+    }
+
+    /**
+     * 다음 카드의 질문을 미리 만들어 둔다.
+     *
+     * 카드에 도착해서 만들면 매 장마다 5~15초를 기다리게 된다. 실제 답변 간격이
+     * 20~90초라 한 장 앞서 띄워 두면 대기가 통째로 가려진다.
+     *
+     * 시점은 "직전 카드의 첫 답변이 들어왔을 때"다. 카드 도착 시점에 띄우면 그 카드의
+     * 답변을 못 보고, 대화가 다 끝난 뒤에 띄우면 프리페치가 되지 않는다. 첫 답변은
+     * 대개 정체를 확정하는 답이라("바운디 콘서트 갔다왔어") 그것만 반영돼도 충분하다.
+     */
+    private fun prefetchQuestion(index: Int) {
+        val card = _qnaCards.value?.getOrNull(index) ?: return
+        if (card.turns.isNotEmpty()) return               // 고정 질문 카드
+        if (card.sourceId in questionJobs) return         // 이미 띄웠다
+
+        val prior = priorAnswersText()
+        questionJobs[card.sourceId] = viewModelScope.async {
+            aiRepository.generateCardQuestion(
+                sourceLabel = card.sourceLabel,
+                sourceContent = card.sourceContent,
+                allSourcesText = allSourcesText,
+                priorAnswers = prior
+            )
+        }
+    }
+
+    /**
+     * 지금까지 나온 문답 전체. 소재별로 묶어야 한 소재에서 이어진 대화인지
+     * 서로 다른 소재의 답인지 구분이 남는다.
+     *
+     * 요약하지 않고 원문을 넘긴다. 다 합쳐야 1,000자 안팎이라 압축 이득이 없고,
+     * "알밥과 우동 조합은 국룰이지" 같은 구체어가 요약에서 날아가면 다음 질문이 뭉툭해진다.
+     */
+    private fun priorAnswersText(): String =
+        _qnaCards.value.orEmpty().mapNotNull { card ->
+            val exchange = card.turns
+                .filter { it.answer != null }
+                .joinToString("\n") { "Q: ${it.question}\nA: ${it.answer}" }
+                .ifBlank { return@mapNotNull null }
+            "[${card.sourceLabel.ifBlank { "기타" }}]\n$exchange"
+        }.joinToString("\n\n")
 
     /**
      * 오늘 일정에 붙는 고정 확인 카드.
@@ -1378,6 +1403,10 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             }
         )
         _qnaCards.value = cards.toMutableList().also { it[cardIndex] = answered }
+
+        // 첫 답변이 들어온 지금 다음 카드의 질문을 띄운다. 후속 대화가 오가는 동안
+        // 완성돼서 카드가 넘어갈 때는 기다릴 것이 없다. [prefetchQuestion] 참고.
+        if (turnIndex == 0) prefetchQuestion(cardIndex + 1)
 
         // 감정 카드는 선택지 하나로 끝나면 일기 본문에 쓸 재료가 없다(칩만 붙고 글에는 안 남는다).
         // 왜 그런 기분이었는지 한 번 더 묻는다. 고정 질문이라 API 호출도 후속 예산도 쓰지 않는다.
@@ -1454,12 +1483,14 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
         return answer.length >= MIN_ANSWER_LENGTH_FOR_FOLLOW_UP
     }
 
-    private fun advanceCard() {
-        val cards = _qnaCards.value ?: return
-        val next = _currentCardIndex.value + 1
-        if (next >= cards.size) {
+    private fun advanceCard() = viewModelScope.launch {
+        val size = _qnaCards.value?.size ?: return@launch
+        var next = _currentCardIndex.value + 1
+        // 질문이 비어 돌아온 카드는 건너뛴다. 프리페치가 끝나 있으면 대기 없이 지나간다.
+        while (next < size && !ensureQuestion(next)) next++
+        if (next >= size) {
             submitQna()
-            return
+            return@launch
         }
         _currentCardIndex.value = next
     }
@@ -1635,12 +1666,18 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val sourceById = sources.associateBy { it.sourceId }
             val bodyBlocks = (if (usedFallback) fallbackBlocks(sources) else generated)
                 .mapNotNull { gen ->
-                    val source = sourceById[gen.sourceId] ?: return@mapNotNull null
+                    val source = sourceById[gen.sourceId] ?: run {
+                        // 여기서 버려진 블록은 화면에서 그냥 없는 것이 된다. 조용히 지나가면
+                        // "모델이 안 만들었다"와 구분이 안 되므로 반드시 남긴다.
+                        Log.w(TAG, "⚠️ 소스에 없는 sourceId라 블록 버림: ${gen.sourceId}")
+                        return@mapNotNull null
+                    }
                     DiaryBodyBlock(
                         id = UUID.randomUUID().toString(),
                         sourceId = source.sourceId,
                         text = gen.text,
-                        imageUri = source.imageUri
+                        imageUri = source.imageUri,
+                        occurredAt = source.occurredAt
                     )
                 }
 
@@ -1739,6 +1776,30 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
             val to = from + offset
             if (from < 0 || to !in draft.blocks.indices) return@update draft
             draft.copy(blocks = draft.blocks.toMutableList().apply { Collections.swap(this, from, to) })
+        }
+    }
+
+    private var rotateJob: Job? = null
+
+    /**
+     * 사진 블록의 사진을 시계 방향 90° 돌린다. 방향 정보 없이 올라가 누워 버린 옛 사진을 고치는 용도.
+     * 돌린 사진은 캐시 파일(로컬 URI)로 바꿔 두고, 저장할 때 기존 업로드 경로가 새로 올린다.
+     * 파일 작업이 끝나기 전 연타는 무시한다(같은 원본을 두 번 돌려 한 번만 반영되는 것 방지).
+     */
+    fun rotateBlockPhoto(blockId: String) {
+        if (rotateJob?.isActive == true) return
+        val source = _draft.value?.blocks?.firstOrNull { it.id == blockId }?.imageUri ?: return
+        rotateJob = viewModelScope.launch {
+            val rotated = runCatching { photoStorageDataSource.rotateToCacheFile(source) }
+                .onFailure { Log.w(TAG, "사진 회전 실패: $source", it) }
+                .getOrNull() ?: return@launch
+            _draft.update { d ->
+                d?.copy(
+                    blocks = d.blocks.map { if (it.id == blockId) it.copy(imageUri = rotated) else it },
+                    // 첨부 목록에도 같은 사진이 있으면 함께 바꿔야 저장 후 누운 옛 사진이 첨부로 남지 않는다
+                    photos = d.photos.map { if (it == source) rotated else it }
+                )
+            }
         }
     }
 

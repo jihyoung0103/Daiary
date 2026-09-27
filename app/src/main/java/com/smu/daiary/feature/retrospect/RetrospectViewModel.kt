@@ -10,6 +10,7 @@ import com.smu.daiary.data.repository.AiRepository
 import com.smu.daiary.data.repository.DailyDataRepository
 import com.smu.daiary.data.repository.DiaryRepository
 import com.smu.daiary.data.repository.RetrospectRepository
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,9 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
-
-/** 배너 활성화 기준 — 기간 내 일기 3개 미만이면 "일기 부족" 상태 */
-private const val MIN_DIARY_COUNT = 3
 
 class RetrospectViewModel : ViewModel() {
 
@@ -31,32 +29,45 @@ class RetrospectViewModel : ViewModel() {
     val weeklyPeriod: RetrospectPeriod = RetrospectPeriodCalculator.currentWeek()
     val monthlyPeriod: RetrospectPeriod = RetrospectPeriodCalculator.currentMonth()
 
-    private val _weeklyBannerStatus = MutableStateFlow(BannerStatus.NOT_CREATED)
+    // 판정(서버 조회 2~4초)이 끝나기 전에 "생성"이 보이지 않도록 LOADING으로 시작한다
+    private val _weeklyBannerStatus = MutableStateFlow(BannerStatus.LOADING)
     val weeklyBannerStatus: StateFlow<BannerStatus> = _weeklyBannerStatus.asStateFlow()
 
-    private val _monthlyBannerStatus = MutableStateFlow(BannerStatus.NOT_CREATED)
+    private val _monthlyBannerStatus = MutableStateFlow(BannerStatus.LOADING)
     val monthlyBannerStatus: StateFlow<BannerStatus> = _monthlyBannerStatus.asStateFlow()
+
+    /** UPDATABLE일 때 저장 뒤 달라진 일기 수. 배너의 "새 일기 N개" 문구에 쓴다 */
+    private val _weeklyChangedCount = MutableStateFlow(0)
+    val weeklyChangedCount: StateFlow<Int> = _weeklyChangedCount.asStateFlow()
+    private val _monthlyChangedCount = MutableStateFlow(0)
+    val monthlyChangedCount: StateFlow<Int> = _monthlyChangedCount.asStateFlow()
 
     private val _state = MutableStateFlow<RetrospectState>(RetrospectState.Idle)
     val state: StateFlow<RetrospectState> = _state.asStateFlow()
 
+    private var bannerJob: Job? = null
+
     /** 캘린더 화면 진입 시 두 배너의 상태를 판정 */
     fun loadBannerStatuses(userId: String) {
-        viewModelScope.launch {
+        // 일기 수가 바뀔 때마다 다시 불리므로, 앞선 판정이 늦게 끝나 최신 결과를 덮어쓰지 않게 취소한다
+        bannerJob?.cancel()
+        bannerJob = viewModelScope.launch {
             val weeklyDeferred = async { resolveBannerStatus(userId, weeklyPeriod) }
             val monthlyDeferred = async { resolveBannerStatus(userId, monthlyPeriod) }
-            _weeklyBannerStatus.value = weeklyDeferred.await()
-            _monthlyBannerStatus.value = monthlyDeferred.await()
+            val (weekly, weeklyChanged) = weeklyDeferred.await()
+            val (monthly, monthlyChanged) = monthlyDeferred.await()
+            _weeklyBannerStatus.value = weekly
+            _weeklyChangedCount.value = weeklyChanged
+            _monthlyBannerStatus.value = monthly
+            _monthlyChangedCount.value = monthlyChanged
         }
     }
 
-    private suspend fun resolveBannerStatus(userId: String, period: RetrospectPeriod): BannerStatus {
+    private suspend fun resolveBannerStatus(userId: String, period: RetrospectPeriod): Pair<BannerStatus, Int> {
         val saved = retrospectRepository.getRetrospect(userId, period.id).getOrNull()
-        if (saved != null) return BannerStatus.SAVED
-
         val diaryCount = diaryRepository.getDiariesInRange(userId, period.startDate, period.endDate)
-            .getOrNull()?.size ?: 0
-        return if (diaryCount < MIN_DIARY_COUNT) BannerStatus.INSUFFICIENT else BannerStatus.NOT_CREATED
+            .getOrNull()?.size
+        return bannerStatusOf(saved?.diaryCount, diaryCount)
     }
 
     /** 배너 "생성→" 탭 — 전체 파이프라인 실행 */
@@ -124,8 +135,13 @@ class RetrospectViewModel : ViewModel() {
             )
 
             retrospectRepository.saveRetrospect(userId, report)
-            if (type == RetrospectType.WEEKLY) _weeklyBannerStatus.value = BannerStatus.SAVED
-            else _monthlyBannerStatus.value = BannerStatus.SAVED
+            if (type == RetrospectType.WEEKLY) {
+                _weeklyBannerStatus.value = BannerStatus.SAVED
+                _weeklyChangedCount.value = 0
+            } else {
+                _monthlyBannerStatus.value = BannerStatus.SAVED
+                _monthlyChangedCount.value = 0
+            }
 
             _state.value = RetrospectState.CardView(report)
         }

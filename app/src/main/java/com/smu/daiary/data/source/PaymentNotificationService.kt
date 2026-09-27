@@ -43,10 +43,13 @@ class PaymentNotificationService : NotificationListenerService() {
         val packageName = sbn.packageName
         val extras = sbn.notification?.extras ?: return
         val title = extras.getString("android.title") ?: ""
-        val text =
+        // 둘 중 긴 쪽을 쓴다. android.text는 접힌 알림의 첫 줄만 담는 경우가 있고,
+        // 현대카드처럼 가맹점이 둘째 줄에 오는 형식은 그러면 가맹점이 통째로 사라진다.
+        // bigText는 펼친 전문이라 보통 text를 포함한다.
+        val text = listOfNotNull(
+            extras.getCharSequence("android.bigText")?.toString(),
             extras.getCharSequence("android.text")?.toString()
-                ?: extras.getCharSequence("android.bigText")?.toString()
-                ?: ""
+        ).maxByOrNull { it.length } ?: ""
 
         // [진단] 결제/은행앱 후보 패키지는 파서 매칭 여부와 무관하게 원본을 남긴다.
         // 등록 안 된 패키지(예: 신한 슈퍼SOL)에서 알림이 오는지 확인하기 위한 사각지대 제거용.

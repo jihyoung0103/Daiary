@@ -3,7 +3,6 @@ package com.smu.daiary.data.source
 import android.annotation.SuppressLint
 import android.content.Context
 import com.google.android.gms.location.LocationServices
-import com.smu.daiary.BuildConfig
 import com.smu.daiary.data.model.WeatherData
 import com.smu.daiary.data.model.WeatherSnapshot
 import com.smu.daiary.util.DiaryDateUtil
@@ -15,9 +14,8 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-private val API_KEY get() = BuildConfig.OPENWEATHER_API_KEY
-private const val CURRENT_URL = "https://api.openweathermap.org/data/2.5/weather"
-private const val FORECAST_URL = "https://api.openweathermap.org/data/2.5/forecast"
+/** 서버 프록시(functions/index.js의 weather)가 OpenWeather 키를 붙여 대신 호출한다. */
+private const val WEATHER_URL = "$FUNCTIONS_BASE_URL/weather"
 
 /** 모바일 네트워크 기준. 이 값을 넘기면 날씨를 포기하고 나머지 수집을 진행시킨다. */
 private const val CONNECT_TIMEOUT_MS = 5_000
@@ -117,9 +115,11 @@ class WeatherDataSource(private val context: Context) {
      *    JSONException이 나서, 키 만료나 rate limit이 "날씨 정보 없음"으로 조용히 묻힌다.
      */
     private suspend fun fetchJson(url: String): JSONObject = withContext(Dispatchers.IO) {
+        val token = proxyIdToken()
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
+            setRequestProperty(PROXY_TOKEN_HEADER, token)
         }
         try {
             if (conn.responseCode != HttpURLConnection.HTTP_OK) {
@@ -135,7 +135,7 @@ class WeatherDataSource(private val context: Context) {
 
     /** 현재 날씨 API 호출 → 스냅샷 반환. */
     private suspend fun fetchCurrent(lat: Double, lon: Double): WeatherSnapshot {
-        val url = "$CURRENT_URL?lat=$lat&lon=$lon&appid=$API_KEY&units=metric&lang=kr"
+        val url = "$WEATHER_URL?type=current&lat=$lat&lon=$lon"
         val json = fetchJson(url)
         val weatherObj = json.getJSONArray("weather").getJSONObject(0)
         val main = json.getJSONObject("main")
@@ -151,7 +151,7 @@ class WeatherDataSource(private val context: Context) {
 
     /** 내일 정오 슬롯 예보. WeatherData에 tomorrow* 필드만 채워 반환. */
     private suspend fun fetchTomorrowSlot(lat: Double, lon: Double): WeatherData {
-        val url = "$FORECAST_URL?lat=$lat&lon=$lon&appid=$API_KEY&units=metric&lang=kr"
+        val url = "$WEATHER_URL?type=forecast&lat=$lat&lon=$lon"
         val json = fetchJson(url)
         val list = json.getJSONArray("list")
 
