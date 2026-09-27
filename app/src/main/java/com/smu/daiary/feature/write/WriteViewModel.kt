@@ -543,9 +543,11 @@ class WriteViewModel(application: Application) : AndroidViewModel(application) {
                                 isSelected = true
                             ))
                         } else {
+                            // 오늘만 올 수 있는 분기(과거 날짜는 todayEvents = events). 아래 "향후 일정" 카드와
+                            // 헷갈리지 않게 오늘을 명시한다
                             blocks.add(ContentBlock(
                                 id = "calendar_summary", type = BlockType.CALENDAR,
-                                content = localizedContext().getString(R.string.block_calendar_empty),
+                                content = localizedContext().getString(R.string.block_calendar_empty_today),
                                 isSelected = false
                             ))
                         }

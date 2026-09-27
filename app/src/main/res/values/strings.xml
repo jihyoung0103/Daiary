@@ -201,7 +201,8 @@
     <string name="block_weather_content">%1$s · %2$s %3$d°C · 습도 %4$d%%</string>
     <string name="block_weather_tomorrow_content">%1$s %2$d°C · 습도 %3$d%%</string>
     <string name="block_weather_unavailable">날씨 정보를 가져올 수 없습니다</string>
-    <string name="block_calendar_empty">오늘 등록된 일정이 없습니다</string>
+    <string name="block_calendar_empty">등록된 일정이 없습니다</string>
+    <string name="block_calendar_empty_today">오늘 등록된 일정이 없습니다</string>
     <string name="block_calendar_unavailable">캘린더 정보를 가져올 수 없습니다</string>
     <string name="block_photo_count">오늘 찍은 사진 %1$d장</string>
     <string name="block_photo_selection_content">오늘 찍은 사진 %1$d장 · 선택 %2$d장</string>

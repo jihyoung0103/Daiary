@@ -34,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -229,6 +230,9 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("block_selection")
                             }
 
+                            // "이미 작성한 일기" 스낵바. 다른 스낵바(저장 완료 등)는 건드리지 않도록 이것만 따로 잡아 둔다
+                            val existsSnackbarJob = remember { mutableStateOf<Job?>(null) }
+
                             /**
                              * 일기 작성 시작. 세 진입점(FAB·홈 배너·상세 화면)이 공유한다.
                              *
@@ -250,7 +254,9 @@ class MainActivity : ComponentActivity() {
                                 }
                                 // 덮어쓰기가 늘 실수인 건 아니다(초안이 마음에 안 들어 다시 뽑는 경우).
                                 // 기본값은 아무것도 안 하는 쪽이고, 다시 쓰기는 명시적 선택으로 둔다.
-                                scope.launch {
+                                // 쌓이지 않게: 이전 스낵바를 닫고 새로 띄운다(showSnackbar 코루틴을 취소하면 스낵바가 닫힌다)
+                                existsSnackbarJob.value?.cancel()
+                                existsSnackbarJob.value = scope.launch {
                                     val result = snackbarHostState.showSnackbar(
                                         message = diaryExistsMessage,
                                         actionLabel = rewriteLabel,
@@ -258,6 +264,11 @@ class MainActivity : ComponentActivity() {
                                     )
                                     if (result == SnackbarResult.ActionPerformed) begin()
                                 }
+                            }
+
+                            // 화면을 옮기면 "이미 작성한 일기" 스낵바를 닫는다
+                            LaunchedEffect(navController) {
+                                navController.currentBackStackEntryFlow.collect { existsSnackbarJob.value?.cancel() }
                             }
 
                             // 앱 시작 시 알림 권한 팝업 (Android 13+, 미허용 상태일 때만)
