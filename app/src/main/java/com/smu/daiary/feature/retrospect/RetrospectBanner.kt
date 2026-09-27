@@ -51,7 +51,7 @@ fun RetrospectBanner(
     val textColor = if (creatable) White else if (isDark) TextPrimaryDark else Ink
 
     Surface(
-        modifier = modifier.clickable(enabled = status != BannerStatus.INSUFFICIENT, onClick = onClick),
+        modifier = modifier.clickable(enabled = status != BannerStatus.INSUFFICIENT && status != BannerStatus.LOADING, onClick = onClick),
         color = background,
         shape = RoundedCornerShape(CardCornerRadius)
     ) {
@@ -69,7 +69,8 @@ fun RetrospectBanner(
             // 옆 배너와 높이를 맞출 때 남는 공간은 버튼 줄 위로 몰아 버튼이 바닥에 붙게 한다
             Spacer(modifier = Modifier.height(8.dp))
             Spacer(modifier = Modifier.weight(1f))
-            if (status != BannerStatus.INSUFFICIENT) {
+            // 판정 전(LOADING)엔 생성/보기 버튼 줄을 숨긴다
+            if (status != BannerStatus.INSUFFICIENT && status != BannerStatus.LOADING) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
