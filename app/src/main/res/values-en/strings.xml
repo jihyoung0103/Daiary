@@ -313,7 +313,9 @@
     <string name="block_move_down">Move down</string>
     <string name="question_emotion">How did you feel today?</string>
     <!-- External AI disclosure -->
-    <string name="block_selection_ai_notice">Only the items you select are used for AI writing. Unselected items are not sent to AI.</string>
+    <string name="block_selection_ai_notice">Only the items you select are used for AI writing.\nUnselected items are not sent to AI.</string>
+    <string name="block_selection_info_title">What goes to AI</string>
+    <string name="block_selection_info_desc">About this screen</string>
     <string name="photo_ai_notice_title">Photos are sent for AI analysis</string>
     <string name="photo_ai_notice_message">Photos you select are sent to an AI service (Anthropic, USA) to help write your diary.\n\nLocation and device metadata (EXIF) are removed first, and unselected photos are never sent.</string>
     <string name="photo_ai_notice_confirm">Got it</string>
@@ -326,7 +328,7 @@
     <string name="timeline_slot_evening">Evening</string>
     <string name="timeline_slot_night">Night</string>
     <string name="timeline_slot_tomorrow">Tomorrow</string>
-    <string name="timeline_header_date_pattern">EEEE, MMM d</string>
+    <string name="timeline_header_date_pattern">EEE, MMM d</string>
     <string name="timeline_header_last">Last entry at %1$s</string>
     <string name="timeline_summary_weather">Weather</string>
     <string name="timeline_summary_mood">Mood</string>

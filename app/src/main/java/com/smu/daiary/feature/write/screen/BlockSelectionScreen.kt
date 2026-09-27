@@ -41,6 +41,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
@@ -128,6 +129,38 @@ fun BlockSelectionScreen(
     fun withPhotoNotice(action: () -> Unit) {
         if (settings.getBoolean(KEY_PHOTO_AI_NOTICE_SEEN, false)) action() else pendingPhotoAction = action
     }
+    // 상단바 (i) 안내 팝업. 사진 AI 고지 다이얼로그와 같은 형식(제목·본문·확인)
+    var showAiNotice by remember { mutableStateOf(false) }
+    if (showAiNotice) {
+        AlertDialog(
+            onDismissRequest = { showAiNotice = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.block_selection_info_title),
+                        color = wc.TextPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = { showAiNotice = false }, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = stringResource(R.string.close_desc),
+                            tint = wc.TextMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            },
+            text = { Text(stringResource(R.string.block_selection_ai_notice), color = wc.TextPrimary) },
+            confirmButton = {
+                TextButton(onClick = { showAiNotice = false }) {
+                    Text(stringResource(R.string.confirm), color = wc.Accent)
+                }
+            },
+            containerColor = wc.SurfaceBg
+        )
+    }
+
     pendingPhotoAction?.let { action ->
         AlertDialog(
             onDismissRequest = { pendingPhotoAction = null },
@@ -179,12 +212,22 @@ fun BlockSelectionScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = stringResource(R.string.screen_block_selection),
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = wc.TextPrimary
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(R.string.screen_block_selection),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = wc.TextPrimary
+                        )
+                        IconButton(onClick = { showAiNotice = true }, modifier = Modifier.size(36.dp)) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = stringResource(R.string.block_selection_info_desc),
+                                tint = wc.TextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -251,13 +294,6 @@ fun BlockSelectionScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                item {
-                    Text(
-                        text = stringResource(R.string.block_selection_ai_notice),
-                        fontSize = 13.sp,
-                        color = wc.TextMuted
-                    )
-                }
                 items(blocks) { block ->
                     when (block.type) {
 

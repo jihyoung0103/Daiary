@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,14 +70,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import com.smu.daiary.R
-import com.smu.daiary.ui.components.WaveHeader
-import com.smu.daiary.ui.components.waveHeaderColor
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.Black
 import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Error
-import com.smu.daiary.ui.theme.ErrorDark
+import com.smu.daiary.ui.theme.ErrorTextDark
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
@@ -95,11 +92,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.ui.platform.LocalConfiguration
-import com.smu.daiary.feature.write.model.TimeSlot
-import com.smu.daiary.feature.write.model.timeSlot
-import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 
 private val weatherIcons: Map<String, ImageVector> = mapOf(
@@ -134,7 +128,8 @@ fun DiaryDetailScreen(
     val wc = if (isDark) WriteColorsDark else WriteColors
     val dialogBg = if (isDark) SurfaceDark else White
     val dialogText = if (isDark) TextPrimaryDark else Ink
-    val errorColor = if (isDark) ErrorDark else Error
+    // 삭제 버튼 + 삭제 확인 다이얼로그 버튼. 다크는 ErrorDark(4.42:1) 대신 글자용 ErrorTextDark
+    val errorColor = if (isDark) ErrorTextDark else Error
 
     // 인접 날짜를 좌우 페이지로 넘기는 무한 페이저. 중앙(startIndex)을 initialDate로 매핑.
     val startIndex = 50_000
@@ -142,6 +137,8 @@ fun DiaryDetailScreen(
     fun dateOf(page: Int): LocalDate = initialDate.plusDays((page - startIndex).toLong())
     val currentDate = dateOf(pagerState.currentPage)
     val currentEntry = diaries.firstOrNull { it.date == currentDate.toString() }
+    val locale = LocalConfiguration.current.locales[0]
+    val datePattern = stringResource(R.string.timeline_header_date_pattern)
 
     var selectedImageUri by remember { mutableStateOf<String?>(null) }
 
@@ -177,59 +174,62 @@ fun DiaryDetailScreen(
         modifier = modifier,
         containerColor = wc.Bg,
         topBar = {
-            // 날짜는 페이지 헤더가 보여주므로 앱바는 헤더와 같은 색의 버튼 줄만 남긴다
+            // 날짜는 뒤로가기 바로 옆. 다른 화면 앱바 제목과 같은 18sp Medium
             TopAppBar(
-                title = {},
+                title = {
+                    Text(
+                        text = currentDate.format(DateTimeFormatter.ofPattern(datePattern, locale)),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = wc.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = White
+                            tint = wc.TextPrimary
                         )
                     }
                 },
                 actions = {
                     if (currentEntry != null) {
                         TextButton(
-                            onClick = { showDeleteDialog = true },
-                            enabled = !isDeleting,
-                            // 초록 헤더 위 빨강 글자는 1.0:1이라 흰 알약 위에 올린다(Error on White 4.98:1, 두 모드 공통)
-                            colors = ButtonDefaults.textButtonColors(
-                                containerColor = White,
-                                disabledContainerColor = White.copy(alpha = 0.5f)
-                            ),
-                            contentPadding = PaddingValues(horizontal = 12.dp),
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = null,
-                                tint = Error,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.btn_delete),
-                                color = Error,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
-                            )
-                        }
-                        TextButton(
                             onClick = { onEdit(currentEntry) },
                             enabled = !isDeleting
                         ) {
                             Text(
                                 text = stringResource(R.string.btn_edit_diary),
-                                color = White,
+                                color = wc.Accent,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        }
+                        TextButton(
+                            onClick = { showDeleteDialog = true },
+                            enabled = !isDeleting
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                tint = errorColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.btn_delete),
+                                color = errorColor,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = waveHeaderColor()),
+                // 다른 상단바(블록 선택·초안 미리보기 등)와 같은 아이보리 배경. scrollBehavior가 없어 그림자는 0
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
                 windowInsets = WindowInsets(0)
             )
         }
@@ -306,7 +306,7 @@ fun DiaryDetailScreen(
     } // Box
 }
 
-/** 페이저 한 페이지: 날짜 헤더 + 하루 요약 + 타임라인. 일기가 없으면 헤더 아래 빈 상태(생성하기). */
+/** 페이저 한 페이지: 하루 요약 + 타임라인(날짜는 앱바 제목). 일기가 없으면 빈 상태(생성하기). */
 @Composable
 private fun DiaryDayContent(
     date: LocalDate,
@@ -323,8 +323,6 @@ private fun DiaryDayContent(
             .verticalScroll(rememberScrollState())
             .padding(bottom = ScreenPaddingVertical)
     ) {
-        DayHeader(date = date, blocks = entry?.blocks.orEmpty())
-
         if (entry == null) {
             Column(
                 modifier = Modifier
@@ -389,22 +387,6 @@ private fun DiaryDayContent(
             }
         }
     }
-}
-
-/** 날짜 제목과 마지막 기록 시각을 담은 헤더. 요약 카드가 이 위로 겹쳐 올라온다 */
-@Composable
-private fun DayHeader(date: LocalDate, blocks: List<DiaryBodyBlock>) {
-    val locale = LocalConfiguration.current.locales[0]
-    val title = date.format(DateTimeFormatter.ofPattern(stringResource(R.string.timeline_header_date_pattern), locale))
-    // 내일 이야기는 오늘의 기록이 아니므로 마지막 기록 시각에서 뺀다
-    val lastAt = blocks.filter { it.timeSlot() != TimeSlot.TOMORROW }.maxOfOrNull { it.occurredAt } ?: 0L
-    // 블록 수는 요약 카드가 보여주므로 헤더엔 시각이 있을 때만 마지막 기록을 적는다
-    val subtitle = if (lastAt > 0L) stringResource(
-        R.string.timeline_header_last,
-        Instant.ofEpochMilli(lastAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
-    ) else null
-
-    WaveHeader(title = title, subtitle = subtitle, bottomPadding = ScreenPaddingVertical)
 }
 
 /** 헤더 아래 하루 요약: 날씨 · 기분 · 블록 수 */

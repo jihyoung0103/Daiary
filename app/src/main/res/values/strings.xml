@@ -317,7 +317,9 @@
     <string name="block_move_down">아래로 이동</string>
     <string name="question_emotion">오늘 기분은 어땠나요?</string>
     <!-- 외부 AI 전송 고지 -->
-    <string name="block_selection_ai_notice">선택한 항목만 AI 일기 작성에 쓰여요. 선택하지 않은 정보는 AI로 보내지 않아요.</string>
+    <string name="block_selection_ai_notice">선택한 항목만 AI 일기 작성에 쓰여요.\n선택하지 않은 정보는 AI로 보내지 않아요.</string>
+    <string name="block_selection_info_title">AI에 보내는 정보</string>
+    <string name="block_selection_info_desc">안내 보기</string>
     <string name="photo_ai_notice_title">사진은 AI 분석을 위해 전송돼요</string>
     <string name="photo_ai_notice_message">선택한 사진은 일기 작성을 위해 AI(Anthropic, 미국)로 전송돼 분석돼요.\n\n위치·기기 정보(EXIF)는 지우고 보내며, 선택하지 않은 사진은 전송되지 않아요.</string>
     <string name="photo_ai_notice_confirm">알겠어요</string>
