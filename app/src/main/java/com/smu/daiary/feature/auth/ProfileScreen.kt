@@ -71,7 +71,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -84,7 +83,6 @@ import kotlinx.coroutines.tasks.await
 import com.smu.daiary.BuildConfig
 import com.smu.daiary.R
 import com.smu.daiary.ui.components.WaveHeader
-import com.smu.daiary.ui.components.pullUp
 import com.smu.daiary.ui.components.waveHeaderColor
 import com.smu.daiary.feature.notification.cancelNotification
 import com.smu.daiary.feature.notification.scheduleNotification
@@ -92,6 +90,7 @@ import com.smu.daiary.feature.retrospect.RetrospectDebugSeeder
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.CardCornerRadius
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.DewDark
 import com.smu.daiary.ui.theme.Error
@@ -245,15 +244,15 @@ fun ProfileScreen(
                 .verticalScroll(rememberScrollState())
         ) {
         // 하단 탭 화면이라 앱바(뒤로가기) 없이 헤더가 맨 위에 온다
-        WaveHeader(title = stringResource(R.string.screen_profile), height = 168.dp, topPadding = 28.dp)
+        WaveHeader(title = stringResource(R.string.screen_profile), topPadding = 28.dp)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = ScreenPaddingHorizontal),
+                .padding(start = ScreenPaddingHorizontal, end = ScreenPaddingHorizontal, top = ScreenPaddingVertical),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── 계정 섹션: 헤더 물결 위로 겹쳐 올린다 ──────────────────────────
-            ProfileCard(modifier = Modifier.pullUp(56.dp), elevation = 4.dp) {
+            // ── 계정 섹션: 헤더 아래 첫 카드 ──────────────────────────
+            ProfileCard {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -727,13 +726,11 @@ fun ProfileScreen(
 @Composable
 private fun ProfileCard(
     modifier: Modifier = Modifier,
-    elevation: Dp = 0.dp,
     content: @Composable () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
     Surface(
         modifier = modifier,
-        shadowElevation = elevation,
         shape = RoundedCornerShape(CardCornerRadius),
         color = if (isDark) SurfaceDark else ProfileColors.CardBg,
         border = BorderStroke(0.5.dp, if (isDark) BorderDark else ProfileColors.Border)

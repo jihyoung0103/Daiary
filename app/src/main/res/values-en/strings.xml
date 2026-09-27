@@ -169,6 +169,11 @@
     <string name="emotion_calm">Calm</string>
     <string name="emotion_angry">Angry</string>
     <string name="emotion_excited">Excited</string>
+    <string name="emotion_other">Other</string>
+    <string name="retrospect_banner_insufficient">Needs more entries</string>
+    <string name="banner_action_view">View</string>
+    <string name="banner_action_create">Create</string>
+    <string name="banner_action_update">Update</string>
 
     <!-- Block type labels -->
     <string name="block_type_payment">Payment</string>

@@ -50,6 +50,7 @@ import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.SageForestDark
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.Stone
 import com.smu.daiary.ui.theme.SurfaceDark
 import com.smu.daiary.ui.theme.TextPrimaryDark
@@ -94,10 +95,9 @@ fun DiaryListScreen(
             WaveHeader(
                 title = stringResource(R.string.screen_diary_list),
                 subtitle = if (isLoading) null else stringResource(R.string.dashboard_total, sorted.size),
-                height = 168.dp,
                 topPadding = 28.dp
             )
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(ScreenPaddingVertical))
         }
 
         when {

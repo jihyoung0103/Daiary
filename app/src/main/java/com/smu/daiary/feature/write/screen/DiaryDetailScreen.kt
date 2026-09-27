@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.Button
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AcUnit
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Thunderstorm
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SentimentDissatisfied
@@ -69,7 +72,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import com.smu.daiary.R
 import com.smu.daiary.ui.components.WaveHeader
-import com.smu.daiary.ui.components.pullUp
 import com.smu.daiary.ui.components.waveHeaderColor
 import com.smu.daiary.data.model.DiaryEntry
 import com.smu.daiary.ui.theme.Black
@@ -191,12 +193,26 @@ fun DiaryDetailScreen(
                     if (currentEntry != null) {
                         TextButton(
                             onClick = { showDeleteDialog = true },
-                            enabled = !isDeleting
+                            enabled = !isDeleting,
+                            // 초록 헤더 위 빨강 글자는 1.0:1이라 흰 알약 위에 올린다(Error on White 4.98:1, 두 모드 공통)
+                            colors = ButtonDefaults.textButtonColors(
+                                containerColor = White,
+                                disabledContainerColor = White.copy(alpha = 0.5f)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            modifier = Modifier.height(32.dp)
                         ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                tint = Error,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(4.dp))
                             Text(
                                 text = stringResource(R.string.btn_delete),
-                                color = White,
-                                fontWeight = FontWeight.Medium,
+                                color = Error,
+                                fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                         }
@@ -333,7 +349,7 @@ private fun DiaryDayContent(
         DaySummaryCard(
             entry = entry,
             modifier = Modifier
-                .pullUp(44.dp)
+                .padding(top = ScreenPaddingVertical)
                 .padding(horizontal = ScreenPaddingHorizontal)
         )
 
@@ -388,10 +404,10 @@ private fun DayHeader(date: LocalDate, blocks: List<DiaryBodyBlock>) {
         Instant.ofEpochMilli(lastAt).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
     ) else null
 
-    WaveHeader(title = title, subtitle = subtitle, height = if (blocks.isEmpty()) 120.dp else 168.dp)
+    WaveHeader(title = title, subtitle = subtitle, bottomPadding = ScreenPaddingVertical)
 }
 
-/** 헤더에 겹쳐 올라오는 하루 요약: 날씨 · 기분 · 블록 수 */
+/** 헤더 아래 하루 요약: 날씨 · 기분 · 블록 수 */
 @Composable
 private fun DaySummaryCard(entry: DiaryEntry, modifier: Modifier = Modifier) {
     val isDark = LocalDarkTheme.current
@@ -414,8 +430,7 @@ private fun DaySummaryCard(entry: DiaryEntry, modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         color = if (isDark) wc.SurfaceBg else White,
-        border = BorderStroke(0.5.dp, wc.Border),
-        shadowElevation = 4.dp
+        border = BorderStroke(0.5.dp, wc.Border)
     ) {
         Row(
             modifier = Modifier

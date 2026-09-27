@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -59,7 +61,7 @@ import com.smu.daiary.feature.retrospect.BannerStatus
 import com.smu.daiary.feature.retrospect.RetrospectBanner
 import com.smu.daiary.ui.components.SkeletonBox
 import com.smu.daiary.ui.components.WaveHeader
-import com.smu.daiary.ui.components.pullUp
+import com.smu.daiary.ui.theme.ScreenPaddingVertical
 import com.smu.daiary.ui.theme.BackgroundDark
 import com.smu.daiary.ui.theme.BorderDark
 import com.smu.daiary.ui.theme.CardCornerRadius
@@ -204,8 +206,8 @@ fun HomeScreen(
                             selectedDate = null
                         }
                     )
-                    // 달력 카드는 헤더 물결 위로 겹쳐 올린다
-                    Box(modifier = Modifier.pullUp(64.dp)) {
+                    // 달력 카드는 헤더 아래 아이보리 배경에서 시작한다(간격은 카드 바깥 ScreenPaddingVertical)
+                    Box {
                     when {
                         error != null -> CalendarErrorPlaceholder(onRetry = onRetry)
                         isLoading -> CalendarCardSkeleton()
@@ -257,8 +259,9 @@ fun HomeScreen(
                                 else "${diaryBannerDate.monthValue}월 ${diaryBannerDate.dayOfMonth}일 ($dateSuffix) 일기",
                                 subLabel = when (diaryBannerState) {
                                     DiaryBannerState.HAS_DIARY ->
+                                        // 길이는 배너가 한 줄 말줄임으로 처리한다(미리 자르면 "…" 없이 끊긴다)
                                         existingDiary?.content?.replace("\n", " ")?.trim()
-                                            ?.take(24)?.ifBlank { "작성 완료" } ?: "작성 완료"
+                                            ?.ifBlank { "작성 완료" } ?: "작성 완료"
                                     DiaryBannerState.WRITABLE -> "아직 작성하지 않았어요"
                                     DiaryBannerState.FUTURE -> ""
                                 },
@@ -302,7 +305,7 @@ fun HomeScreen(
     }
 }
 
-/** 연도·"N월의 기록"·이번 달 일기 수를 담은 물결 헤더. 달 이동 버튼도 여기 있다. 달력 카드가 이 위로 겹쳐 올라온다 */
+/** 연도·"N월의 기록"·이번 달 일기 수를 담은 헤더. 달 이동 버튼도 여기 있다. 높이는 텍스트에 맞추고 위아래 여백은 28dp */
 @Composable
 private fun MonthHeader(
     yearMonth: YearMonth,
@@ -314,10 +317,11 @@ private fun MonthHeader(
         overline = stringResource(R.string.year_label, yearMonth.year),
         title = stringResource(R.string.month_record_title, yearMonth.monthValue),
         subtitle = diaryCount?.let { stringResource(R.string.month_record_count, it) },
-        height = 196.dp,
         topPadding = 28.dp,
-        titleTrailing = {
+        navigationStart = {
             MonthNavButton(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.prev_month), onPrevMonth)
+        },
+        navigationEnd = {
             MonthNavButton(Icons.AutoMirrored.Outlined.KeyboardArrowRight, stringResource(R.string.next_month), onNextMonth)
         }
     )
@@ -338,6 +342,7 @@ private fun MonthNavButton(icon: ImageVector, description: String, onClick: () -
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CalendarCard(
     yearMonth: YearMonth,
@@ -357,11 +362,12 @@ private fun CalendarCard(
             .toMap()
     }
 
-    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
+    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical)) {
         Surface(
             color = mc.calCard,
             shape = RoundedCornerShape(CardCornerRadius),
-            shadowElevation = 4.dp
+            // 그림자 대신 다른 카드와 같은 0.5dp 테두리로 Ivory 배경과 구분한다(Dew/Ivory 1.1:1)
+            border = BorderStroke(0.5.dp, mc.border)
         ) {
             Column(modifier = Modifier.padding(start = 10.dp, end = 10.dp, top = 14.dp, bottom = 12.dp)) {
                 val weekDays = stringArrayResource(R.array.week_days).toList()
@@ -411,17 +417,23 @@ private fun CalendarCard(
                         .height(1.dp)
                         .background(mc.accentPurple.copy(alpha = 0.15f))
                 )
-                Row(
+                // 영어처럼 라벨이 길면 360dp 폭에서 한 줄에 다 안 들어가 항목 단위로 줄바꿈한다
+                FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    EMOTIONS.forEach { key ->
+                    // "" = 감정 미지정/기타로 저장된 날. 달력 원과 같은 emotionColor("") 색을 쓴다
+                    (EMOTIONS + "").forEach { key ->
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(Modifier.size(8.dp).background(emotionColor(key, isDark), CircleShape))
-                            Text(text = localizedEmotionLabel(key), fontSize = 11.sp, color = mc.textMuted)
+                            Text(
+                                text = if (key.isEmpty()) stringResource(R.string.emotion_other) else localizedEmotionLabel(key),
+                                fontSize = 11.sp,
+                                color = mc.textMuted
+                            )
                         }
                     }
                 }
@@ -436,11 +448,11 @@ private fun CalendarCardSkeleton() {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
 
-    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
+    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical)) {
         Surface(
             color = mc.calCard,
             shape = RoundedCornerShape(CardCornerRadius),
-            shadowElevation = 4.dp
+            border = BorderStroke(0.5.dp, mc.border)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 repeat(5) {
@@ -480,11 +492,11 @@ private fun CalendarErrorPlaceholder(onRetry: () -> Unit) {
     val isDark = LocalDarkTheme.current
     val mc = if (isDark) MainCalendarColorsDark else MainCalendarColors
 
-    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = 20.dp)) {
+    Column(modifier = Modifier.padding(horizontal = ScreenPaddingHorizontal, vertical = ScreenPaddingVertical)) {
         Surface(
             color = mc.calCard,
             shape = RoundedCornerShape(CardCornerRadius),
-            shadowElevation = 4.dp
+            border = BorderStroke(0.5.dp, mc.border)
         ) {
             Column(
                 modifier = Modifier
@@ -558,14 +570,23 @@ private fun CalendarDayCell(
             date.dayOfWeek == DayOfWeek.SATURDAY -> mc.saturday
             else -> mc.textPrimary
         }
+        // 감정 배경 · 선택 채움 · 오늘 테두리를 따로 정해 겹쳐 그린다(오늘이어도 감정색이 보이도록).
+        // alpha는 글자 대비 4.5:1 기준으로 정했다: 미선택 라이트 0.45 / 다크 0.35(0.45면 기쁨 위 3.8:1),
+        // 선택 라이트 0.75 / 다크 1.0(이보다 옅으면 Ink 글자 대비가 떨어진다).
+        val emotionFill = if (emotion != null && !isFuture) {
+            val alpha = when {
+                !isSelected -> if (isDark) 0.35f else 0.45f
+                isDark -> 1f
+                else -> 0.75f
+            }
+            emotionColor(emotion, isDark).copy(alpha = alpha)
+        } else null
+        val fill = emotionFill ?: if (isSelected) mc.accentPurple else null
         val circle = Modifier.size(34.dp).clip(CircleShape)
+            .then(if (fill != null) Modifier.background(fill) else Modifier)
+            .then(if (isToday) Modifier.border(1.dp, mc.accentPurple, CircleShape) else Modifier)
         Box(
-            modifier = when {
-                isSelected -> circle.background(mc.accentPurple)
-                isToday -> circle.border(2.dp, mc.accentPurple, CircleShape)
-                emotion != null && !isFuture -> circle.background(emotionColor(emotion, isDark).copy(alpha = 0.45f))
-                else -> circle
-            },
+            modifier = circle,
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -577,6 +598,8 @@ private fun CalendarDayCell(
                     else -> FontWeight.Normal
                 },
                 color = when {
+                    // 감정색 위: 기쁨 노랑처럼 밝은 배경이 있어 흰 글자 금지. 선택(진한 배경)은 두 모드 모두 Ink
+                    emotionFill != null -> if (isSelected) Ink else mc.textPrimary
                     isSelected -> mc.calCard
                     isToday -> mc.accentPurple
                     isFuture -> dayColor.copy(alpha = 0.4f)
@@ -584,14 +607,17 @@ private fun CalendarDayCell(
                 }
             )
         }
-        if (isToday && !isSelected) {
+        // 라벨은 원 바깥 아래에 그려져 선택 채움과 겹치지 않으므로 선택 상태에서도 보인다
+        if (isToday) {
             Text(
                 text = stringResource(R.string.calendar_today),
                 fontSize = 9.sp,
                 lineHeight = 9.sp,
                 fontWeight = FontWeight.Bold,
                 color = mc.accentPurple,
-                modifier = Modifier.align(Alignment.BottomCenter).offset(y = 5.dp)
+                // 원 아래(41dp)와 캘린더 하단 구분선(56dp)의 가운데(행 기준 44~53dp)에 둔다.
+                // 다음 주 행이 있어도 그 행의 원(55dp~)과 2dp 떨어져 겹치지 않는다
+                modifier = Modifier.align(Alignment.BottomCenter).offset(y = 7.dp)
             )
         }
     }

@@ -31,6 +31,9 @@ import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.TextPrimaryDark
 import com.smu.daiary.ui.theme.White
 import com.smu.daiary.ui.components.waveHeaderColor
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
+import com.smu.daiary.R
 
 /** 일기 배너 상태 — 선택된(또는 오늘) 날짜 기준으로 결정된다. */
 enum class DiaryBannerState {
@@ -87,24 +90,27 @@ fun DiaryBanner(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            // weight로 오른쪽 "보기→"/"생성→" 자리를 남기고, 긴 본문은 한 줄 말줄임
+            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                 Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = textColor)
                 Text(
                     text = if (state == DiaryBannerState.FUTURE) "아직 작성할 수 없어요" else subLabel,
                     fontSize = 12.sp,
                     // 초록 배경 위 흰 글씨는 0.7이면 대비가 모자라 더 진하게
-                    color = textColor.copy(alpha = if (creatable || disabled) 0.9f else 0.7f)
+                    color = textColor.copy(alpha = if (creatable || disabled) 0.9f else 0.7f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             when (state) {
                 DiaryBannerState.HAS_DIARY -> Text(
-                    text = "보기→",
+                    text = stringResource(R.string.banner_action_view),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = textColor
                 )
                 DiaryBannerState.WRITABLE -> Text(
-                    text = "생성→",
+                    text = stringResource(R.string.banner_action_create),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = textColor

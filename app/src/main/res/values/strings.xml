@@ -171,6 +171,11 @@
     <string name="emotion_calm">평온</string>
     <string name="emotion_angry">화남</string>
     <string name="emotion_excited">설렘</string>
+    <string name="emotion_other">기타</string>
+    <string name="retrospect_banner_insufficient">일기가 더 필요해요</string>
+    <string name="banner_action_view">보기</string>
+    <string name="banner_action_create">생성</string>
+    <string name="banner_action_update">업데이트</string>
 
     <!-- 블록 타입 라벨 -->
     <string name="block_type_payment">결제 내역</string>

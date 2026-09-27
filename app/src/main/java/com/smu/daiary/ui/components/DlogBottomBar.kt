@@ -13,9 +13,9 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
@@ -98,7 +98,7 @@ fun DlogBottomBar(
                         )
                     }
                 }
-                TabItem(MainTab.DASHBOARD, Icons.Outlined.Insights, R.string.nav_dashboard, current, onTabClick)
+                TabItem(MainTab.DASHBOARD, Icons.Outlined.BarChart, R.string.nav_dashboard, current, onTabClick)
                 TabItem(MainTab.PROFILE, Icons.Outlined.Person, R.string.nav_profile, current, onTabClick)
             }
         }
