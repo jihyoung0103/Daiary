@@ -60,6 +60,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -71,11 +75,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.ui.window.Dialog
 import com.smu.daiary.R
 import com.smu.daiary.data.model.DiaryEntry
+import com.smu.daiary.ui.components.waveHeaderColor
 import com.smu.daiary.ui.theme.Black
 import com.smu.daiary.ui.theme.CardCornerRadius
 import com.smu.daiary.ui.theme.DaiaryTheme
 import com.smu.daiary.ui.theme.Error
 import com.smu.daiary.ui.theme.ErrorTextDark
+import com.smu.daiary.ui.theme.HeaderBottomCorner
 import com.smu.daiary.ui.theme.Ink
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.ScreenPaddingHorizontal
@@ -95,6 +101,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
+
+/** 상세 앱바 줄(뒤로가기·날짜·편집·삭제)을 기본 위치보다 내리는 양. 앱바 높이도 그만큼 늘어난다 */
+private val AppBarTopOffset = 2.dp
 
 private val weatherIcons: Map<String, ImageVector> = mapOf(
     "맑음" to Icons.Outlined.WbSunny,
@@ -176,12 +185,13 @@ fun DiaryDetailScreen(
         topBar = {
             // 날짜는 뒤로가기 바로 옆. 다른 화면 앱바 제목과 같은 18sp Medium
             TopAppBar(
+                // 홈 헤더와 같은 초록. 모서리는 아래 페이지의 초록 확장 영역에서 둥글게 끝난다(이음새 없이 같은 색)
                 title = {
                     Text(
                         text = currentDate.format(DateTimeFormatter.ofPattern(datePattern, locale)),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium,
-                        color = wc.TextPrimary,
+                        color = White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -191,7 +201,7 @@ fun DiaryDetailScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(R.string.back),
-                            tint = wc.TextPrimary
+                            tint = White
                         )
                     }
                 },
@@ -203,7 +213,7 @@ fun DiaryDetailScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.btn_edit_diary),
-                                color = wc.Accent,
+                                color = White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
@@ -212,25 +222,27 @@ fun DiaryDetailScreen(
                             onClick = { showDeleteDialog = true },
                             enabled = !isDeleting
                         ) {
+                            // 초록 위 빨강은 대비가 안 나와(1.0~1.8:1) 흰색. 삭제는 휴지통 아이콘으로 구분
                             Icon(
                                 imageVector = Icons.Outlined.Delete,
                                 contentDescription = null,
-                                tint = errorColor,
+                                tint = White,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 text = stringResource(R.string.btn_delete),
-                                color = errorColor,
+                                color = White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             )
                         }
                     }
                 },
-                // 다른 상단바(블록 선택·초안 미리보기 등)와 같은 아이보리 배경. scrollBehavior가 없어 그림자는 0
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = wc.Bg),
-                windowInsets = WindowInsets(0)
+                // scrollBehavior가 없어 그림자는 0
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = waveHeaderColor()),
+                // 초록 면 안에서 줄이 위로 붙어 보이지 않도록 AppBarTopOffset만큼 내린다
+                windowInsets = WindowInsets(top = AppBarTopOffset)
             )
         }
     ) { padding ->
@@ -316,6 +328,7 @@ private fun DiaryDayContent(
 ) {
     val isDark = LocalDarkTheme.current
     val wc = if (isDark) WriteColorsDark else WriteColors
+    val headerGreen = waveHeaderColor()
 
     Column(
         modifier = Modifier
@@ -324,6 +337,13 @@ private fun DiaryDayContent(
             .padding(bottom = ScreenPaddingVertical)
     ) {
         if (entry == null) {
+            // 카드가 없는 날은 앱바 아래를 모서리 반경만큼만 이어 둥글게 마무리한다
+            Spacer(
+                Modifier
+                    .fillMaxWidth()
+                    .height(HeaderBottomCorner)
+                    .background(headerGreen, RoundedCornerShape(bottomStart = HeaderBottomCorner, bottomEnd = HeaderBottomCorner))
+            )
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -344,12 +364,31 @@ private fun DiaryDayContent(
             return@Column
         }
 
-        DaySummaryCard(
-            entry = entry,
+        // 앱바 초록을 요약 카드 위쪽 1/3까지 이어 그려, 카드가 초록에 살짝 걸치게 한다.
+        // (절반까지 내리면 초록 덩어리가 커져 앱바 글자가 위로 쏠려 보였다)
+        // 카드 높이는 글자 크기에 따라 달라지므로 실제 높이로 계산한다
+        Box(
             modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    // = 위 여백 + 카드 높이 / 3
+                    val topPad = ScreenPaddingVertical.toPx()
+                    val greenBottom = topPad + (size.height - topPad) / 3f
+                    val r = CornerRadius(HeaderBottomCorner.toPx())
+                    drawPath(
+                        Path().apply {
+                            addRoundRect(
+                                RoundRect(0f, 0f, size.width, greenBottom, bottomLeftCornerRadius = r, bottomRightCornerRadius = r)
+                            )
+                        },
+                        headerGreen
+                    )
+                }
                 .padding(top = ScreenPaddingVertical)
                 .padding(horizontal = ScreenPaddingHorizontal)
-        )
+        ) {
+            DaySummaryCard(entry = entry)
+        }
 
         Column(
             modifier = Modifier.padding(start = ScreenPaddingHorizontal, end = ScreenPaddingHorizontal, top = 28.dp),
