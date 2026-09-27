@@ -38,10 +38,13 @@ fun RetrospectBanner(
     subLabel: String,
     status: BannerStatus,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** UPDATABLE일 때 저장 뒤 달라진 일기 수(늘면 양수) */
+    changedCount: Int = 0
 ) {
     val isDark = LocalDarkTheme.current
-    val creatable = status == BannerStatus.NOT_CREATED
+    // 새로 만들 수 있거나(미생성) 다시 만들 게 생겼으면(업데이트) 헤더색으로 눈에 띄게 한다
+    val creatable = status == BannerStatus.NOT_CREATED || status == BannerStatus.UPDATABLE
     val background = if (creatable) waveHeaderColor() else if (isDark) DewDark else Dew
     val textColor = if (creatable) White else if (isDark) TextPrimaryDark else Ink
 
@@ -70,12 +73,21 @@ fun RetrospectBanner(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (status == BannerStatus.SAVED) "✓ 저장됨" else "",
+                        text = when {
+                            status == BannerStatus.SAVED -> "✓ 저장됨"
+                            status == BannerStatus.UPDATABLE && changedCount > 0 -> "새 일기 ${changedCount}개"
+                            status == BannerStatus.UPDATABLE -> "기록이 바뀌었어요"
+                            else -> ""
+                        },
                         fontSize = 11.sp,
                         color = textColor.copy(alpha = 0.85f)
                     )
                     Text(
-                        text = if (status == BannerStatus.SAVED) "보기→" else "생성→",
+                        text = when (status) {
+                            BannerStatus.SAVED -> "보기→"
+                            BannerStatus.UPDATABLE -> "업데이트→"
+                            else -> "생성→"
+                        },
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = textColor

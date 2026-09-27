@@ -186,11 +186,17 @@ class MainActivity : ComponentActivity() {
                             val retrospectViewModel: RetrospectViewModel = viewModel()
                             val weeklyBannerStatus by retrospectViewModel.weeklyBannerStatus.collectAsStateWithLifecycle()
                             val monthlyBannerStatus by retrospectViewModel.monthlyBannerStatus.collectAsStateWithLifecycle()
+                            val weeklyChangedCount by retrospectViewModel.weeklyChangedCount.collectAsStateWithLifecycle()
+                            val monthlyChangedCount by retrospectViewModel.monthlyChangedCount.collectAsStateWithLifecycle()
                             val retrospectState by retrospectViewModel.state.collectAsStateWithLifecycle()
 
+                            // 회고 배너 상태는 일기 수가 바뀔 때마다 다시 판정한다.
+                            // 앱 시작 때 한 번만 하면 일기를 쓰고 돌아와도 "업데이트"가 뜨지 않는다
+                            LaunchedEffect(userId, diaries.size) {
+                                retrospectViewModel.loadBannerStatuses(userId)
+                            }
                             LaunchedEffect(userId) {
                                 homeViewModel.loadDiaries(userId)
-                                retrospectViewModel.loadBannerStatuses(userId)
                                 // 오늘 날씨 백그라운드 수집 예약 (14:00). 이미 등록돼 있으면 KEEP.
                                 com.smu.daiary.data.source.weather.WeatherScheduler.scheduleAll(applicationContext)
                             }
@@ -401,6 +407,8 @@ class MainActivity : ComponentActivity() {
                                         onWriteDiary = { dateStr -> startWriting(LocalDate.parse(dateStr)) },
                                         weeklyBannerStatus = weeklyBannerStatus,
                                         monthlyBannerStatus = monthlyBannerStatus,
+                                        weeklyChangedCount = weeklyChangedCount,
+                                        monthlyChangedCount = monthlyChangedCount,
                                         weeklyBannerSubLabel = retrospectViewModel.weeklyPeriod.rangeLabel,
                                         monthlyBannerSubLabel = retrospectViewModel.monthlyPeriod.rangeLabel,
                                         onWeeklyBannerClick = {

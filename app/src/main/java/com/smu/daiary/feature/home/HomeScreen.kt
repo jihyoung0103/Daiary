@@ -155,6 +155,8 @@ fun HomeScreen(
     onWriteDiary: (String) -> Unit = {},
     weeklyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
     monthlyBannerStatus: BannerStatus = BannerStatus.INSUFFICIENT,
+    weeklyChangedCount: Int = 0,
+    monthlyChangedCount: Int = 0,
     weeklyBannerSubLabel: String = "",
     monthlyBannerSubLabel: String = "",
     onWeeklyBannerClick: () -> Unit = {},
@@ -279,14 +281,16 @@ fun HomeScreen(
                                     subLabel = weeklyBannerSubLabel,
                                     status = weeklyBannerStatus,
                                     onClick = onWeeklyBannerClick,
-                                    modifier = Modifier.weight(1f).fillMaxHeight()
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    changedCount = weeklyChangedCount
                                 )
                                 RetrospectBanner(
                                     title = "이번 달 회고",
                                     subLabel = monthlyBannerSubLabel,
                                     status = monthlyBannerStatus,
                                     onClick = onMonthlyBannerClick,
-                                    modifier = Modifier.weight(1f).fillMaxHeight()
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                                    changedCount = monthlyChangedCount
                                 )
                             }
                         }
