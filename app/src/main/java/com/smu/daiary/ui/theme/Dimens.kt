@@ -6,6 +6,8 @@ val ScreenPaddingHorizontal = 20.dp
 /** 화면 최상위 콘텐츠를 감싸는 세로 padding. ScreenPaddingHorizontal과 짝을 이룸. */
 val ScreenPaddingVertical = 20.dp
 val CardCornerRadius = 16.dp
+/** 초록 헤더(WaveHeader, 일기 상세 앱바 아래 확장 영역)의 아래 모서리 반경 */
+val HeaderBottomCorner = 28.dp
 /** 카드/섹션 내부 콘텐츠 padding. */
 val CardPaddingVertical = 16.dp
 val ButtonCornerRadius = 14.dp

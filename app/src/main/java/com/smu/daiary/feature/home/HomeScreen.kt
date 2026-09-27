@@ -318,6 +318,7 @@ private fun MonthHeader(
         title = stringResource(R.string.month_record_title, yearMonth.monthValue),
         subtitle = diaryCount?.let { stringResource(R.string.month_record_count, it) },
         topPadding = 28.dp,
+        roundedBottom = true,
         navigationStart = {
             MonthNavButton(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, stringResource(R.string.prev_month), onPrevMonth)
         },

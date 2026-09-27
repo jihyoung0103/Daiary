@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,12 +15,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.smu.daiary.ui.theme.GreenDeep
+import com.smu.daiary.ui.theme.HeaderBottomCorner
 import com.smu.daiary.ui.theme.LocalDarkTheme
 import com.smu.daiary.ui.theme.SageForest
 import com.smu.daiary.ui.theme.White
@@ -32,7 +35,7 @@ import com.smu.daiary.ui.theme.White
 fun waveHeaderColor(): Color = if (LocalDarkTheme.current) GreenDeep else SageForest
 
 /**
- * 화면 상단 공통 헤더: 초록 띠에 흰 제목, 하단은 직선.
+ * 화면 상단 공통 헤더: 초록 띠에 흰 제목. 아래 모서리는 기본 직선, [roundedBottom]이면 둥글게(물결 없음).
  * 높이는 텍스트에 맞춘다(글자 크기를 키워도 잘리지 않게). 아래 카드는 헤더와 겹치지 않고
  * ScreenPaddingVertical만큼 띄워 아이보리 배경에서 시작한다.
  */
@@ -46,17 +49,21 @@ fun WaveHeader(
     topPadding: Dp = 0.dp,
     /** 텍스트 아래 여백. 기본은 위 여백과 같게 */
     bottomPadding: Dp = topPadding,
+    /** 아래 모서리를 HeaderBottomCorner로 둥글게. 기본은 직선(홈만 켠다) */
+    roundedBottom: Boolean = false,
     /** 텍스트 블록 왼쪽·오른쪽 끝에 붙는 요소(홈의 달 이동 버튼). 있으면 텍스트를 가운데 정렬하고 세로 중앙을 맞춘다 */
     navigationStart: (@Composable () -> Unit)? = null,
     navigationEnd: (@Composable () -> Unit)? = null
 ) {
     val hasNav = navigationStart != null || navigationEnd != null
     val bg = waveHeaderColor()
+    val shape = if (roundedBottom) RoundedCornerShape(bottomStart = HeaderBottomCorner, bottomEnd = HeaderBottomCorner)
+                else RectangleShape
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(bg)
+            .background(bg, shape)
             .padding(horizontal = if (hasNav) 12.dp else 24.dp)
             .padding(top = topPadding, bottom = bottomPadding)
     ) {
